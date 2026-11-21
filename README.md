@@ -6,7 +6,7 @@ BLAST Broadcaster réunit dans un seul logiciel ce qu'il fallait jusqu'ici assem
 la console d'antenne d'une webradio (à la manière de SAM Broadcaster), la diffusion vers les serveurs
 de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk show, live DJ, émission).
 
-> Statut : **squelette (M0)**. Le projet est en cours de conception, rien n'est encore utilisable en antenne.
+> Statut : **moteur audio (M1)**. Deux platines enchaînent une liste de fichiers en fondu, en ligne de commande. Pas encore d'interface ni de diffusion.
 
 ## Fonctionnalités prévues
 
@@ -40,17 +40,40 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 | `blast-library` | Bibliothèque musicale, file d'attente, automatisation |
 | `blast-aura` | Pilotage d'OBS Studio |
 | `blast-live` | Chat, commandes viewers, invités |
+| `blast-cli` | Outil `blast` en ligne de commande pour tester le moteur |
 
 L'interface (Tauri) arrivera dans `app/` au jalon M3. Voir [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) et [ROADMAP.md](ROADMAP.md).
 
 ## Compiler
 
 Prérequis : Rust stable (1.75 ou plus récent).
+Sous Linux, il faut aussi les en-têtes ALSA : `sudo apt install libasound2-dev pkg-config` (Debian, Ubuntu) ou `sudo dnf install alsa-lib-devel` (Fedora).
+PipeWire et PulseAudio sont pris en charge via leur couche de compatibilité ALSA.
 
 ```bash
-cargo build
+cargo build --release
 cargo test
 ```
+
+## Essayer le moteur audio
+
+```bash
+./target/release/blast devices
+./target/release/blast info ~/Musique/*.mp3
+./target/release/blast play titre1.mp3 titre2.flac jingle.ogg --fade 6
+./target/release/blast render titre1.mp3 titre2.flac -o mix.wav --fade 6
+```
+
+| Commande | Rôle |
+|---|---|
+| `devices` | Liste les sorties audio (`*` = sortie par défaut) |
+| `info` | Durée, fréquence d'origine et tags de chaque fichier |
+| `play` | Joue la liste en alternant les platines A et B, avec fondu enchaîné automatique |
+| `render` | Calcule le même mix hors-ligne et l'écrit en WAV, pour vérifier sans enceintes |
+
+Options utiles : `--fade <secondes>`, `--device "<nom>"` pour `play`, `--rate` et `--pcm16` pour `render`.
+
+Formats lus : MP3, AAC/M4A, ALAC, FLAC, Ogg Vorbis, WAV, AIFF, MKV/WebM audio. Les fichiers sont rééchantillonnés à la fréquence de la sortie.
 
 ## Licence
 

@@ -6,4 +6,13 @@ authors.workspace = true
 license-file.workspace = true
 repository.workspace = true
 
+[features]
+default = ["output"]
+output = ["dep:cpal"]
+
 [dependencies]
+symphonia = { version = "0.5", features = ["all"] }
+rubato = "0.15"
+crossbeam-channel = "0.5"
+cpal = { version = "0.15", optional = true }
+

@@ -30,6 +30,32 @@
 - **L'interface ne possède aucun état audio** : elle envoie des commandes et affiche les événements reçus.
 - **OBS est piloté, pas embarqué** : obs-websocket v5, aucune liaison avec libobs.
 
+## Moteur audio (M1)
+
+| Fichier | Rôle |
+|---|---|
+| `blast-core/src/decode.rs` | Ouverture d'un fichier, décodage en stéréo flottante, lecture des tags titre/artiste |
+| `blast-core/src/resample.rs` | Rééchantillonnage sinc (rubato) vers la fréquence de la sortie |
+| `blast-core/src/mixer.rs` | Mixeur temps réel : platines A/B, crossfader à puissance constante, auto-mix, événements |
+| `blast-core/src/engine.rs` | Sortie cpal : thread audio, files de commandes et d'événements, récupération mémoire |
+
+**Commandes** (`Command`) : `Load`, `Eject`, `Play`, `Pause`, `Stop`, `Seek`, `SetDeckGain`,
+`SetCrossfader`, `StartCrossfade`, `SetMaster`, `SetAutoMix`.
+
+**Événements** (`Event`) : `Ended`, `AutoTransition`, `CrossfadeDone`, et `Tick` dix fois par seconde
+(état des platines, position du crossfader, crêtes du master). Les `Tick` passent par une file séparée :
+s'ils s'accumulent, seul le plus récent est gardé, et ils ne peuvent jamais bloquer un événement important.
+
+**Auto-mix** : quand la platine à l'antenne arrive à `fade_frames` de sa fin et que l'autre est chargée,
+l'autre démarre et le crossfader glisse vers elle. Si la platine suivante est chargée trop tard
+(fichier long à décoder après un jingle court), elle démarre dès qu'elle est prête.
+
+**Mémoire** : le thread audio ne libère jamais une piste. Une piste remplacée est renvoyée par une file
+« poubelle », vidée par `Engine::collect_garbage()` côté application.
+
+**Limites actuelles** : chaque piste est décodée entièrement en mémoire (environ 23 Mo par minute à 48 kHz),
+le master est simplement écrêté à ±1 (le limiteur arrive en M6), et symphonia 0.5 ne décode pas l'Opus.
+
 ## Dépendances envisagées
 
 | Besoin | Crate / bibliothèque | Licence |
@@ -41,6 +67,8 @@
 | Rééchantillonnage | `rubato` | MIT |
 | Interface | Tauri | MIT / Apache-2.0 |
 | WebSocket (OBS, chat) | `tokio-tungstenite` | MIT |
+| Files temps réel | `crossbeam-channel` | MIT / Apache-2.0 |
+| Ligne de commande, WAV | `clap`, `hound` | MIT / Apache-2.0 |
 
 ## Règle de licence des dépendances
 
