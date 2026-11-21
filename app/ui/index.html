@@ -134,7 +134,7 @@
           <span class="fx-sub muted" id="mic-name"></span>
         </div>
         <div class="vfx-main">
-          <button id="mic-toggle" class="btn toggle mic" title="Micro ouvert en continu (touche M)">MIC OFF</button>
+          <button id="mic-toggle" class="btn toggle mic" title="Verrouille le micro ouvert, comme un appui maintenu sur « Appuyer pour parler » (touche M). Re-cliquer pour le refermer.">&#128274; VERROU</button>
           <button id="ptt" class="ptt" title="Micro ouvert tant que le bouton ou la touche Espace est maintenu">
             <span>&#127908; APPUYER POUR PARLER</span><small>maintenir · Espace</small>
           </button>
@@ -277,7 +277,9 @@
               <select name="device"></select>
             </label>
             <label class="check span2"><input type="checkbox" name="enabled"> Activer l'entrée micro</label>
+            <label class="check span2"><input type="checkbox" id="mic-monitor"> Entendre mon micro dans les enceintes / le casque (retour)</label>
           </div>
+          <p class="muted">Le micro part toujours vers la diffusion (Icecast / Shoutcast). Sans retour, il n'est pas renvoyé vers ta sortie audio locale : pas d'écho dans le casque ni d'effet Larsen avec les enceintes. Ce réglage s'applique immédiatement.</p>
           <p class="muted" id="mic-status"></p>
           <div class="form-actions">
             <span class="spacer"></span>

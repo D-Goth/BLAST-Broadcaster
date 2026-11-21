@@ -226,7 +226,18 @@ fn save_audio(
 
 #[tauri::command]
 fn save_voice(state: tauri::State<'_, App>, voice: VoiceSettings) -> Result<(), String> {
-    state.commit(move |cfg| cfg.voice = voice)
+    state.commit(move |cfg| {
+        let VoiceSettings {
+            enabled,
+            input_device,
+            ..
+        } = cfg.voice.clone();
+        cfg.voice = VoiceSettings {
+            enabled,
+            input_device,
+            ..voice
+        };
+    })
 }
 
 #[tauri::command]

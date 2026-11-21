@@ -263,6 +263,7 @@ where
         trash,
     } = parts;
     let mut scratch = vec![0.0f32; SCRATCH_FRAMES * 2];
+    let mut local_scratch = vec![0.0f32; SCRATCH_FRAMES * 2];
 
     device
         .build_output_stream(
@@ -283,7 +284,8 @@ where
                 while done < total {
                     let n = (total - done).min(SCRATCH_FRAMES);
                     let buf = &mut scratch[..n * 2];
-                    mixer.render(buf, |e| {
+                    let local = &mut local_scratch[..n * 2];
+                    mixer.render_split(Some(&mut *local), buf, |e| {
                         let _ = match e {
                             Event::Tick { .. } => ticks.try_send(e),
                             _ => events.try_send(e),
@@ -297,8 +299,8 @@ where
                     }
                     for f in 0..n {
                         let frame = &mut data[(done + f) * channels..(done + f + 1) * channels];
-                        let l = buf[2 * f];
-                        let r = buf[2 * f + 1];
+                        let l = local[2 * f];
+                        let r = local[2 * f + 1];
                         match channels {
                             1 => frame[0] = T::from_sample((l + r) * 0.5),
                             _ => {

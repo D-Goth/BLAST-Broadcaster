@@ -81,7 +81,8 @@ PipeWire et PulseAudio sont pris en charge via leur couche de compatibilité ALS
 | Auto-mix | Pioche dans la playlist et enchaîne tout seul, avec la durée de fondu choisie (zone hachurée sur la barre de progression) |
 | Titre suivant | Bouton **⏭** d'une platine : fondu vers l'autre platine ; si elle est vide, le prochain titre de la playlist y est chargé puis enchaîné |
 | Se déplacer | Cliquer sur la barre de progression |
-| Micro | **MIC OFF/ON** (ou touche **M**) : micro ouvert en continu ; **Appuyer pour parler** (ou **Espace** maintenu) : ouvert tant qu'on appuie |
+| Micro | **Appuyer pour parler** (ou **Espace** maintenu) : ouvert tant qu'on appuie ; **🔒 VERROU** (ou touche **M**) : verrouille le micro ouvert, re-cliquer pour le refermer |
+| Retour micro | **Réglages → Audio** : le micro part toujours vers la diffusion ; « Entendre mon micro » le renvoie aussi vers les enceintes/le casque (désactivé par défaut, pas d'écho ni de Larsen) |
 | Ducking | **AUTO** : la musique baisse automatiquement (niveau réglable, -12 dB par défaut) quand le micro est ouvert |
 | Égaliseur micro | Grave, médium, aigu (±12 dB) et coupe-bas ; volume micro et volume musique séparés |
 | Soundboard | 36 pads sur 3 pages ; clic ou **F1 à F12** pour jouer (re-clic = stop), **STOP** coupe tout ; glisser un fichier (ou un titre de la playlist) sur un pad pour l'assigner ; clic droit : choisir, renommer, vider |

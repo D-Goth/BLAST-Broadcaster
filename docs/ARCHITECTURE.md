@@ -123,6 +123,9 @@ Shoutcast v2 (DNAS 2) n'a été testé que contre un serveur simulé.
 | `blast-core/src/mixer.rs` | Jusqu'à 16 sons de pads simultanés, chaîne micro, ducking (descente 150 ms, remontée 600 ms) |
 | `blast-core/src/engine.rs` | Flux d'entrée micro, retour des pistes terminées hors du thread audio |
 
+Le mixeur produit deux mélanges : le mélange **antenne** (platines, pads et micro), envoyé aux encodeurs,
+et le mélange **local** pour les enceintes et le casque, identique mais sans le micro, sauf si le retour est activé.
+
 Le retard du micro est borné : si le tampon dépasse 80 ms (horloges d'entrée et de sortie différentes),
 l'excédent est abandonné. Le micro s'ouvre et se ferme avec une rampe de 20 ms pour éviter les clics.
 Les sons des pads sont décodés en arrière-plan et gardés en mémoire.
