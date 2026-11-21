@@ -5,7 +5,7 @@ pub mod resample;
 #[cfg(feature = "output")]
 pub mod engine;
 
-pub use decode::{decode_file, DecodeError, Track};
+pub use decode::{decode_file, is_audio_path, probe_file, DecodeError, Track, TrackInfo};
 pub use mixer::{Command, DeckStatus, Event, Mixer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

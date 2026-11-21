@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=BLAST Broadcaster
+GenericName=Console de webradio
+GenericName[en]=Web radio console
+Comment=Console d'antenne pour webradio et live : platines, playlist, diffusion
+Comment[en]=On-air console for web radio and live streaming
+Exec=blast-broadcaster %F
+Icon=blast-broadcaster
+Terminal=false
+Categories=AudioVideo;Audio;Player;Mixer;
+Keywords=radio;webradio;icecast;shoutcast;dj;stream;broadcast;
+MimeType=audio/mpeg;audio/flac;audio/ogg;audio/x-wav;audio/mp4;audio/aac;
+StartupWMClass=blast-broadcaster

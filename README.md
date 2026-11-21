@@ -6,7 +6,9 @@ BLAST Broadcaster réunit dans un seul logiciel ce qu'il fallait jusqu'ici assem
 la console d'antenne d'une webradio (à la manière de SAM Broadcaster), la diffusion vers les serveurs
 de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk show, live DJ, émission).
 
-> Statut : **moteur audio (M1)**. Deux platines enchaînent une liste de fichiers en fondu, en ligne de commande. Pas encore d'interface ni de diffusion.
+![BLAST Broadcaster — thème Black-Lab](docs/img/interface-black-lab.png)
+
+> Statut : **interface v1**. Deux platines, crossfader, auto-mix, playlist avec glisser-déposer, thèmes. Pas encore de diffusion vers un serveur.
 
 ## Fonctionnalités prévues
 
@@ -41,21 +43,57 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 | `blast-aura` | Pilotage d'OBS Studio |
 | `blast-live` | Chat, commandes viewers, invités |
 | `blast-cli` | Outil `blast` en ligne de commande pour tester le moteur |
+| `app/src-tauri` | Application de bureau (Tauri) : contrôleur, playlist, thèmes |
+| `app/ui` | Interface HTML/CSS/JS |
 
-L'interface (Tauri) arrivera dans `app/` au jalon M3. Voir [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) et [ROADMAP.md](ROADMAP.md).
+Voir [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) et [ROADMAP.md](ROADMAP.md).
 
-## Compiler
+## Installer sous Linux (Kubuntu, Ubuntu, Debian)
 
-Prérequis : Rust stable (1.75 ou plus récent).
-Sous Linux, il faut aussi les en-têtes ALSA : `sudo apt install libasound2-dev pkg-config` (Debian, Ubuntu) ou `sudo dnf install alsa-lib-devel` (Fedora).
+```bash
+sudo apt install build-essential pkg-config curl git \
+    libasound2-dev libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+
+git clone https://github.com/D-Goth/BLAST-Broadcaster.git
+cd BLAST-Broadcaster
+./scripts/install-linux.sh
+```
+
+Le script compile, puis installe pour l'utilisateur courant (sans `sudo`) :
+- **BLAST Broadcaster** dans le menu des applications (Multimédia), avec son icône ;
+- la commande `blast-broadcaster` (et l'outil de test `blast`) dans `~/.local/bin`.
+
+Pour mettre à jour : `git pull` puis relancer le script. Pour désinstaller : `./scripts/install-linux.sh --uninstall`.
+
+Sous Fedora : `sudo dnf install alsa-lib-devel webkit2gtk4.1-devel gtk3-devel librsvg2-devel libsoup3-devel`.
 PipeWire et PulseAudio sont pris en charge via leur couche de compatibilité ALSA.
+
+## Utiliser l'interface
+
+| Action | Comment |
+|---|---|
+| Ajouter des titres | **+ Fichiers** (sélection multiple), **+ Dossier** (sous-dossiers compris), ou glisser depuis Dolphin sur la playlist |
+| Charger une platine | Glisser un titre (ou un fichier depuis Dolphin) sur la platine, boutons **A** / **B** de la ligne, ou double-clic (platine libre) |
+| Réordonner | Glisser un titre dans la playlist |
+| Enchaîner | **FONDU → A/B** démarre l'autre platine et fond vers elle, puis arrête la précédente |
+| Auto-mix | Pioche dans la playlist et enchaîne tout seul, avec la durée de fondu choisie (zone hachurée sur la barre de progression) |
+| Se déplacer | Cliquer sur la barre de progression |
+| Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |
+
+Un titre chargé mais pas encore joué, remplacé par un autre, retourne en tête de playlist.
+Les fichiers illisibles restent dans la playlist, marqués ⚠, et sont sautés par l'auto-mix.
+
+## Développer
 
 ```bash
 cargo build --release
 cargo test
+./target/release/blast-broadcaster ~/Musique
 ```
 
-## Essayer le moteur audio
+## Outil de test en ligne de commande
 
 ```bash
 ./target/release/blast devices

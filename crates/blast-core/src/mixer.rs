@@ -165,12 +165,14 @@ impl Mixer {
                 self.crossfader = p.clamp(0.0, 1.0);
             }
             Command::StartCrossfade { to, frames } => {
+                let other = to.other().index();
+                let outgoing = self.decks[other].playing.then_some(other);
                 self.fade = Some(Fade {
                     from: self.crossfader,
                     to: to.crossfader_side(),
                     total: frames.max(1),
                     done: 0,
-                    outgoing: None,
+                    outgoing,
                 });
             }
             Command::SetMaster(g) => self.master = g.max(0.0),
@@ -201,6 +203,7 @@ impl Mixer {
         let next = 1 - cur;
         let remaining = self.decks[cur].remaining();
         if !self.decks[cur].playing
+            && self.decks[cur].track.is_some()
             && remaining == 0
             && !self.decks[next].playing
             && self.decks[next].remaining() > 0
@@ -404,6 +407,20 @@ mod tests {
     }
 
     #[test]
+    fn automix_ignores_empty_on_air_deck() {
+        let mut m = Mixer::new(1000);
+        m.apply(Command::SetAutoMix {
+            enabled: true,
+            fade_frames: 20,
+        });
+        m.apply(Command::Load(DeckId::B, tone(30, 0.4)));
+        let (out, ev) = run(&mut m, 10);
+        assert!(ev.is_empty());
+        assert!(out.iter().all(|s| *s == 0.0));
+        assert_eq!(m.status(DeckId::B).state, DeckState::Loaded);
+    }
+
+    #[test]
     fn manual_crossfade() {
         let mut m = Mixer::new(1000);
         m.apply(Command::StartCrossfade {
@@ -413,6 +430,24 @@ mod tests {
         let (_, ev) = run(&mut m, 20);
         assert!(ev.contains(&Event::CrossfadeDone { to: 1.0 }));
         assert!((m.crossfader() - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn manual_crossfade_stops_outgoing_deck() {
+        let mut m = Mixer::new(1000);
+        m.apply(Command::Load(DeckId::A, tone(100, 0.4)));
+        m.apply(Command::Load(DeckId::B, tone(100, 0.4)));
+        m.apply(Command::Play(DeckId::A));
+        let _ = run(&mut m, 10);
+        m.apply(Command::Play(DeckId::B));
+        m.apply(Command::StartCrossfade {
+            to: DeckId::B,
+            frames: 10,
+        });
+        let (_, ev) = run(&mut m, 20);
+        assert!(ev.contains(&Event::Ended(DeckId::A)));
+        assert_eq!(m.status(DeckId::A).state, DeckState::Finished);
+        assert_eq!(m.status(DeckId::B).state, DeckState::Playing);
     }
 
     #[test]
