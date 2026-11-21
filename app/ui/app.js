@@ -709,7 +709,7 @@ function renderVoice() {
   $("#mic-name").textContent = m.available ? m.name || "" : m.error ? "Micro indisponible" : "Aucun micro";
   $("#mic-name").title = m.error || m.name || "";
   $("#mic-toggle").classList.toggle("on", micLatched && m.open);
-  $("#mic-toggle").textContent = micLatched && m.open ? "MIC ON" : "MIC OFF";
+  $("#mic-toggle").innerHTML = micLatched && m.open ? "&#128275; OUVERT" : "&#128274; VERROU";
   $("#ptt").classList.toggle("active", m.open);
   $("#meter-mic").style.width = `${(dbWidth(m.peak) * 100).toFixed(1)}%`;
 }
@@ -899,6 +899,7 @@ function applyVoice(v) {
     $(sel + "-v").textContent = fmtv(voice[key]);
   }
   $("#eq-hpf").checked = !!voice.highpass;
+  $("#mic-monitor").checked = !!voice.monitor;
   $("#duck-toggle").classList.toggle("on", !!voice.duck);
 }
 
@@ -913,6 +914,11 @@ for (const [sel, key, fmtv] of VOICE_SLIDERS) {
 $("#eq-hpf").addEventListener("change", (e) => {
   if (!voice) return;
   voice.highpass = e.target.checked;
+  saveVoiceSoon();
+});
+$("#mic-monitor").addEventListener("change", (e) => {
+  if (!voice) return;
+  voice.monitor = e.target.checked;
   saveVoiceSoon();
 });
 $("#duck-toggle").addEventListener("click", () => {

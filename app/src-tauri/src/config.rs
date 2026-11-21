@@ -23,6 +23,7 @@ pub struct VoiceSettings {
     pub mid_db: f32,
     pub high_db: f32,
     pub highpass: bool,
+    pub monitor: bool,
 }
 
 impl Default for VoiceSettings {
@@ -38,6 +39,7 @@ impl Default for VoiceSettings {
             mid_db: 0.0,
             high_db: 0.0,
             highpass: true,
+            monitor: false,
         }
     }
 }

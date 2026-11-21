@@ -48,6 +48,7 @@ pub enum Command {
     SetMicOpen(bool),
     SetMicParams(MicParams),
     SetDuck { enabled: bool, level_db: f32 },
+    SetMicMonitor(bool),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -159,6 +160,7 @@ pub struct Mixer {
     duck_enabled: bool,
     duck_target: f32,
     duck: f32,
+    mic_monitor: bool,
 }
 
 impl Mixer {
@@ -192,6 +194,7 @@ impl Mixer {
             duck_enabled: true,
             duck_target: db_to_gain(-12.0),
             duck: 1.0,
+            mic_monitor: false,
         }
     }
 
@@ -320,6 +323,7 @@ impl Mixer {
                 self.mic_chain.mid.retune(fresh.mid);
                 self.mic_chain.high.retune(fresh.high);
             }
+            Command::SetMicMonitor(on) => self.mic_monitor = on,
             Command::SetDuck { enabled, level_db } => {
                 self.duck_enabled = enabled;
                 self.duck_target = db_to_gain(level_db.min(0.0));
@@ -466,7 +470,16 @@ impl Mixer {
         (l * self.sfx_gain, r * self.sfx_gain)
     }
 
-    pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], mut emit: F) {
+    pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], emit: F) {
+        self.render_split(None, out, emit);
+    }
+
+    pub fn render_split<F: FnMut(Event)>(
+        &mut self,
+        mut local: Option<&mut [f32]>,
+        out: &mut [f32],
+        mut emit: F,
+    ) {
         let frames = out.len() / 2;
         if let Some(mic) = self.mic.as_mut() {
             let max = self.sample_rate as usize * MIC_MAX_BACKLOG_MS / 1000 + frames;
@@ -509,10 +522,17 @@ impl Mixer {
             let (sl, sr) = self.sfx_sample(&mut emit);
             let music = self.music_gain * self.duck;
 
-            let l = (((la * ga + lb * gb) * music + m + sl) * self.master).clamp(-1.0, 1.0);
-            let r = (((ra * ga + rb * gb) * music + m + sr) * self.master).clamp(-1.0, 1.0);
+            let bed_l = (la * ga + lb * gb) * music + sl;
+            let bed_r = (ra * ga + rb * gb) * music + sr;
+            let l = ((bed_l + m) * self.master).clamp(-1.0, 1.0);
+            let r = ((bed_r + m) * self.master).clamp(-1.0, 1.0);
             out[2 * f] = l;
             out[2 * f + 1] = r;
+            if let Some(loc) = local.as_deref_mut() {
+                let mon = if self.mic_monitor { m } else { 0.0 };
+                loc[2 * f] = ((bed_l + mon) * self.master).clamp(-1.0, 1.0);
+                loc[2 * f + 1] = ((bed_r + mon) * self.master).clamp(-1.0, 1.0);
+            }
 
             self.peak[0] = self.peak[0].max(l.abs());
             self.peak[1] = self.peak[1].max(r.abs());
@@ -780,5 +800,31 @@ mod tests {
             "retour de la musique : {}",
             out[2 * 1499]
         );
+    }
+
+    #[test]
+    fn mic_goes_to_air_but_not_to_local_unless_monitored() {
+        let mut m = Mixer::new(1000);
+        let (mut tx, rx) = rtrb::RingBuffer::<f32>::new(4096);
+        m.attach_mic(rx);
+        m.apply(Command::SetMicParams(MicParams {
+            highpass: false,
+            ..Default::default()
+        }));
+        m.apply(Command::SetMicOpen(true));
+        for _ in 0..100 {
+            tx.push(0.3).unwrap();
+        }
+        let mut air = vec![0.0; 200];
+        let mut local = vec![0.0; 200];
+        m.render_split(Some(&mut local), &mut air, |_| {});
+        assert!((air[198] - 0.3).abs() < 1e-4);
+        assert_eq!(local[198], 0.0);
+        m.apply(Command::SetMicMonitor(true));
+        for _ in 0..100 {
+            tx.push(0.3).unwrap();
+        }
+        m.render_split(Some(&mut local), &mut air, |_| {});
+        assert!((local[198] - 0.3).abs() < 1e-4);
     }
 }

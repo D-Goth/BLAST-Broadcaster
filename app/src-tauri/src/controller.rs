@@ -386,6 +386,7 @@ impl Controller {
             enabled: v.duck,
             level_db: v.duck_db,
         });
+        self.send(Command::SetMicMonitor(v.monitor));
     }
 
     fn sync_pads(&mut self, sb: &SoundboardSettings) {
