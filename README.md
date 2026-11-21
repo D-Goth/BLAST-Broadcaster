@@ -1,6 +1,6 @@
 # BLAST Broadcaster
 
-**Black-Lab Audio Streaming Tool** — console de webradio et de live multi-OS (Linux, Windows, macOS).
+**Black-Lab Audio Streaming Tool** — console de webradio et de live multi-OS (Linux et Windows ; macOS prévu).
 
 BLAST Broadcaster réunit dans un seul logiciel ce qu'il fallait jusqu'ici assembler à la main :
 la console d'antenne d'une webradio (à la manière de SAM Broadcaster), la diffusion vers les serveurs
@@ -68,7 +68,41 @@ Le script compile, puis installe pour l'utilisateur courant (sans `sudo`) :
 Pour mettre à jour : `git pull` puis relancer le script. Pour désinstaller : `./scripts/install-linux.sh --uninstall`.
 
 Sous Fedora : `sudo dnf install alsa-lib-devel webkit2gtk4.1-devel gtk3-devel librsvg2-devel libsoup3-devel`.
+Les captures OBS (SNAP) vont dans `~/Images/BLAST`.
 PipeWire et PulseAudio sont pris en charge via leur couche de compatibilité ALSA.
+
+## Installer sous Windows 10 / 11
+
+Tout se fait dans l'**Invite de commandes** (`cmd`), pas besoin de PowerShell.
+
+**1. Les outils (une seule fois)**
+
+```bat
+winget install --id Git.Git -e
+winget install --id Rustlang.Rustup -e
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+
+Sans winget : [Git pour Windows](https://git-scm.com/download/win), [rustup](https://rustup.rs) (il propose d'installer
+les outils C++ de Visual Studio : accepte). WebView2, utilisé pour l'interface, est déjà présent sur Windows 10 et 11.
+**Ferme puis rouvre l'invite de commandes** après ces installations.
+
+**2. Récupérer et installer BLAST**
+
+```bat
+git clone https://github.com/D-Goth/BLAST-Broadcaster.git
+cd BLAST-Broadcaster
+scripts\install-windows.bat
+```
+
+Le script compile, copie BLAST dans `%LOCALAPPDATA%\Programs\BLAST Broadcaster` et crée l'entrée
+**BLAST Broadcaster** dans le menu Démarrer (clic droit → Épingler à la barre des tâches).
+
+- Mettre à jour : `git pull` puis `scripts\install-windows.bat`
+- Désinstaller : `scripts\install-windows.bat /uninstall` (les réglages restent dans `%APPDATA%\fr.black-lab.blast`)
+
+Sous Windows, les mots de passe sont rangés dans le Gestionnaire d'identifiants, et le son passe par WASAPI.
+Les captures OBS (SNAP) vont dans `Images\BLAST`.
 
 ## Utiliser l'interface
 
