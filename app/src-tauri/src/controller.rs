@@ -3,13 +3,18 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use std::collections::HashMap;
+
+use blast_cast::{Caster, OutputConfig, OutputStatus};
 use blast_core::engine::Engine;
 use blast_core::{decode_file, Command, DeckId, DeckState, DeckStatus, Event, Track};
 use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
+use crate::config::AppConfig;
 use crate::playlist::{self, Entry, Playlist};
+use crate::secrets::{output_key, Secrets};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 pub enum Deck {
@@ -90,6 +95,10 @@ pub enum UiCommand {
     FadeSeconds {
         value: f32,
     },
+    CastStart,
+    CastStop,
+    #[serde(skip)]
+    Config(Box<AppConfig>),
 }
 
 enum Work {
@@ -145,16 +154,38 @@ struct PlaylistView<'a> {
 }
 
 #[derive(Serialize, Clone)]
+struct CastOutputView {
+    id: String,
+    name: String,
+    kind: &'static str,
+    target: String,
+    enabled: bool,
+    status: OutputStatus,
+}
+
+#[derive(Serialize, Clone)]
+struct CastView {
+    casting: bool,
+    song: String,
+    outputs: Vec<CastOutputView>,
+}
+
+#[derive(Serialize, Clone)]
 struct Notice {
     level: &'static str,
     message: String,
 }
 
-pub fn spawn(app: AppHandle) -> Sender<UiCommand> {
+pub fn spawn(
+    app: AppHandle,
+    secrets: Arc<Secrets>,
+    config: AppConfig,
+    warning: Option<String>,
+) -> Sender<UiCommand> {
     let (tx, rx) = unbounded();
     thread::Builder::new()
         .name("blast-controller".into())
-        .spawn(move || Controller::new(app, rx).run())
+        .spawn(move || Controller::new(app, rx, secrets, config, warning).run())
         .expect("controller thread");
     tx
 }
@@ -182,13 +213,37 @@ struct Controller {
     automix: bool,
     fade: f32,
     next_job: u64,
+    secrets: Arc<Secrets>,
+    outputs: Vec<OutputConfig>,
+    caster: Caster,
+    casting: bool,
+    cast_status: HashMap<String, OutputStatus>,
+    master: Vec<f32>,
+    song: String,
+    startup_warning: Option<String>,
 }
 
 impl Controller {
-    fn new(app: AppHandle, rx: Receiver<UiCommand>) -> Self {
-        let (engine, audio_error) = match Engine::start(None) {
+    fn new(
+        app: AppHandle,
+        rx: Receiver<UiCommand>,
+        secrets: Arc<Secrets>,
+        config: AppConfig,
+        startup_warning: Option<String>,
+    ) -> Self {
+        let wanted = config.audio.device.clone();
+        let (engine, audio_error) = match Engine::start(wanted.as_deref()) {
             Ok(e) => (Some(e), None),
-            Err(e) => (None, Some(e.to_string())),
+            Err(first) => match wanted {
+                Some(_) => match Engine::start(None) {
+                    Ok(e) => (
+                        Some(e),
+                        Some(format!("{first} — sortie par défaut utilisée")),
+                    ),
+                    Err(e) => (None, Some(e.to_string())),
+                },
+                None => (None, Some(first.to_string())),
+            },
         };
         let sample_rate = engine.as_ref().map_or(48_000, |e| e.sample_rate());
         let device = engine
@@ -213,6 +268,14 @@ impl Controller {
             automix: false,
             fade: 6.0,
             next_job: 0,
+            secrets,
+            outputs: config.outputs,
+            caster: Caster::new(sample_rate),
+            casting: false,
+            cast_status: HashMap::new(),
+            master: Vec::with_capacity(sample_rate as usize),
+            song: String::new(),
+            startup_warning,
         };
         c.send_automix();
         c
@@ -249,7 +312,124 @@ impl Controller {
             for e in events {
                 self.on_event(e);
             }
+            self.pump_master();
+            let updates = self.caster.poll();
+            if !updates.is_empty() {
+                for u in updates {
+                    self.cast_status.insert(u.id, u.status);
+                }
+                self.emit_cast();
+            }
         }
+        self.caster.stop_all();
+    }
+
+    fn pump_master(&mut self) {
+        let Some(engine) = self.engine.as_mut() else {
+            return;
+        };
+        self.master.clear();
+        engine.read_master(&mut self.master);
+        if self.casting && self.caster.is_active() && !self.master.is_empty() {
+            self.caster.push(Arc::from(&self.master[..]));
+        }
+    }
+
+    fn now_playing(&self) -> String {
+        let side = if self.crossfader < 0.5 { 0 } else { 1 };
+        if !self.is_playing(side) {
+            return String::new();
+        }
+        let m = &self.meta[side];
+        match (m.artist.trim(), m.title.trim()) {
+            ("", t) => t.to_string(),
+            (a, t) => format!("{a} - {t}"),
+        }
+    }
+
+    fn update_song(&mut self) {
+        let song = self.now_playing();
+        if !song.is_empty() && song != self.song {
+            self.song = song;
+            self.caster.set_metadata(&self.song);
+            self.emit_cast();
+        }
+    }
+
+    fn start_casting(&mut self) {
+        let enabled: Vec<OutputConfig> =
+            self.outputs.iter().filter(|o| o.enabled).cloned().collect();
+        if enabled.is_empty() {
+            self.notice(
+                "warn",
+                "Aucune sortie de diffusion active : ouvre les Réglages, onglet Diffusion.",
+            );
+            return;
+        }
+        self.casting = true;
+        let song = self.now_playing();
+        if !song.is_empty() {
+            self.song = song;
+        }
+        self.caster.set_metadata(&self.song);
+        for o in enabled {
+            match self
+                .secrets
+                .get(&output_key(&o.id))
+                .filter(|p| !p.is_empty())
+            {
+                Some(pw) => {
+                    self.cast_status
+                        .insert(o.id.clone(), OutputStatus::Connecting);
+                    self.caster.start(o, pw);
+                }
+                None => {
+                    self.cast_status.insert(
+                        o.id.clone(),
+                        OutputStatus::Error("mot de passe manquant (Réglages → Diffusion)".into()),
+                    );
+                }
+            }
+        }
+        self.emit_cast();
+    }
+
+    fn stop_casting(&mut self) {
+        self.casting = false;
+        self.caster.stop_all();
+        for s in self.cast_status.values_mut() {
+            *s = OutputStatus::Off;
+        }
+        self.emit_cast();
+    }
+
+    fn emit_cast(&self) {
+        let view = CastView {
+            casting: self.casting,
+            song: self.song.clone(),
+            outputs: self
+                .outputs
+                .iter()
+                .map(|o| CastOutputView {
+                    id: o.id.clone(),
+                    name: o.name.clone(),
+                    kind: o.kind.label(),
+                    target: match o.kind {
+                        blast_cast::ServerKind::Icecast => {
+                            format!("{}:{}{}", o.host, o.port, o.mount_path())
+                        }
+                        _ => format!("{}:{}", o.host, o.port),
+                    },
+                    enabled: o.enabled,
+                    status: self
+                        .cast_status
+                        .get(&o.id)
+                        .cloned()
+                        .unwrap_or(OutputStatus::Off),
+                })
+                .collect(),
+        };
+        let _ = self.app.emit("blast://cast", view);
     }
 
     fn send(&self, cmd: Command) {
@@ -356,6 +536,24 @@ impl Controller {
         match cmd {
             UiCommand::Refresh => {
                 self.emit_playlist();
+                self.emit_cast();
+                if let Some(w) = self.startup_warning.take() {
+                    self.notice("warn", w);
+                }
+            }
+            UiCommand::CastStart => self.start_casting(),
+            UiCommand::CastStop => self.stop_casting(),
+            UiCommand::Config(cfg) => {
+                self.outputs = cfg.outputs;
+                self.cast_status
+                    .retain(|id, _| self.outputs.iter().any(|o| &o.id == id));
+                if self.casting {
+                    self.caster.stop_all();
+                    self.cast_status.clear();
+                    self.start_casting();
+                } else {
+                    self.emit_cast();
+                }
             }
             UiCommand::AddPaths { paths, index } => self.scan(paths, index, None),
             UiCommand::LoadPaths { deck, paths } => self.scan(paths, None, Some(deck)),
@@ -567,6 +765,7 @@ impl Controller {
                 self.crossfader = crossfader;
                 self.peak = peak;
                 self.fill_automix();
+                self.update_song();
                 self.emit_state();
             }
             Event::Ended(id) => {

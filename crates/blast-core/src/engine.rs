@@ -8,6 +8,7 @@ use crossbeam_channel::{bounded, select, Receiver, Sender};
 use crate::{Command, Event, Mixer, Track};
 
 const SCRATCH_FRAMES: usize = 4096;
+const TAP_SECONDS: usize = 2;
 
 #[derive(Debug)]
 pub enum EngineError {
@@ -59,6 +60,7 @@ pub struct Engine {
     events: Receiver<Event>,
     ticks: Receiver<Event>,
     trash: Receiver<Arc<Track>>,
+    tap: rtrb::Consumer<f32>,
     sample_rate: u32,
     channels: u16,
     device_name: String,
@@ -87,7 +89,9 @@ impl Engine {
         let (tick_tx, tick_rx) = bounded::<Event>(16);
         let (trash_tx, trash_rx) = bounded::<Arc<Track>>(64);
         let mixer = Mixer::new(sample_rate);
+        let (tap_tx, tap_rx) = rtrb::RingBuffer::<f32>::new(sample_rate as usize * 2 * TAP_SECONDS);
         let parts = Parts {
+            tap: tap_tx,
             mixer,
             commands: cmd_rx,
             events: evt_tx,
@@ -110,6 +114,7 @@ impl Engine {
             events: evt_rx,
             ticks: tick_rx,
             trash: trash_rx,
+            tap: tap_rx,
             sample_rate,
             channels,
             device_name,
@@ -158,12 +163,27 @@ impl Engine {
         }
     }
 
+    pub fn read_master(&mut self, out: &mut Vec<f32>) -> usize {
+        let n = self.tap.slots() & !1;
+        if n == 0 {
+            return 0;
+        }
+        if let Ok(chunk) = self.tap.read_chunk(n) {
+            let (a, b) = chunk.as_slices();
+            out.extend_from_slice(a);
+            out.extend_from_slice(b);
+            chunk.commit_all();
+        }
+        n
+    }
+
     pub fn collect_garbage(&self) {
         while self.trash.try_recv().is_ok() {}
     }
 }
 
 struct Parts {
+    tap: rtrb::Producer<f32>,
     mixer: Mixer,
     commands: Receiver<Command>,
     events: Sender<Event>,
@@ -181,6 +201,7 @@ where
 {
     let channels = config.channels as usize;
     let Parts {
+        mut tap,
         mut mixer,
         commands,
         events,
@@ -209,6 +230,12 @@ where
                             _ => events.try_send(e),
                         };
                     });
+                    let room = tap.slots().min(buf.len()) & !1;
+                    if room > 0 {
+                        if let Ok(chunk) = tap.write_chunk_uninit(room) {
+                            chunk.fill_from_iter(buf[..room].iter().copied());
+                        }
+                    }
                     for f in 0..n {
                         let frame = &mut data[(done + f) * channels..(done + f + 1) * channels];
                         let l = buf[2 * f];

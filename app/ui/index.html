@@ -14,6 +14,9 @@
       <span class="brand-sub">Broadcaster</span>
     </div>
     <div id="onair" class="onair">ON AIR</div>
+    <button id="cast-btn" class="cast-btn" title="Démarrer ou arrêter la diffusion vers les serveurs">
+      <span class="cast-dot"></span><span id="cast-label">DIFFUSER</span>
+    </button>
     <div class="topbar-right">
       <div id="clock" class="clock">00:00:00</div>
       <button id="rainbow-toggle" class="btn ghost small" title="Effet rainbow sur la platine à l'antenne">Rainbow</button>
@@ -22,6 +25,7 @@
         <select id="theme-select"></select>
       </label>
       <button id="themes-folder" class="btn ghost small" title="Dossier des thèmes personnalisés">Thèmes…</button>
+      <button id="settings-btn" class="btn small" title="Réglages">&#9881; Réglages</button>
     </div>
   </header>
 
@@ -124,7 +128,110 @@
   <footer class="statusbar">
     <span id="device" class="muted">Sortie audio…</span>
     <span id="audio-error" class="error-text"></span>
+    <span class="spacer"></span>
+    <span id="cast-summary" class="muted"></span>
   </footer>
+
+  <div id="settings" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-panel">
+      <aside class="modal-tabs">
+        <div class="modal-title">RÉGLAGES</div>
+        <button class="tab active" data-tab="cast">Diffusion</button>
+        <button class="tab" data-tab="aura">Aura / OBS</button>
+        <button class="tab" data-tab="audio">Audio</button>
+        <div class="spacer"></div>
+        <div class="store-info muted" id="store-info"></div>
+        <button class="btn ghost small" id="settings-close">Fermer</button>
+      </aside>
+
+      <section class="tab-page" data-page="cast">
+        <div class="cast-layout">
+          <div class="out-list">
+            <div class="out-items" id="out-items"></div>
+            <button class="btn small wide" id="out-add">+ Ajouter une sortie</button>
+          </div>
+          <form class="form" id="out-form" autocomplete="off">
+            <div class="form-empty muted" id="out-empty">Ajoute une sortie pour diffuser vers un serveur Icecast ou Shoutcast.</div>
+            <div class="form-body" id="out-body">
+              <div class="grid2">
+                <label>Nom<input name="name" required></label>
+                <label>Serveur
+                  <select name="kind">
+                    <option value="icecast">Icecast 2</option>
+                    <option value="shoutcast_v1">Shoutcast v1</option>
+                    <option value="shoutcast_v2">Shoutcast v2</option>
+                  </select>
+                </label>
+                <label class="span2-sm">Adresse<input name="host" placeholder="radio.exemple.fr" required></label>
+                <label>Port<input name="port" type="number" min="1" max="65535" required></label>
+                <label data-for="icecast">Point de montage<input name="mount" placeholder="/live"></label>
+                <label data-for="icecast">Identifiant<input name="user" placeholder="source"></label>
+                <label data-for="shoutcast_v2">Stream ID (SID)<input name="sid" type="number" min="1"></label>
+                <label>Mot de passe<input name="password" type="password" placeholder=""></label>
+                <label>Débit MP3
+                  <select name="bitrate"></select>
+                </label>
+                <label>Canaux
+                  <select name="mono"><option value="false">Stéréo</option><option value="true">Mono</option></select>
+                </label>
+              </div>
+              <div class="form-section">Station</div>
+              <div class="grid2">
+                <label>Nom de la station<input name="station"></label>
+                <label>Genre<input name="genre" placeholder="Metal, Electro…"></label>
+                <label class="span2">Description<input name="description"></label>
+                <label class="span2">Site web<input name="url" placeholder="https://black-lab.fr"></label>
+                <label class="check"><input name="public" type="checkbox"> Publier dans l'annuaire du serveur</label>
+                <label class="check"><input name="enabled" type="checkbox"> Sortie active (incluse dans DIFFUSER)</label>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn ghost small danger" id="out-delete">Supprimer</button>
+                <span class="spacer"></span>
+                <span class="form-result" id="out-result"></span>
+                <button type="button" class="btn small" id="out-test">Tester la connexion</button>
+                <button type="submit" class="btn accent small">Enregistrer</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="tab-page hidden" data-page="aura">
+        <form class="form" id="aura-form" autocomplete="off">
+          <p class="muted">Connexion au serveur WebSocket d'OBS Studio (Outils → Paramètres du serveur WebSocket). Le pilotage des scènes et l'affichage du titre en cours dans OBS arrivent avec le module Aura.</p>
+          <div class="grid2">
+            <label>Adresse<input name="host" required></label>
+            <label>Port<input name="port" type="number" min="1" max="65535" required></label>
+            <label>Mot de passe<input name="password" type="password"></label>
+            <label>Source texte « Now Playing »<input name="now_playing_source" placeholder="Titre en cours"></label>
+            <label class="check span2"><input name="auto_connect" type="checkbox"> Se connecter à OBS au démarrage de BLAST</label>
+          </div>
+          <div class="form-actions">
+            <span class="spacer"></span>
+            <span class="form-result" id="aura-result"></span>
+            <button type="button" class="btn small" id="aura-test">Tester la connexion</button>
+            <button type="submit" class="btn accent small">Enregistrer</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="tab-page hidden" data-page="audio">
+        <form class="form" id="audio-form">
+          <div class="grid2">
+            <label class="span2">Sortie audio principale
+              <select name="device"></select>
+            </label>
+          </div>
+          <p class="muted">Le changement de sortie prend effet au prochain démarrage de BLAST. La sortie casque (pré-écoute) arrivera avec le Voice FX.</p>
+          <div class="form-actions">
+            <span class="spacer"></span>
+            <span class="form-result" id="audio-result"></span>
+            <button type="submit" class="btn accent small">Enregistrer</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
 
   <div id="toasts" class="toasts"></div>
   <div id="ghost" class="drag-ghost"></div>

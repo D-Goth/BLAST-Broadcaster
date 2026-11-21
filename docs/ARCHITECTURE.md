@@ -85,19 +85,46 @@ le contrôleur y charge le titre suivant de la playlist. Si les deux sont libres
 **Thèmes utilisateur** : fichiers `.toml` au même format que `themes/`, dans le dossier de configuration
 (`~/.config/fr.black-lab.blast/themes` sous Linux). Le bouton **Thèmes…** crée ce dossier et l'affiche.
 
+## Diffusion (M2)
+
+```
+ thread audio ──(tampon circulaire rtrb, 2 s)──▶ contrôleur ──Arc<[f32]>──▶ Caster
+                                                                          ├─ sortie 1 : encodeur LAME → TCP (Icecast PUT)
+                                                                          └─ sortie 2 : encodeur LAME → TCP (Shoutcast)
+```
+
+| Fichier | Rôle |
+|---|---|
+| `blast-cast/src/encoder.rs` | Encodage MP3 (LAME), stéréo ou mono, 32 à 320 kb/s |
+| `blast-cast/src/protocol.rs` | Connexion source Icecast (`PUT` + `Expect: 100-continue`), Shoutcast v1 (mot de passe sur port+1), Shoutcast v2 (`motdepasse:#SID`), mise à jour du titre (`/admin/metadata`, `/admin.cgi`), test de connexion |
+| `blast-cast/src/caster.rs` | Un thread par sortie : connexion, encodage, envoi, reconnexion toutes les 5 s, arrêt définitif sur mot de passe refusé |
+| `blast-aura/src/lib.rs` | Test de connexion obs-websocket v5 (Hello, authentification SHA-256, GetVersion) |
+| `app/src-tauri/src/config.rs` | Réglages en TOML (sans aucun mot de passe) |
+| `app/src-tauri/src/secrets.rs` | Mots de passe dans le trousseau système (`keyring`), repli en mémoire si indisponible |
+
+Le thread audio ne fait qu'écrire dans le tampon circulaire, sans verrou ni allocation. Si une sortie
+est lente, ses blocs en attente sont abandonnés (128 blocs, environ 1,5 s) : elle ne peut jamais bloquer
+le son local ni les autres sorties. Les valeurs envoyées dans les en-têtes sont nettoyées des retours à la ligne.
+
+Testé contre Icecast 2.4.4 (sortie normale et port de compatibilité Shoutcast) : flux MP3 écoutable,
+titre mis à jour au changement de morceau, reconnexion après redémarrage du serveur.
+Shoutcast v2 (DNAS 2) n'a été testé que contre un serveur simulé.
+
 ## Dépendances envisagées
 
 | Besoin | Crate / bibliothèque | Licence |
 |---|---|---|
 | Sortie audio multi-OS | `cpal` | Apache-2.0 |
 | Décodage MP3/AAC/FLAC/Vorbis/WAV | `symphonia` | MPL-2.0 |
-| Encodage MP3 | LAME (liaison dynamique) | LGPL |
 | Encodage Opus / Vorbis / FLAC | libopus / libvorbis / libFLAC | BSD |
 | Rééchantillonnage | `rubato` | MIT |
 | Interface | Tauri 2, tauri-plugin-dialog | MIT / Apache-2.0 |
 | Thèmes | `toml`, `serde_json` | MIT / Apache-2.0 |
 | WebSocket (OBS, chat) | `tokio-tungstenite` | MIT |
-| Files temps réel | `crossbeam-channel` | MIT / Apache-2.0 |
+| Files temps réel | `crossbeam-channel`, `rtrb` | MIT / Apache-2.0 |
+| Encodage MP3 | `mp3lame-encoder` (LAME compilé avec le projet) | LGPL (LAME), MIT |
+| Trousseau | `keyring` | MIT / Apache-2.0 |
+| OBS | `tungstenite`, `sha2`, `base64` | MIT / Apache-2.0 |
 | Ligne de commande, WAV | `clap`, `hound` | MIT / Apache-2.0 |
 
 ## Règle de licence des dépendances
@@ -105,6 +132,8 @@ le contrôleur y charge le titre suivant de la playlist. Si les deux sont libres
 Le code étant sous PolyForm Noncommercial, **aucune dépendance GPL ne doit être liée au binaire**
 (la GPL interdit d'ajouter une restriction non commerciale). LGPL en liaison dynamique, MIT, Apache, BSD et MPL sont acceptées.
 FFmpeg n'est envisageable qu'en compilation LGPL, sans `--enable-gpl`.
+LAME est compilé dans le binaire : c'est compatible avec la LGPL tant que le code source complet de BLAST
+reste disponible, ce qui permet à chacun de recompiler avec une autre version de LAME.
 L'encodage AAC (fdk-aac) a une licence de redistribution particulière : à traiter au jalon M9.
 
 ## Thèmes
