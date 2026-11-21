@@ -1,0 +1,13 @@
+Copyright (c) 2026 Loïc HERAUDEAU (D-Goth) — https://black-lab.fr
+
+The non-code resources of this repository — the contents of themes/ and docs/, the README,
+and any images, icons and sounds — are licensed under the
+Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).
+
+Full license text: https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+Source code (*.rs, *.toml manifests, *.ts, *.js, *.css and build scripts) is licensed separately
+under the PolyForm Noncommercial License 1.0.0, see LICENSE.
+
+The BLAST Broadcaster name, logo and the Black-Lab identity are not covered by either license,
+see TRADEMARK.md.

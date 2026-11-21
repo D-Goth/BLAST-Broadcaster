@@ -1,0 +1,33 @@
+[meta]
+name = "Light"
+author = "D-Goth"
+version = "1.0"
+base = "light"
+
+[colors]
+bg = "#F5F5F7"
+panel = "#FFFFFF"
+panel_alt = "#EDEDF0"
+border = "#D6D6DB"
+text = "#1C1C1E"
+text_muted = "#6B6B70"
+accent = "#1F6FEB"
+accent_hover = "#3D85F5"
+deck_a = "#1F6FEB"
+deck_b = "#D9730D"
+deck_c = "#7A5AF8"
+deck_d = "#0E9F6E"
+waveform = "#3A3A3C"
+waveform_played = "#B5B5BA"
+on_air = "#D92D20"
+
+[meters]
+meter_low = "#16A34A"
+meter_mid = "#CA8A04"
+meter_high = "#EA580C"
+clip = "#D92D20"
+
+[effects]
+deck_rainbow = false
+rainbow_speed = 1.0
+rainbow_bpm_sync = false

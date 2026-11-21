@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/blast-core",
+    "crates/blast-cast",
+    "crates/blast-library",
+    "crates/blast-aura",
+    "crates/blast-live",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+authors = ["Loïc HERAUDEAU (D-Goth)"]
+license-file = "LICENSE"
+repository = "https://github.com/D-Goth/BLAST-Broadcaster"

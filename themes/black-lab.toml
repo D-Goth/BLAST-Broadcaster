@@ -1,0 +1,33 @@
+[meta]
+name = "Black-Lab"
+author = "D-Goth"
+version = "1.0"
+base = "dark"
+
+[colors]
+bg = "#0A0A0A"
+panel = "#141414"
+panel_alt = "#1E1E1E"
+border = "#2A2A2A"
+text = "#FFFFFF"
+text_muted = "#9A9A9A"
+accent = "#FF1654"
+accent_hover = "#FF4A7A"
+deck_a = "#FF1654"
+deck_b = "#FFFFFF"
+deck_c = "#B0B0B0"
+deck_d = "#FF8FAB"
+waveform = "#E0E0E0"
+waveform_played = "#5A5A5A"
+on_air = "#FF1654"
+
+[meters]
+meter_low = "#2ECC71"
+meter_mid = "#F1C40F"
+meter_high = "#FF7A00"
+clip = "#FFEE00"
+
+[effects]
+deck_rainbow = false
+rainbow_speed = 1.0
+rainbow_bpm_sync = false

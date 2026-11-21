@@ -1,0 +1,9 @@
+[package]
+name = "blast-cast"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[dependencies]
