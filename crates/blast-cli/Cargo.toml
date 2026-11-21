@@ -1,0 +1,16 @@
+[package]
+name = "blast-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "blast"
+path = "src/main.rs"
+
+[dependencies]
+blast-core = { path = "../blast-core" }
+clap = { version = "4", features = ["derive"] }
+hound = "3.5"

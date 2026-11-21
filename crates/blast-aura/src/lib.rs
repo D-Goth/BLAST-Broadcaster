@@ -28,8 +28,15 @@ pub enum AuraAction {
     StopStream,
     StartRecord,
     StopRecord,
-    SetSourceVisible { scene: String, source: String, visible: bool },
-    SetText { source: String, text: String },
+    SetSourceVisible {
+        scene: String,
+        source: String,
+        visible: bool,
+    },
+    SetText {
+        source: String,
+        text: String,
+    },
 }
 
 #[cfg(test)]

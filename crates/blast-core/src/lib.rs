@@ -1,9 +1,59 @@
+pub mod decode;
+pub mod mixer;
+pub mod resample;
+
+#[cfg(feature = "output")]
+pub mod engine;
+
+pub use decode::{decode_file, DecodeError, Track};
+pub use mixer::{Command, DeckStatus, Event, Mixer};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeckId {
     A,
     B,
-    C,
-    D,
+}
+
+impl DeckId {
+    pub const ALL: [DeckId; 2] = [DeckId::A, DeckId::B];
+
+    pub fn index(self) -> usize {
+        match self {
+            DeckId::A => 0,
+            DeckId::B => 1,
+        }
+    }
+
+    pub fn from_index(i: usize) -> DeckId {
+        if i == 0 {
+            DeckId::A
+        } else {
+            DeckId::B
+        }
+    }
+
+    pub fn other(self) -> DeckId {
+        match self {
+            DeckId::A => DeckId::B,
+            DeckId::B => DeckId::A,
+        }
+    }
+
+    pub fn crossfader_side(self) -> f32 {
+        match self {
+            DeckId::A => 0.0,
+            DeckId::B => 1.0,
+        }
+    }
+}
+
+impl std::fmt::Display for DeckId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeckId::A => write!(f, "A"),
+            DeckId::B => write!(f, "B"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,25 +62,7 @@ pub enum DeckState {
     Loaded,
     Playing,
     Paused,
-}
-
-#[derive(Debug, Clone)]
-pub struct Deck {
-    pub id: DeckId,
-    pub state: DeckState,
-    pub gain: f32,
-    pub cue: bool,
-}
-
-impl Deck {
-    pub fn new(id: DeckId) -> Self {
-        Self {
-            id,
-            state: DeckState::Empty,
-            gain: 1.0,
-            cue: false,
-        }
-    }
+    Finished,
 }
 
 pub fn crossfade_gains(position: f32) -> (f32, f32) {
@@ -59,8 +91,8 @@ mod tests {
     }
 
     #[test]
-    fn new_deck_is_empty() {
-        let d = Deck::new(DeckId::A);
-        assert_eq!(d.state, DeckState::Empty);
+    fn deck_ids() {
+        assert_eq!(DeckId::A.other(), DeckId::B);
+        assert_eq!(DeckId::from_index(DeckId::B.index()), DeckId::B);
     }
 }

@@ -6,6 +6,7 @@ members = [
     "crates/blast-library",
     "crates/blast-aura",
     "crates/blast-live",
+    "crates/blast-cli",
 ]
 
 [workspace.package]
