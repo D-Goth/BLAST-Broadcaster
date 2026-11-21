@@ -91,7 +91,10 @@ PipeWire et PulseAudio sont pris en charge via leur couche de compatibilité ALS
 | OBS | **Réglages → Aura / OBS** : adresse, port, mot de passe et source texte « Now Playing » ; puis onglet **AURA · OBS** (à côté de SOUND FX) ou bouton **OBS** de la barre du haut |
 | Pilotage OBS | STREAM, REC, PAUSE REC, REPLAY, SNAP (capture dans `~/Images/BLAST`), MUTE et volume d'une source audio, changement de scène ; minuteurs ▶ stream et ⏺ enregistrement dans la barre du haut |
 
-**Diffusion** : le bouton passe au vert (**EN DIRECT n/n**) quand toutes les sorties actives sont connectées. En cas de coupure,
+**Diffusion** : le bouton passe au vert (**EN DIRECT n/n**) quand toutes les sorties actives sont connectées.
+Il affiche aussi la **durée de diffusion** et le **nombre d'auditeurs** (👤 en cours · max), relevés toutes les 10 secondes
+sur le serveur (`status-json.xsl` pour Icecast, `7.html` pour Shoutcast v1, `stats` pour Shoutcast v2). Le détail par sortie
+est dans l'infobulle du bouton et dans Réglages → Diffusion. En cas de coupure,
 BLAST se reconnecte tout seul toutes les 5 secondes ; un mot de passe refusé arrête la sortie concernée.
 Le titre en cours (« Artiste - Titre » de la platine à l'antenne) est envoyé au serveur à chaque changement.
 

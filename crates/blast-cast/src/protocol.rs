@@ -275,6 +275,112 @@ pub fn update_metadata(cfg: &OutputConfig, password: &str, song: &str) -> Result
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Listeners {
+    pub current: u32,
+    pub peak: u32,
+}
+
+fn http_get(cfg: &OutputConfig, path: &str, auth: Option<String>) -> Result<String, CastError> {
+    let mut s = connect(&cfg.host, cfg.port)?;
+    let mut req = format!(
+        "GET {path} HTTP/1.0\r\nHost: {}:{}\r\nUser-Agent: Mozilla/5.0 ({USER_AGENT})\r\n",
+        clean(&cfg.host),
+        cfg.port
+    );
+    if let Some(a) = auth {
+        req.push_str(&format!("Authorization: Basic {a}\r\n"));
+    }
+    req.push_str("Connection: close\r\n\r\n");
+    s.write_all(req.as_bytes())?;
+    let mut body = Vec::new();
+    let mut buf = [0u8; 8192];
+    while body.len() < 1 << 20 {
+        match s.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => body.extend_from_slice(&buf[..n]),
+            Err(e) => return Err(e.into()),
+        }
+    }
+    let text = String::from_utf8_lossy(&body).into_owned();
+    let (code, line) = http_status(text.as_bytes());
+    if code != 200 {
+        return Err(CastError::Rejected(line));
+    }
+    Ok(text
+        .split_once("\r\n\r\n")
+        .map(|(_, b)| b.to_string())
+        .unwrap_or_default())
+}
+
+fn json_number(text: &str, key: &str) -> Option<u32> {
+    let pat = format!("\"{key}\"");
+    let at = text.find(&pat)? + pat.len();
+    let rest = text[at..].trim_start().strip_prefix(':')?.trim_start();
+    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    digits.parse().ok()
+}
+
+pub fn parse_icecast_status(body: &str, mount: &str) -> Option<Listeners> {
+    for chunk in body.split("\"listenurl\"").skip(1) {
+        let url_end = chunk.find(',').unwrap_or(chunk.len());
+        let url = &chunk[..url_end];
+        let matches = url
+            .trim()
+            .trim_start_matches(':')
+            .trim()
+            .trim_matches('"')
+            .ends_with(mount);
+        if !matches {
+            continue;
+        }
+        let start = body.find(chunk).unwrap_or(0);
+        let open = body[..start].rfind('{').unwrap_or(0);
+        let close = body[start..]
+            .find('}')
+            .map(|i| start + i)
+            .unwrap_or(body.len());
+        let obj = &body[open..close];
+        return Some(Listeners {
+            current: json_number(obj, "listeners")?,
+            peak: json_number(obj, "listener_peak").unwrap_or(0),
+        });
+    }
+    None
+}
+
+pub fn parse_shoutcast_v1(body: &str) -> Option<Listeners> {
+    let inner = body.split("<body>").nth(1)?.split("</body>").next()?;
+    let parts: Vec<&str> = inner.split(',').collect();
+    Some(Listeners {
+        current: parts.first()?.trim().parse().ok()?,
+        peak: parts.get(2)?.trim().parse().unwrap_or(0),
+    })
+}
+
+pub fn parse_shoutcast_v2(body: &str) -> Option<Listeners> {
+    Some(Listeners {
+        current: json_number(body, "currentlisteners")?,
+        peak: json_number(body, "peaklisteners").unwrap_or(0),
+    })
+}
+
+pub fn fetch_listeners(cfg: &OutputConfig) -> Result<Listeners, CastError> {
+    let parsed = match cfg.kind {
+        ServerKind::Icecast => {
+            let body = http_get(cfg, "/status-json.xsl", None)?;
+            parse_icecast_status(&body, &cfg.mount_path())
+        }
+        ServerKind::ShoutcastV1 => parse_shoutcast_v1(&http_get(cfg, "/7.html", None)?),
+        ServerKind::ShoutcastV2 => parse_shoutcast_v2(&http_get(
+            cfg,
+            &format!("/stats?sid={}&json=1", cfg.sid),
+            None,
+        )?),
+    };
+    parsed.ok_or_else(|| CastError::Rejected("statistiques introuvables pour ce flux".into()))
+}
+
 pub fn test_output(
     cfg: &OutputConfig,
     password: &str,
@@ -303,6 +409,33 @@ mod tests {
     use super::*;
     use std::net::TcpListener;
     use std::thread;
+
+    #[test]
+    fn parses_listener_stats() {
+        let ice = r#"{"icestats":{"source":[{"listener_peak":7,"listeners":3,"listenurl":"http://radio:8000/autre"},{"listener_peak":30,"listeners":12,"listenurl":"http://radio:8000/live","title":"x"}]}}"#;
+        assert_eq!(
+            parse_icecast_status(ice, "/live"),
+            Some(Listeners {
+                current: 12,
+                peak: 30
+            })
+        );
+        assert_eq!(parse_icecast_status(ice, "/absent"), None);
+        assert_eq!(
+            parse_shoutcast_v1("<html><body>5,1,9,100,4,128,D-Goth - Void</body></html>"),
+            Some(Listeners {
+                current: 5,
+                peak: 9
+            })
+        );
+        assert_eq!(
+            parse_shoutcast_v2(r#"{"currentlisteners":2,"peaklisteners":6,"maxlisteners":100}"#),
+            Some(Listeners {
+                current: 2,
+                peak: 6
+            })
+        );
+    }
 
     #[test]
     fn percent_encoding() {
