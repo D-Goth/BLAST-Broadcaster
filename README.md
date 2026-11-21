@@ -8,7 +8,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 
 ![BLAST Broadcaster — thème Black-Lab](docs/img/interface-black-lab.png)
 
-> Statut : **interface v1**. Deux platines, crossfader, auto-mix, playlist avec glisser-déposer, thèmes. Pas encore de diffusion vers un serveur.
+> Statut : **diffusion (M2)**. Deux platines, crossfader, auto-mix, playlist avec glisser-déposer, thèmes, diffusion MP3 vers Icecast et Shoutcast avec titre en cours. Prochaine étape : Voice FX et Sound FX.
 
 ## Fonctionnalités prévues
 
@@ -81,6 +81,16 @@ PipeWire et PulseAudio sont pris en charge via leur couche de compatibilité ALS
 | Auto-mix | Pioche dans la playlist et enchaîne tout seul, avec la durée de fondu choisie (zone hachurée sur la barre de progression) |
 | Se déplacer | Cliquer sur la barre de progression |
 | Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |
+| Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut |
+| OBS | **Réglages → Aura / OBS** : adresse, port et mot de passe du serveur WebSocket d'OBS, avec test de connexion |
+
+**Diffusion** : le bouton passe au vert (**EN DIRECT n/n**) quand toutes les sorties actives sont connectées. En cas de coupure,
+BLAST se reconnecte tout seul toutes les 5 secondes ; un mot de passe refusé arrête la sortie concernée.
+Le titre en cours (« Artiste - Titre » de la platine à l'antenne) est envoyé au serveur à chaque changement.
+
+**Mots de passe** : rangés dans le trousseau du système (KWallet sous KDE), jamais dans le fichier de réglages.
+Si le trousseau est indisponible, BLAST le signale et garde le mot de passe en mémoire pour la session uniquement.
+Les autres réglages sont dans `~/.config/fr.black-lab.blast/config.toml`.
 
 Un titre chargé mais pas encore joué, remplacé par un autre, retourne en tête de playlist.
 Les fichiers illisibles restent dans la playlist, marqués ⚠, et sont sautés par l'auto-mix.

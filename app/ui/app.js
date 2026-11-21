@@ -367,6 +367,286 @@ async function setupOsDrop() {
   });
 }
 
+
+const BITRATES = [32, 40, 48, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+const STATUS_LABEL = { off: "Arrêtée", connecting: "Connexion…", live: "En direct", retrying: "Reconnexion", error: "Erreur" };
+let cast = { casting: false, song: "", outputs: [] };
+let settings = null;
+let selectedOut = null;
+
+function statusOf(o) {
+  return (o && o.status && o.status.state) || "off";
+}
+
+function renderCast() {
+  const btn = $("#cast-btn");
+  const active = cast.outputs.filter((o) => o.enabled);
+  const states = active.map(statusOf);
+  const live = states.filter((s) => s === "live").length;
+  btn.className = "cast-btn";
+  let label = "DIFFUSER";
+  if (cast.casting) {
+    if (states.includes("error")) btn.classList.add("error");
+    else if (live === active.length && live > 0) btn.classList.add("live");
+    else if (states.includes("retrying")) btn.classList.add("retrying");
+    else btn.classList.add("connecting");
+    label = live > 0
+      ? `EN DIRECT ${live}/${active.length}`
+      : states.includes("error")
+        ? "ERREUR"
+        : states.includes("retrying")
+          ? "RECONNEXION…"
+          : "CONNEXION…";
+  }
+  $("#cast-label").textContent = label;
+  btn.title = cast.outputs.length
+    ? cast.outputs.map((o) => `${o.name} (${o.target}) : ${STATUS_LABEL[statusOf(o)]}${o.status && o.status.detail ? " — " + o.status.detail : ""}`).join("\n")
+    : "Aucune sortie configurée : ouvre les Réglages";
+  const errs = cast.outputs.filter((o) => o.status && o.status.detail);
+  $("#cast-summary").textContent = cast.casting
+    ? `Diffusion : ${live}/${active.length} en direct${cast.song ? " · " + cast.song : ""}${errs.length ? " · " + errs[0].name + " : " + errs[0].status.detail : ""}`
+    : "";
+  if (settings) renderOutList();
+}
+
+function castStatusFor(id) {
+  const o = cast.outputs.find((x) => x.id === id);
+  return o ? o.status : null;
+}
+
+function renderOutList() {
+  const box = $("#out-items");
+  box.innerHTML = "";
+  for (const o of settings.outputs) {
+    const st = castStatusFor(o.id);
+    const state = (st && st.state) || "off";
+    const el = document.createElement("div");
+    el.className = "out-item" + (o.id === selectedOut ? " active" : "") + (o.enabled ? "" : " disabled");
+    el.innerHTML = `<div class="n"><span class="dot ${state}"></span><span></span></div><div class="t"></div><div class="s muted"></div>`;
+    $(".n span:last-child", el).textContent = o.name;
+    $(".t", el).textContent = `${o.kind === "icecast" ? "Icecast" : o.kind === "shoutcast_v1" ? "Shoutcast v1" : "Shoutcast v2"} · ${o.host}:${o.port}${o.kind === "icecast" ? o.mount : ""} · ${o.bitrate} kb/s`;
+    $(".s", el).textContent = (o.enabled ? STATUS_LABEL[state] : "Désactivée") + (st && st.detail ? " — " + st.detail : "") + (o.has_password ? "" : " · mot de passe à saisir");
+    el.addEventListener("click", () => selectOutput(o.id));
+    box.appendChild(el);
+  }
+  const has = settings.outputs.length > 0 || selectedOut === "new";
+  $("#out-empty").classList.toggle("hidden", has);
+  $("#out-body").classList.toggle("hidden", !has);
+}
+
+function formValues(form) {
+  const v = {};
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    if (el.type === "checkbox") v[el.name] = el.checked;
+    else if (el.type === "number") v[el.name] = Number(el.value);
+    else v[el.name] = el.value;
+  }
+  return v;
+}
+
+function fillForm(form, data) {
+  for (const el of form.elements) {
+    if (!el.name || !(el.name in data)) continue;
+    if (el.type === "checkbox") el.checked = !!data[el.name];
+    else el.value = String(data[el.name]);
+  }
+}
+
+function setResult(id, kind, text) {
+  const el = $(id);
+  el.className = `form-result ${kind}`;
+  el.textContent = text;
+}
+
+function applyKindFields() {
+  const kind = $("#out-form").elements.kind.value;
+  $$("#out-form [data-for]").forEach((el) => el.classList.toggle("hidden", el.dataset.for !== kind));
+}
+
+function selectOutput(id) {
+  selectedOut = id;
+  const form = $("#out-form");
+  const o = settings.outputs.find((x) => x.id === id) || {
+    id: "", name: "Ma webradio", enabled: true, kind: "icecast", host: "localhost", port: 8000,
+    mount: "/live", sid: 1, user: "source", bitrate: 128, mono: false, station: "BLAST Broadcaster",
+    genre: "", description: "", url: "", public: false, has_password: false,
+  };
+  fillForm(form, { ...o, mono: String(o.mono) });
+  form.elements.password.value = "";
+  form.elements.password.placeholder = o.has_password ? "•••••• enregistré (laisser vide pour garder)" : "mot de passe de la source";
+  $("#out-delete").disabled = !o.id;
+  setResult("#out-result", "", "");
+  applyKindFields();
+  renderOutList();
+}
+
+function currentOutput() {
+  const v = formValues($("#out-form"));
+  const id = selectedOut && selectedOut !== "new" ? selectedOut : "";
+  const out = {
+    id, name: v.name, enabled: v.enabled, kind: v.kind, host: v.host.trim(), port: v.port,
+    mount: v.mount, sid: v.sid || 1, user: v.user, bitrate: Number(v.bitrate), mono: v.mono === "true",
+    station: v.station, genre: v.genre, description: v.description, url: v.url, public: v.public,
+  };
+  return { out, password: v.password || null };
+}
+
+function applySettings(view, keepSelection = true) {
+  settings = view;
+  $("#store-info").textContent = `Mots de passe : ${view.secret_store}`;
+  if (view.warning) toast("warn", view.warning);
+  if (!keepSelection || !view.outputs.some((o) => o.id === selectedOut)) {
+    selectedOut = view.outputs.length ? view.outputs[0].id : null;
+  }
+  if (selectedOut) selectOutput(selectedOut);
+  else renderOutList();
+  fillForm($("#aura-form"), view.aura);
+  $("#aura-form").elements.password.value = "";
+  $("#aura-form").elements.password.placeholder = view.aura_has_password ? "•••••• enregistré" : "vide si OBS n'en demande pas";
+  const dev = $("#audio-form").elements.device;
+  dev.innerHTML = "";
+  const def = document.createElement("option");
+  def.value = "";
+  def.textContent = `Sortie par défaut du système${view.default_device ? " (" + view.default_device + ")" : ""}`;
+  dev.appendChild(def);
+  for (const d of view.devices) {
+    const o = document.createElement("option");
+    o.value = d;
+    o.textContent = d;
+    dev.appendChild(o);
+  }
+  dev.value = view.audio.device || "";
+}
+
+async function openSettings(tab) {
+  try {
+    applySettings(await invoke("get_settings"), false);
+  } catch (e) {
+    toast("error", String(e));
+    return;
+  }
+  if (tab) showTab(tab);
+  $("#settings").classList.remove("hidden");
+}
+
+function showTab(tab) {
+  $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
+  $$(".tab-page").forEach((p) => p.classList.toggle("hidden", p.dataset.page !== tab));
+}
+
+(() => {
+  const sel = $("#out-form").elements.bitrate;
+  for (const b of BITRATES) {
+    const o = document.createElement("option");
+    o.value = b;
+    o.textContent = `${b} kb/s`;
+    sel.appendChild(o);
+  }
+})();
+
+$("#settings-btn").addEventListener("click", () => openSettings());
+$("#settings-close").addEventListener("click", () => $("#settings").classList.add("hidden"));
+$("#settings").addEventListener("pointerdown", (e) => {
+  if (e.target.id === "settings") $("#settings").classList.add("hidden");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") $("#settings").classList.add("hidden");
+});
+$$(".tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
+$("#out-form").elements.kind.addEventListener("change", applyKindFields);
+$("#out-add").addEventListener("click", () => selectOutput("new"));
+
+$("#out-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const { out, password } = currentOutput();
+  try {
+    const view = await invoke("save_output", { output: out, password });
+    selectedOut = out.id || (view.outputs.length ? view.outputs[view.outputs.length - 1].id : null);
+    applySettings(view);
+    setResult("#out-result", "ok", "Enregistré.");
+  } catch (err) {
+    setResult("#out-result", "err", String(err));
+  }
+});
+
+$("#out-test").addEventListener("click", async () => {
+  const { out, password } = currentOutput();
+  setResult("#out-result", "busy", "Connexion en cours…");
+  try {
+    setResult("#out-result", "ok", await invoke("test_output", { output: out, password }));
+  } catch (err) {
+    setResult("#out-result", "err", String(err));
+  }
+});
+
+$("#out-delete").addEventListener("click", async () => {
+  if (!selectedOut || selectedOut === "new") return;
+  const o = settings.outputs.find((x) => x.id === selectedOut);
+  if (!o) return;
+  if ($("#out-delete").dataset.confirm !== selectedOut) {
+    $("#out-delete").dataset.confirm = selectedOut;
+    $("#out-delete").textContent = "Confirmer la suppression";
+    setTimeout(() => {
+      $("#out-delete").dataset.confirm = "";
+      $("#out-delete").textContent = "Supprimer";
+    }, 4000);
+    return;
+  }
+  $("#out-delete").dataset.confirm = "";
+  $("#out-delete").textContent = "Supprimer";
+  try {
+    applySettings(await invoke("delete_output", { id: o.id }), false);
+  } catch (err) {
+    setResult("#out-result", "err", String(err));
+  }
+});
+
+function auraValues() {
+  const v = formValues($("#aura-form"));
+  return {
+    aura: { host: v.host.trim(), port: v.port, auto_connect: v.auto_connect, now_playing_source: v.now_playing_source },
+    password: v.password || null,
+  };
+}
+
+$("#aura-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    applySettings(await invoke("save_aura", auraValues()));
+    setResult("#aura-result", "ok", "Enregistré.");
+  } catch (err) {
+    setResult("#aura-result", "err", String(err));
+  }
+});
+
+$("#aura-test").addEventListener("click", async () => {
+  setResult("#aura-result", "busy", "Connexion à OBS…");
+  try {
+    setResult("#aura-result", "ok", await invoke("test_aura", auraValues()));
+  } catch (err) {
+    setResult("#aura-result", "err", String(err));
+  }
+});
+
+$("#audio-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    applySettings(await invoke("save_audio", { device: $("#audio-form").elements.device.value || null }));
+    setResult("#audio-result", "ok", "Enregistré.");
+  } catch (err) {
+    setResult("#audio-result", "err", String(err));
+  }
+});
+
+$("#cast-btn").addEventListener("click", () => {
+  if (!cast.outputs.length) {
+    openSettings("cast");
+    return;
+  }
+  send({ type: cast.casting ? "cast_stop" : "cast_start" });
+});
+
 window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 (async () => {
@@ -379,6 +659,10 @@ window.addEventListener("contextmenu", (e) => e.preventDefault());
     renderPlaylist(e.payload.total);
   });
   await listen("blast://notice", (e) => toast(e.payload.level, e.payload.message));
+  await listen("blast://cast", (e) => {
+    cast = e.payload;
+    renderCast();
+  });
   await loadThemes();
   await setupOsDrop();
   renderPlaylist(0);
