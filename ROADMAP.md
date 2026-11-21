@@ -10,7 +10,7 @@ L'interface (M3a) a été avancée avant la diffusion (M2) pour que la suite s'a
 | **M1.5** | Décodage en flux (au lieu de tout charger en mémoire), lecture Opus, détection des silences de fin | Pistes longues (mixes d'une heure) sans surconsommation mémoire |
 | **M3a** | Interface Tauri v1 : platines, crossfader, auto-mix, VU-mètres, thèmes, playlist, glisser-déposer et sélecteur de fichiers, icône et lanceur | Piloter le moteur à la souris ✅ |
 | **M2** | Cast : encodage MP3 (LAME), Icecast, Shoutcast v1/v2, titre en cours, reconnexion automatique, panneau Réglages (Diffusion, Aura, Audio), mots de passe dans le trousseau | Une webradio écoutable dans un navigateur ✅ |
-| **M2b** | Compteurs façon SAM dans la barre du haut : auditeurs en cours, pic d'auditeurs (max peak), durée de diffusion (timer du stream), par sortie et au total | Suivre son audience en direct |
+| **M2b** | Compteurs façon SAM dans la barre du haut : auditeurs en cours, pic d'auditeurs (max peak), durée de diffusion (timer du stream), par sortie et au total | Suivre son audience en direct ✅ |
 | **M3b** | Interface : forme d'onde, raccourcis clavier, préférences (sortie audio, dossier par défaut), sauvegarde de la playlist | Confort d'utilisation au quotidien |
 | **M4** | Bibliothèque : import, tags, pochettes, file d'attente, auto-DJ simple | Laisser tourner la radio sans intervention |
 | **M5** | **Voice FX** (micro) et **Sound FX** (soundboard) — voir ci-dessous. Reste : noise gate, compresseur voix, modes boucle/maintien des pads, couleurs de pads, pré-écoute casque | Animer une émission en direct ✅ (base) |

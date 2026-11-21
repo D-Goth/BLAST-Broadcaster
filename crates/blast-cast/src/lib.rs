@@ -4,7 +4,9 @@ pub mod protocol;
 
 pub use caster::{Caster, OutputStatus, StatusEvent};
 pub use encoder::Mp3Encoder;
-pub use protocol::{open_source, test_output, update_metadata, CastError};
+pub use protocol::{
+    fetch_listeners, open_source, test_output, update_metadata, CastError, Listeners,
+};
 
 use serde::{Deserialize, Serialize};
 

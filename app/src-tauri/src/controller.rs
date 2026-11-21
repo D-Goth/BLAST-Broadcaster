@@ -6,7 +6,7 @@ use std::time::Duration;
 use std::collections::HashMap;
 
 use blast_aura::{AuraClient, AuraSettings, ObsCommand, ObsEvent};
-use blast_cast::{Caster, OutputConfig, OutputStatus};
+use blast_cast::{fetch_listeners, Caster, Listeners, OutputConfig, OutputStatus};
 use blast_core::dsp::db_to_gain;
 use blast_core::engine::{Engine, MicInput};
 use blast_core::{decode_file, Command, DeckId, DeckState, DeckStatus, Event, MicParams, Track};
@@ -177,6 +177,10 @@ enum Work {
         path: PathBuf,
         result: Result<Track, String>,
     },
+    Listeners {
+        id: String,
+        result: Result<Listeners, String>,
+    },
 }
 
 struct PadState {
@@ -261,6 +265,9 @@ struct CastOutputView {
     target: String,
     enabled: bool,
     status: OutputStatus,
+    listeners: Option<u32>,
+    peak: Option<u32>,
+    live_since: Option<u64>,
 }
 
 #[derive(Serialize, Clone)]
@@ -268,6 +275,9 @@ struct CastView {
     casting: bool,
     song: String,
     outputs: Vec<CastOutputView>,
+    listeners: Option<u32>,
+    session_peak: u32,
+    since: Option<u64>,
 }
 
 #[derive(Serialize, Clone)]
@@ -333,6 +343,10 @@ struct Controller {
     aura: Option<AuraClient>,
     aura_settings: AuraSettings,
     obs: ObsView,
+    stats: HashMap<String, (Option<Listeners>, u32)>,
+    live_since: HashMap<String, u64>,
+    session_peak: u32,
+    last_stats: std::time::Instant,
 }
 
 fn mic_input(v: &VoiceSettings) -> MicInput {
@@ -425,6 +439,10 @@ impl Controller {
                 ..Default::default()
             },
             aura_settings,
+            stats: HashMap::new(),
+            live_since: HashMap::new(),
+            session_peak: 0,
+            last_stats: std::time::Instant::now(),
         };
         if c.aura_settings.auto_connect {
             c.obs_connect();
@@ -770,10 +788,20 @@ impl Controller {
             let updates = self.caster.poll();
             if !updates.is_empty() {
                 for u in updates {
+                    if u.status == OutputStatus::Live {
+                        self.live_since.entry(u.id.clone()).or_insert_with(now_ms);
+                        self.last_stats = std::time::Instant::now() - Duration::from_secs(8);
+                    } else if !matches!(
+                        u.status,
+                        OutputStatus::Retrying(_) | OutputStatus::Connecting
+                    ) {
+                        self.live_since.remove(&u.id);
+                    }
                     self.cast_status.insert(u.id, u.status);
                 }
                 self.emit_cast();
             }
+            self.poll_listeners();
         }
         self.caster.stop_all();
     }
@@ -812,6 +840,7 @@ impl Controller {
     }
 
     fn start_casting(&mut self) {
+        self.session_peak = 0;
         let enabled: Vec<OutputConfig> =
             self.outputs.iter().filter(|o| o.enabled).cloned().collect();
         if enabled.is_empty() {
@@ -851,6 +880,8 @@ impl Controller {
 
     fn stop_casting(&mut self) {
         self.casting = false;
+        self.live_since.clear();
+        self.stats.clear();
         self.caster.stop_all();
         for s in self.cast_status.values_mut() {
             *s = OutputStatus::Off;
@@ -858,10 +889,41 @@ impl Controller {
         self.emit_cast();
     }
 
+    fn poll_listeners(&mut self) {
+        if !self.casting || self.last_stats.elapsed() < Duration::from_secs(10) {
+            return;
+        }
+        self.last_stats = std::time::Instant::now();
+        for o in &self.outputs {
+            if self.cast_status.get(&o.id) != Some(&OutputStatus::Live) {
+                continue;
+            }
+            let cfg = o.clone();
+            let tx = self.work_tx.clone();
+            thread::spawn(move || {
+                let result = fetch_listeners(&cfg).map_err(|e| e.to_string());
+                let _ = tx.send(Work::Listeners { id: cfg.id, result });
+            });
+        }
+    }
+
+    fn total_listeners(&self) -> Option<u32> {
+        let live: Vec<u32> = self
+            .stats
+            .iter()
+            .filter(|(id, _)| self.cast_status.get(*id) == Some(&OutputStatus::Live))
+            .filter_map(|(_, (l, _))| l.map(|l| l.current))
+            .collect();
+        (!live.is_empty()).then(|| live.iter().sum())
+    }
+
     fn emit_cast(&self) {
         let view = CastView {
             casting: self.casting,
             song: self.song.clone(),
+            listeners: self.total_listeners(),
+            session_peak: self.session_peak,
+            since: self.live_since.values().min().copied(),
             outputs: self
                 .outputs
                 .iter()
@@ -881,6 +943,15 @@ impl Controller {
                         .get(&o.id)
                         .cloned()
                         .unwrap_or(OutputStatus::Off),
+                    listeners: self
+                        .stats
+                        .get(&o.id)
+                        .and_then(|(l, _)| l.map(|l| l.current)),
+                    peak: self
+                        .stats
+                        .get(&o.id)
+                        .map(|(l, p)| (*p).max(l.map_or(0, |l| l.peak))),
+                    live_since: self.live_since.get(&o.id).copied(),
                 })
                 .collect(),
         };
@@ -1211,6 +1282,17 @@ impl Controller {
                 self.emit_playlist();
                 self.fill_automix();
                 self.emit_state();
+            }
+            Work::Listeners { id, result } => {
+                if let Ok(l) = result {
+                    let entry = self.stats.entry(id).or_insert((None, 0));
+                    entry.0 = Some(l);
+                    entry.1 = entry.1.max(l.current);
+                    if let Some(total) = self.total_listeners() {
+                        self.session_peak = self.session_peak.max(total);
+                    }
+                    self.emit_cast();
+                }
             }
             Work::PadDecoded {
                 index,

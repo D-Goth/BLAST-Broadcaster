@@ -583,3 +583,7 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
 @media (max-width: 1180px) {
   #themes-folder, #rainbow-toggle { display: none; }
 }
+
+.cast-extra { font-family: var(--mono); font-size: 12px; letter-spacing: 0; padding-left: 8px; border-left: 1px solid var(--border); color: var(--text); }
+.cast-extra.hidden { display: none; }
+#cast-listeners b { color: var(--meter-low); }

@@ -409,8 +409,16 @@ function renderCast() {
           : "CONNEXION…";
   }
   $("#cast-label").textContent = label;
+  renderCastTimer();
+  const lis = $("#cast-listeners");
+  const hasCount = cast.casting && cast.listeners != null;
+  lis.classList.toggle("hidden", !hasCount);
+  if (hasCount) {
+    lis.innerHTML = `&#128100; <b>${cast.listeners}</b> · max ${Math.max(cast.session_peak || 0, ...cast.outputs.map((o) => o.peak || 0))}`;
+    lis.title = "Auditeurs en cours · pic d'auditeurs (serveur et session)";
+  }
   btn.title = cast.outputs.length
-    ? cast.outputs.map((o) => `${o.name} (${o.target}) : ${STATUS_LABEL[statusOf(o)]}${o.status && o.status.detail ? " — " + o.status.detail : ""}`).join("\n")
+    ? cast.outputs.map((o) => `${o.name} (${o.target}) : ${STATUS_LABEL[statusOf(o)]}${o.listeners != null ? " · " + o.listeners + " auditeur(s), max " + (o.peak || o.listeners) : ""}${o.status && o.status.detail ? " — " + o.status.detail : ""}`).join("\n")
     : "Aucune sortie configurée : ouvre les Réglages";
   const errs = cast.outputs.filter((o) => o.status && o.status.detail);
   $("#cast-summary").textContent = cast.casting
@@ -418,6 +426,18 @@ function renderCast() {
     : "";
   if (settings) renderOutList();
 }
+
+function renderCastTimer() {
+  const t = $("#cast-time");
+  const on = cast.casting && cast.since;
+  t.classList.toggle("hidden", !on);
+  if (on) {
+    const s = Math.max(0, Math.floor((Date.now() - cast.since) / 1000));
+    t.textContent = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":");
+    t.title = "Durée de diffusion";
+  }
+}
+setInterval(renderCastTimer, 1000);
 
 function castStatusFor(id) {
   const o = cast.outputs.find((x) => x.id === id);
@@ -435,7 +455,9 @@ function renderOutList() {
     el.innerHTML = `<div class="n"><span class="dot ${state}"></span><span></span></div><div class="t"></div><div class="s muted"></div>`;
     $(".n span:last-child", el).textContent = o.name;
     $(".t", el).textContent = `${o.kind === "icecast" ? "Icecast" : o.kind === "shoutcast_v1" ? "Shoutcast v1" : "Shoutcast v2"} · ${o.host}:${o.port}${o.kind === "icecast" ? o.mount : ""} · ${o.bitrate} kb/s`;
-    $(".s", el).textContent = (o.enabled ? STATUS_LABEL[state] : "Désactivée") + (st && st.detail ? " — " + st.detail : "") + (o.has_password ? "" : " · mot de passe à saisir");
+    const co = cast.outputs.find((x) => x.id === o.id);
+    const count = co && co.listeners != null ? ` · ${co.listeners} auditeur${co.listeners > 1 ? "s" : ""} (max ${co.peak || co.listeners})` : "";
+    $(".s", el).textContent = (o.enabled ? STATUS_LABEL[state] : "Désactivée") + count + (st && st.detail ? " — " + st.detail : "") + (o.has_password ? "" : " · mot de passe à saisir");
     el.addEventListener("click", () => selectOutput(o.id));
     box.appendChild(el);
   }
