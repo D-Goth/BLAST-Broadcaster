@@ -13,7 +13,7 @@ L'interface (M3a) a été avancée avant la diffusion (M2) pour que la suite s'a
 | **M2b** | Compteurs façon SAM dans la barre du haut : auditeurs en cours, pic d'auditeurs (max peak), durée de diffusion (timer du stream), par sortie et au total | Suivre son audience en direct |
 | **M3b** | Interface : forme d'onde, raccourcis clavier, préférences (sortie audio, dossier par défaut), sauvegarde de la playlist | Confort d'utilisation au quotidien |
 | **M4** | Bibliothèque : import, tags, pochettes, file d'attente, auto-DJ simple | Laisser tourner la radio sans intervention |
-| **M5** | **Voice FX** (micro) et **Sound FX** (soundboard), pré-écoute sur sortie casque — voir ci-dessous | Animer une émission en direct |
+| **M5** | **Voice FX** (micro) et **Sound FX** (soundboard) — voir ci-dessous. Reste : noise gate, compresseur voix, modes boucle/maintien des pads, couleurs de pads, pré-écoute casque | Animer une émission en direct ✅ (base) |
 | **M5b** | Platines façon SAM : volume et VU par platine, boutons Air/Cue, pitch, pochette, format du fichier ; file d'attente et historique séparés ; dispositions d'écran (bureaux A/B/C) | Parité avec SAM Broadcaster |
 | **M6** | Traitement audio master : AGC, compresseur, limiteur, normalisation EBU R128 | Un « son radio » homogène |
 | **M7** | Aura : connexion obs-websocket, scènes, stream, Now Playing vers OBS | Lancer le live vidéo depuis BLAST |
@@ -36,7 +36,7 @@ L'interface (M3a) a été avancée avant la diffusion (M2) pour que la suite s'a
 
 Comparaison avec SAM Broadcaster 4.3.6 : ce sont les deux panneaux qui manquent pour l'animation en direct.
 
-**Voice FX (micro)**
+**Voice FX (micro)** — ✅ entrée micro, Mic On, appuyer pour parler (bouton et Espace), ducking AUTO, égaliseur 3 bandes + coupe-bas, faders Micro/Musique
 - Entrée micro choisie dans Réglages → Audio, avec son propre volume et son VU-mètre.
 - **Mic On** : bascule marche/arrêt.
 - **Appuyer pour parler** : micro ouvert tant que le bouton, ou une touche de raccourci, est maintenu.
@@ -44,7 +44,7 @@ Comparaison avec SAM Broadcaster 4.3.6 : ce sont les deux panneaux qui manquent 
 - Égaliseur du micro (graves, médiums, aigus, filtre coupe-bas), noise gate, compresseur voix.
 - Faders séparés Musique / Micro.
 
-**Sound FX (soundboard)**
+**Sound FX (soundboard)** — ✅ 36 pads en 3 pages, F1–F12, glisser-déposer, renommer, STOP, volume
 - Fenêtre de pads, organisée en pages (1/3, 2/3…), chaque pad avec nom, couleur, raccourci clavier et volume.
 - Glisser-déposer de fichiers sur un pad pour l'assigner ; banque de sons libres de droits fournie à part.
 - Modes de lecture par pad : une fois, en boucle, tant que le pad est maintenu.

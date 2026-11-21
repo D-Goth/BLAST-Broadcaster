@@ -6,13 +6,14 @@ use std::time::Duration;
 use std::collections::HashMap;
 
 use blast_cast::{Caster, OutputConfig, OutputStatus};
-use blast_core::engine::Engine;
-use blast_core::{decode_file, Command, DeckId, DeckState, DeckStatus, Event, Track};
+use blast_core::dsp::db_to_gain;
+use blast_core::engine::{Engine, MicInput};
+use blast_core::{decode_file, Command, DeckId, DeckState, DeckStatus, Event, MicParams, Track};
 use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
-use crate::config::AppConfig;
+use crate::config::{AppConfig, SoundboardSettings, VoiceSettings, PAD_COUNT};
 use crate::playlist::{self, Entry, Playlist};
 use crate::secrets::{output_key, Secrets};
 
@@ -97,6 +98,16 @@ pub enum UiCommand {
     },
     CastStart,
     CastStop,
+    Next {
+        deck: Deck,
+    },
+    MicOpen {
+        open: bool,
+    },
+    PadPlay {
+        index: u16,
+    },
+    PadStopAll,
     #[serde(skip)]
     Config(Box<AppConfig>),
 }
@@ -113,6 +124,44 @@ enum Work {
         result: Result<Track, String>,
         play: bool,
     },
+    PadDecoded {
+        index: u16,
+        path: PathBuf,
+        result: Result<Track, String>,
+    },
+}
+
+struct PadState {
+    name: String,
+    color: String,
+    path: PathBuf,
+    track: Option<Arc<Track>>,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+struct PadView {
+    index: u16,
+    name: String,
+    color: String,
+    path: PathBuf,
+    ready: bool,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+struct PadsView {
+    pads: Vec<PadView>,
+    count: u16,
+}
+
+#[derive(Serialize, Clone)]
+struct MicView {
+    available: bool,
+    open: bool,
+    peak: f32,
+    name: Option<String>,
+    error: Option<String>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -145,6 +194,9 @@ struct StateView {
     device: String,
     sample_rate: u32,
     audio_error: Option<String>,
+    mic: MicView,
+    sfx: u64,
+    duck: f32,
 }
 
 #[derive(Serialize, Clone)]
@@ -221,6 +273,25 @@ struct Controller {
     master: Vec<f32>,
     song: String,
     startup_warning: Option<String>,
+    pending_fade: Option<Deck>,
+    pads: HashMap<u16, PadState>,
+    sfx_mask: u64,
+    mic_open: bool,
+    mic_peak: f32,
+    duck: f32,
+    mic_name: Option<String>,
+    mic_error: Option<String>,
+    mic_available: bool,
+}
+
+fn mic_input(v: &VoiceSettings) -> MicInput {
+    if !v.enabled {
+        return MicInput::Off;
+    }
+    match v.input_device.as_deref().map(str::trim) {
+        Some(name) if !name.is_empty() => MicInput::Named(name.to_string()),
+        _ => MicInput::Default,
+    }
 }
 
 impl Controller {
@@ -232,10 +303,11 @@ impl Controller {
         startup_warning: Option<String>,
     ) -> Self {
         let wanted = config.audio.device.clone();
-        let (engine, audio_error) = match Engine::start(wanted.as_deref()) {
+        let mic = mic_input(&config.voice);
+        let (engine, audio_error) = match Engine::start_with(wanted.as_deref(), mic.clone()) {
             Ok(e) => (Some(e), None),
             Err(first) => match wanted {
-                Some(_) => match Engine::start(None) {
+                Some(_) => match Engine::start_with(None, mic.clone()) {
                     Ok(e) => (
                         Some(e),
                         Some(format!("{first} — sortie par défaut utilisée")),
@@ -251,7 +323,16 @@ impl Controller {
             .map(|e| e.device_name().to_string())
             .unwrap_or_default();
         let (work_tx, work_rx) = unbounded();
-        let c = Self {
+        let mic_name = engine
+            .as_ref()
+            .and_then(|e| e.input_name().map(String::from));
+        let mic_error = engine
+            .as_ref()
+            .and_then(|e| e.input_error().map(String::from));
+        let mic_available = mic_name.is_some();
+        let voice = config.voice.clone();
+        let soundboard = config.soundboard.clone();
+        let mut c = Self {
             app,
             rx,
             engine,
@@ -276,9 +357,142 @@ impl Controller {
             master: Vec::with_capacity(sample_rate as usize),
             song: String::new(),
             startup_warning,
+            pending_fade: None,
+            pads: HashMap::new(),
+            sfx_mask: 0,
+            mic_open: false,
+            mic_peak: 0.0,
+            duck: 1.0,
+            mic_name,
+            mic_error,
+            mic_available,
         };
         c.send_automix();
+        c.apply_voice(&voice);
+        c.sync_pads(&soundboard);
         c
+    }
+
+    fn apply_voice(&self, v: &VoiceSettings) {
+        self.send(Command::SetMicParams(MicParams {
+            gain_db: v.mic_gain_db,
+            low_db: v.low_db,
+            mid_db: v.mid_db,
+            high_db: v.high_db,
+            highpass: v.highpass,
+        }));
+        self.send(Command::SetMusicGain(db_to_gain(v.music_gain_db)));
+        self.send(Command::SetDuck {
+            enabled: v.duck,
+            level_db: v.duck_db,
+        });
+    }
+
+    fn sync_pads(&mut self, sb: &SoundboardSettings) {
+        self.send(Command::SetSfxGain(db_to_gain(sb.volume_db)));
+        let wanted: Vec<_> = sb
+            .pads
+            .iter()
+            .filter(|p| p.index < PAD_COUNT && !p.path.as_os_str().is_empty())
+            .collect();
+        let gone: Vec<u16> = self
+            .pads
+            .keys()
+            .copied()
+            .filter(|i| !wanted.iter().any(|p| p.index == *i))
+            .collect();
+        for i in gone {
+            self.pads.remove(&i);
+            self.send(Command::StopSfx(i));
+        }
+        for p in wanted {
+            let same = self.pads.get(&p.index).is_some_and(|s| s.path == p.path);
+            if same {
+                if let Some(s) = self.pads.get_mut(&p.index) {
+                    s.name = p.name.clone();
+                    s.color = p.color.clone();
+                }
+                continue;
+            }
+            self.send(Command::StopSfx(p.index));
+            self.pads.insert(
+                p.index,
+                PadState {
+                    name: p.name.clone(),
+                    color: p.color.clone(),
+                    path: p.path.clone(),
+                    track: None,
+                    error: None,
+                },
+            );
+            let tx = self.work_tx.clone();
+            let rate = self.sample_rate;
+            let index = p.index;
+            let path = p.path.clone();
+            thread::spawn(move || {
+                let result = decode_file(&path, rate).map_err(|e| e.to_string());
+                let _ = tx.send(Work::PadDecoded {
+                    index,
+                    path,
+                    result,
+                });
+            });
+        }
+        self.emit_pads();
+    }
+
+    fn emit_pads(&self) {
+        let mut pads: Vec<PadView> = self
+            .pads
+            .iter()
+            .map(|(i, p)| PadView {
+                index: *i,
+                name: p.name.clone(),
+                color: p.color.clone(),
+                path: p.path.clone(),
+                ready: p.track.is_some(),
+                error: p.error.clone(),
+            })
+            .collect();
+        pads.sort_by_key(|p| p.index);
+        let _ = self.app.emit(
+            "blast://pads",
+            PadsView {
+                pads,
+                count: PAD_COUNT,
+            },
+        );
+    }
+
+    fn crossfade_to(&mut self, to: Deck) {
+        let i = to.index();
+        if self.meta[i].path.is_none() || self.meta[i].loading.is_some() {
+            return;
+        }
+        if self.meta[i].finished {
+            self.send(Command::Stop(to.id()));
+            self.meta[i].finished = false;
+        }
+        self.send(Command::Play(to.id()));
+        self.send(Command::StartCrossfade {
+            to: to.id(),
+            frames: (self.fade.max(0.1) * self.sample_rate as f32) as usize,
+        });
+    }
+
+    fn fade_or_fetch(&mut self, to: Deck) {
+        let o = to.index();
+        if self.meta[o].loading.is_some() {
+            self.pending_fade = Some(to);
+        } else if self.is_playing(o) || (self.meta[o].path.is_some() && !self.meta[o].finished) {
+            self.crossfade_to(to);
+        } else if let Some(e) = self.playlist.take_next() {
+            self.request_load(to, e, false);
+            self.pending_fade = Some(to);
+            self.emit_playlist();
+        } else {
+            self.notice("warn", "Plus aucun titre dans la playlist.");
+        }
     }
 
     fn run(mut self) {
@@ -537,22 +751,74 @@ impl Controller {
             UiCommand::Refresh => {
                 self.emit_playlist();
                 self.emit_cast();
+                self.emit_pads();
                 if let Some(w) = self.startup_warning.take() {
                     self.notice("warn", w);
                 }
             }
             UiCommand::CastStart => self.start_casting(),
             UiCommand::CastStop => self.stop_casting(),
+            UiCommand::Next { deck } => {
+                let i = deck.index();
+                let other = Deck::from_index(1 - i);
+                if self.is_playing(i) {
+                    self.fade_or_fetch(other);
+                } else if self.meta[i].loading.is_none() {
+                    match self.playlist.take_next() {
+                        Some(e) => {
+                            self.request_load(deck, e, false);
+                            self.emit_playlist();
+                        }
+                        None => self.notice("warn", "Plus aucun titre dans la playlist."),
+                    }
+                }
+            }
+            UiCommand::MicOpen { open } => {
+                if self.mic_available {
+                    self.mic_open = open;
+                    self.send(Command::SetMicOpen(open));
+                } else if open {
+                    self.notice(
+                        "warn",
+                        "Aucun micro disponible : vérifie Réglages → Audio, puis redémarre BLAST.",
+                    );
+                }
+            }
+            UiCommand::PadPlay { index } => {
+                if index < 64 && self.sfx_mask & (1u64 << index) != 0 {
+                    self.send(Command::StopSfx(index));
+                } else if let Some(p) = self.pads.get(&index) {
+                    match (&p.track, &p.error) {
+                        (Some(t), _) => self.send(Command::PlaySfx {
+                            pad: index,
+                            track: t.clone(),
+                        }),
+                        (None, Some(e)) => self.notice("error", format!("{} : {e}", p.name)),
+                        (None, None) => {
+                            self.notice("info", format!("{} : chargement en cours…", p.name))
+                        }
+                    }
+                }
+            }
+            UiCommand::PadStopAll => self.send(Command::StopAllSfx),
             UiCommand::Config(cfg) => {
-                self.outputs = cfg.outputs;
-                self.cast_status
-                    .retain(|id, _| self.outputs.iter().any(|o| &o.id == id));
-                if self.casting {
-                    self.caster.stop_all();
-                    self.cast_status.clear();
-                    self.start_casting();
-                } else {
-                    self.emit_cast();
+                self.apply_voice(&cfg.voice);
+                self.sync_pads(&cfg.soundboard);
+                let errored = self
+                    .cast_status
+                    .values()
+                    .any(|s| matches!(s, OutputStatus::Error(_)));
+                if cfg.outputs != self.outputs || (self.casting && errored) {
+                    self.outputs = cfg.outputs;
+                    self.cast_status
+                        .retain(|id, _| self.outputs.iter().any(|o| &o.id == id));
+                    if self.casting {
+                        self.caster.stop_all();
+                        self.cast_status.clear();
+                        self.start_casting();
+                    } else {
+                        self.emit_cast();
+                    }
                 }
             }
             UiCommand::AddPaths { paths, index } => self.scan(paths, index, None),
@@ -627,20 +893,7 @@ impl Controller {
                 self.crossfader = value.clamp(0.0, 1.0);
                 self.send(Command::SetCrossfader(self.crossfader));
             }
-            UiCommand::Crossfade { to } => {
-                let i = to.index();
-                if self.meta[i].path.is_some() && self.meta[i].loading.is_none() {
-                    if self.meta[i].finished {
-                        self.send(Command::Stop(to.id()));
-                        self.meta[i].finished = false;
-                    }
-                    self.send(Command::Play(to.id()));
-                }
-                self.send(Command::StartCrossfade {
-                    to: to.id(),
-                    frames: ((self.fade.max(0.1)) * self.sample_rate as f32) as usize,
-                });
-            }
+            UiCommand::Crossfade { to } => self.fade_or_fetch(to),
             UiCommand::AutoMix { enabled } => {
                 self.automix = enabled;
                 self.send_automix();
@@ -704,6 +957,24 @@ impl Controller {
                 self.fill_automix();
                 self.emit_state();
             }
+            Work::PadDecoded {
+                index,
+                path,
+                result,
+            } => {
+                if let Some(p) = self.pads.get_mut(&index) {
+                    if p.path == path {
+                        match result {
+                            Ok(t) => {
+                                p.track = Some(Arc::new(t));
+                                p.error = None;
+                            }
+                            Err(e) => p.error = Some(e),
+                        }
+                        self.emit_pads();
+                    }
+                }
+            }
             Work::Decoded {
                 deck,
                 job,
@@ -734,8 +1005,15 @@ impl Controller {
                             self.send(Command::SetCrossfader(self.crossfader));
                             self.send(Command::Play(deck.id()));
                         }
+                        if self.pending_fade == Some(deck) {
+                            self.pending_fade = None;
+                            self.crossfade_to(deck);
+                        }
                     }
                     Err(e) => {
+                        if self.pending_fade == Some(deck) {
+                            self.pending_fade = None;
+                        }
                         self.notice(
                             "error",
                             format!("Impossible de charger « {} » : {e}", self.meta[i].title),
@@ -756,7 +1034,15 @@ impl Controller {
                 decks,
                 crossfader,
                 peak,
+                sfx,
+                mic_peak,
+                mic_open,
+                duck,
             } => {
+                self.sfx_mask = sfx;
+                self.mic_peak = mic_peak;
+                self.mic_open = mic_open;
+                self.duck = duck;
                 for (i, d) in decks.iter().enumerate() {
                     if self.meta[i].loading.is_none() {
                         self.status[i] = *d;
@@ -777,6 +1063,12 @@ impl Controller {
                 self.emit_state();
             }
             Event::AutoTransition { .. } | Event::CrossfadeDone { .. } => self.emit_state(),
+            Event::SfxEnded(i) => {
+                if i < 64 {
+                    self.sfx_mask &= !(1u64 << i);
+                }
+                self.emit_state();
+            }
         }
     }
 
@@ -818,6 +1110,15 @@ impl Controller {
             device: self.device.clone(),
             sample_rate: self.sample_rate,
             audio_error: self.audio_error.clone(),
+            mic: MicView {
+                available: self.mic_available,
+                open: self.mic_open,
+                peak: self.mic_peak,
+                name: self.mic_name.clone(),
+                error: self.mic_error.clone(),
+            },
+            sfx: self.sfx_mask,
+            duck: self.duck,
         };
         let _ = self.app.emit("blast://state", view);
     }

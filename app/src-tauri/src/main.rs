@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use blast_aura::AuraSettings;
 use blast_cast::OutputConfig;
-use config::{AppConfig, AudioSettings};
+use config::{AppConfig, AudioSettings, PadConfig, SoundboardSettings, VoiceSettings, PAD_COUNT};
 use crossbeam_channel::Sender;
 use secrets::{output_key, Secrets, Stored, AURA_KEY};
 use serde::Serialize;
@@ -37,8 +37,12 @@ struct SettingsView {
     aura: AuraSettings,
     aura_has_password: bool,
     audio: AudioSettings,
+    voice: VoiceSettings,
+    soundboard: SoundboardSettings,
     devices: Vec<String>,
     default_device: Option<String>,
+    input_devices: Vec<String>,
+    default_input: Option<String>,
     secret_store: String,
     config_path: String,
     warning: Option<String>,
@@ -59,8 +63,12 @@ impl App {
             aura_has_password: self.secrets.has(AURA_KEY),
             aura: cfg.aura,
             audio: cfg.audio,
+            voice: cfg.voice,
+            soundboard: cfg.soundboard,
             devices: blast_core::engine::list_output_devices().unwrap_or_default(),
             default_device: blast_core::engine::default_output_device(),
+            input_devices: blast_core::engine::list_input_devices().unwrap_or_default(),
+            default_input: blast_core::engine::default_input_device(),
             secret_store: self.secrets.store_label(),
             config_path: self.config_path.display().to_string(),
             warning,
@@ -216,6 +224,60 @@ fn save_audio(
     )))
 }
 
+#[tauri::command]
+fn save_voice(state: tauri::State<'_, App>, voice: VoiceSettings) -> Result<(), String> {
+    state.commit(move |cfg| cfg.voice = voice)
+}
+
+#[tauri::command]
+fn save_input(
+    state: tauri::State<'_, App>,
+    enabled: bool,
+    device: Option<String>,
+) -> Result<SettingsView, String> {
+    let device = device.filter(|d| !d.is_empty());
+    state.commit(move |cfg| {
+        cfg.voice.enabled = enabled;
+        cfg.voice.input_device = device;
+    })?;
+    Ok(state.view(Some(
+        "Le nouveau micro sera utilisé au prochain démarrage de BLAST.".into(),
+    )))
+}
+
+#[tauri::command]
+fn save_pad(state: tauri::State<'_, App>, pad: PadConfig) -> Result<(), String> {
+    if pad.index >= PAD_COUNT {
+        return Err("Pad inexistant.".into());
+    }
+    if !pad.path.is_file() {
+        return Err(format!("Fichier introuvable : {}", pad.path.display()));
+    }
+    let mut pad = pad;
+    if pad.name.trim().is_empty() {
+        pad.name = pad
+            .path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+    }
+    state.commit(move |cfg| {
+        cfg.soundboard.pads.retain(|p| p.index != pad.index);
+        cfg.soundboard.pads.push(pad);
+        cfg.soundboard.pads.sort_by_key(|p| p.index);
+    })
+}
+
+#[tauri::command]
+fn clear_pad(state: tauri::State<'_, App>, index: u16) -> Result<(), String> {
+    state.commit(move |cfg| cfg.soundboard.pads.retain(|p| p.index != index))
+}
+
+#[tauri::command]
+fn save_sfx_volume(state: tauri::State<'_, App>, volume_db: f32) -> Result<(), String> {
+    state.commit(move |cfg| cfg.soundboard.volume_db = volume_db.clamp(-60.0, 6.0))
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -254,7 +316,12 @@ fn main() {
             test_output,
             save_aura,
             test_aura,
-            save_audio
+            save_audio,
+            save_voice,
+            save_input,
+            save_pad,
+            clear_pad,
+            save_sfx_volume
         ])
         .run(tauri::generate_context!())
         .expect("BLAST Broadcaster");

@@ -10,10 +10,62 @@ pub struct AudioSettings {
     pub device: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct VoiceSettings {
+    pub enabled: bool,
+    pub input_device: Option<String>,
+    pub mic_gain_db: f32,
+    pub music_gain_db: f32,
+    pub duck: bool,
+    pub duck_db: f32,
+    pub low_db: f32,
+    pub mid_db: f32,
+    pub high_db: f32,
+    pub highpass: bool,
+}
+
+impl Default for VoiceSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            input_device: None,
+            mic_gain_db: 0.0,
+            music_gain_db: 0.0,
+            duck: true,
+            duck_db: -12.0,
+            low_db: 0.0,
+            mid_db: 0.0,
+            high_db: 0.0,
+            highpass: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PadConfig {
+    pub index: u16,
+    pub name: String,
+    pub path: PathBuf,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SoundboardSettings {
+    pub volume_db: f32,
+    pub pads: Vec<PadConfig>,
+}
+
+pub const PAD_COUNT: u16 = 36;
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
     pub audio: AudioSettings,
+    pub voice: VoiceSettings,
+    pub soundboard: SoundboardSettings,
     pub aura: AuraSettings,
     pub outputs: Vec<OutputConfig>,
 }
