@@ -95,22 +95,56 @@ fn read_tags(rev: &MetadataRevision, title: &mut Option<String>, artist: &mut Op
     }
 }
 
-pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> {
+pub const AUDIO_EXTENSIONS: &[&str] = &[
+    "mp3", "mp2", "m4a", "mp4", "aac", "alac", "flac", "ogg", "oga", "wav", "aif", "aiff", "aifc",
+    "caf", "mka", "mkv", "webm",
+];
+
+pub fn is_audio_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| AUDIO_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
+        .unwrap_or(false)
+}
+
+#[derive(Debug, Clone)]
+pub struct TrackInfo {
+    pub path: PathBuf,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub duration_secs: Option<f64>,
+    pub sample_rate: Option<u32>,
+}
+
+impl TrackInfo {
+    pub fn display_title(&self) -> String {
+        self.title.clone().unwrap_or_else(|| {
+            self.path
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        })
+    }
+}
+
+fn open(path: &Path) -> Result<symphonia::core::probe::ProbeResult, DecodeError> {
     let file = File::open(path)?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
-
     let mut hint = Hint::new();
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         hint.with_extension(ext);
     }
-
-    let mut probed = symphonia::default::get_probe().format(
+    Ok(symphonia::default::get_probe().format(
         &hint,
         mss,
         &FormatOptions::default(),
         &MetadataOptions::default(),
-    )?;
+    )?)
+}
 
+fn collect_tags(
+    probed: &mut symphonia::core::probe::ProbeResult,
+) -> (Option<String>, Option<String>) {
     let mut title = None;
     let mut artist = None;
     if let Some(meta) = probed.metadata.get() {
@@ -118,11 +152,40 @@ pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> 
             read_tags(rev, &mut title, &mut artist);
         }
     }
-
-    let mut format = probed.format;
-    if let Some(rev) = format.metadata().current() {
+    if let Some(rev) = probed.format.metadata().current() {
         read_tags(rev, &mut title, &mut artist);
     }
+    (title, artist)
+}
+
+pub fn probe_file(path: &Path) -> Result<TrackInfo, DecodeError> {
+    let mut probed = open(path)?;
+    let (title, artist) = collect_tags(&mut probed);
+    let track = probed
+        .format
+        .tracks()
+        .iter()
+        .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+        .ok_or(DecodeError::NoAudioTrack)?;
+    let params = &track.codec_params;
+    symphonia::default::get_codecs().make(params, &DecoderOptions::default())?;
+    let duration_secs = match (params.n_frames, params.sample_rate) {
+        (Some(n), Some(r)) if r > 0 => Some(n as f64 / r as f64),
+        _ => None,
+    };
+    Ok(TrackInfo {
+        path: path.to_path_buf(),
+        title,
+        artist,
+        duration_secs,
+        sample_rate: params.sample_rate,
+    })
+}
+
+pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> {
+    let mut probed = open(path)?;
+    let (title, artist) = collect_tags(&mut probed);
+    let mut format = probed.format;
 
     let track = format
         .tracks()

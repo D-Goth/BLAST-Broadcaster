@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BLAST Broadcaster</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/icon.png" alt="" class="brand-icon">
+      <span class="brand-name">BLAST</span>
+      <span class="brand-sub">Broadcaster</span>
+    </div>
+    <div id="onair" class="onair">ON AIR</div>
+    <div class="topbar-right">
+      <div id="clock" class="clock">00:00:00</div>
+      <button id="rainbow-toggle" class="btn ghost small" title="Effet rainbow sur la platine à l'antenne">Rainbow</button>
+      <label class="theme-picker">
+        <span>Thème</span>
+        <select id="theme-select"></select>
+      </label>
+      <button id="themes-folder" class="btn ghost small" title="Dossier des thèmes personnalisés">Thèmes…</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="decks">
+      <article class="deck" data-deck="A">
+        <div class="deck-head">
+          <span class="deck-label">PLATINE A</span>
+          <span class="chip state">VIDE</span>
+        </div>
+        <div class="deck-title">—</div>
+        <div class="deck-artist">&nbsp;</div>
+        <div class="deck-times">
+          <div><small>Écoulé</small><b class="elapsed">00:00</b></div>
+          <div class="big"><small>Restant</small><b class="remaining">-00:00</b></div>
+          <div><small>Durée</small><b class="duration">00:00</b></div>
+        </div>
+        <div class="progress" title="Cliquer pour se déplacer dans le titre">
+          <div class="fade-zone"></div>
+          <div class="fill"></div>
+        </div>
+        <div class="deck-controls">
+          <button class="btn icon" data-action="play" title="Lecture">&#9654;</button>
+          <button class="btn icon" data-action="pause" title="Pause">&#10074;&#10074;</button>
+          <button class="btn icon" data-action="stop" title="Stop (retour au début)">&#9632;</button>
+          <button class="btn icon" data-action="eject" title="Éjecter">&#9167;</button>
+        </div>
+        <div class="drop-hint">Déposer pour charger la platine A</div>
+      </article>
+
+      <section class="mixer">
+        <div class="mixer-title">MIX</div>
+        <div class="crossfader">
+          <span class="xf-label a">A</span>
+          <input id="crossfader" type="range" min="0" max="1000" value="0">
+          <span class="xf-label b">B</span>
+        </div>
+        <button id="fade-btn" class="btn accent wide">FONDU &rarr; B</button>
+        <div class="automix-row">
+          <button id="automix" class="btn toggle wide">AUTO-MIX</button>
+        </div>
+        <label class="fade-input">
+          <span>Durée du fondu</span>
+          <span class="fade-field"><input id="fade-seconds" type="number" min="0" max="30" step="0.5" value="6"> s</span>
+        </label>
+        <div class="meters">
+          <div class="meter"><span>L</span><div class="meter-bar"><div class="meter-fill" id="meter-l"></div></div></div>
+          <div class="meter"><span>R</span><div class="meter-bar"><div class="meter-fill" id="meter-r"></div></div></div>
+          <div id="clip" class="clip">CLIP</div>
+        </div>
+      </section>
+
+      <article class="deck" data-deck="B">
+        <div class="deck-head">
+          <span class="deck-label">PLATINE B</span>
+          <span class="chip state">VIDE</span>
+        </div>
+        <div class="deck-title">—</div>
+        <div class="deck-artist">&nbsp;</div>
+        <div class="deck-times">
+          <div><small>Écoulé</small><b class="elapsed">00:00</b></div>
+          <div class="big"><small>Restant</small><b class="remaining">-00:00</b></div>
+          <div><small>Durée</small><b class="duration">00:00</b></div>
+        </div>
+        <div class="progress" title="Cliquer pour se déplacer dans le titre">
+          <div class="fade-zone"></div>
+          <div class="fill"></div>
+        </div>
+        <div class="deck-controls">
+          <button class="btn icon" data-action="play" title="Lecture">&#9654;</button>
+          <button class="btn icon" data-action="pause" title="Pause">&#10074;&#10074;</button>
+          <button class="btn icon" data-action="stop" title="Stop (retour au début)">&#9632;</button>
+          <button class="btn icon" data-action="eject" title="Éjecter">&#9167;</button>
+        </div>
+        <div class="drop-hint">Déposer pour charger la platine B</div>
+      </article>
+    </section>
+
+    <section class="playlist" id="playlist">
+      <div class="playlist-bar">
+        <span class="playlist-title">PLAYLIST</span>
+        <span id="playlist-info" class="muted">0 titre</span>
+        <div class="spacer"></div>
+        <button id="add-files" class="btn small">+ Fichiers</button>
+        <button id="add-folder" class="btn small">+ Dossier</button>
+        <button id="clear" class="btn ghost small">Vider</button>
+      </div>
+      <div class="playlist-head row-grid">
+        <span>#</span><span>Titre</span><span>Artiste</span><span class="right">Durée</span><span class="right">Charger</span>
+      </div>
+      <div id="rows" class="rows"></div>
+      <div id="empty" class="empty">
+        <p>Glisse ici des fichiers ou des dossiers depuis ton explorateur,</p>
+        <p>ou utilise <b>+ Fichiers</b> / <b>+ Dossier</b>.</p>
+        <p class="muted">Double-clic sur un titre : chargement dans la platine libre. Glisser un titre sur une platine : chargement direct.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <span id="device" class="muted">Sortie audio…</span>
+    <span id="audio-error" class="error-text"></span>
+  </footer>
+
+  <div id="toasts" class="toasts"></div>
+  <div id="ghost" class="drag-ghost"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

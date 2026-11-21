@@ -7,6 +7,7 @@ members = [
     "crates/blast-aura",
     "crates/blast-live",
     "crates/blast-cli",
+    "app/src-tauri",
 ]
 
 [workspace.package]

@@ -56,6 +56,35 @@ l'autre démarre et le crossfader glisse vers elle. Si la platine suivante est c
 **Limites actuelles** : chaque piste est décodée entièrement en mémoire (environ 23 Mo par minute à 48 kHz),
 le master est simplement écrêté à ±1 (le limiteur arrive en M6), et symphonia 0.5 ne décode pas l'Opus.
 
+## Application de bureau (M3a)
+
+```
+ app/ui (HTML/CSS/JS)  ── invoke("blast", {cmd}) ──▶  main.rs ──▶ file de commandes
+        ▲                                                         │
+        │ événements blast://state (10/s), blast://playlist,      ▼
+        │ blast://notice                                   controller.rs (thread dédié)
+        └──────────────────────────────────────────────── │  possède Engine, Playlist
+                                                           ├─ threads de décodage
+                                                           └─ threads de scan (dossiers, tags)
+```
+
+| Fichier | Rôle |
+|---|---|
+| `src-tauri/src/main.rs` | Démarrage Tauri, commandes `blast`, `themes`, `themes_dir`, fichiers passés en argument |
+| `src-tauri/src/controller.rs` | Thread qui possède le moteur : traduit les commandes de l'interface, gère l'auto-mix, publie l'état |
+| `src-tauri/src/playlist.rs` | Playlist (insertion, déplacement, retrait), parcours récursif des dossiers, lecture rapide des tags |
+| `src-tauri/src/themes.rs` | Thèmes intégrés (`themes/*.toml` compilés dans le binaire) et thèmes utilisateur |
+| `ui/app.js` | Rendu, glisser-déposer interne (pointeur) et depuis le système (événements Tauri), sélecteurs de fichiers |
+
+**Commandes de l'interface** (`UiCommand`, JSON `{"type": …}`) : `refresh`, `add_paths`, `load_paths`, `remove`, `move`,
+`clear`, `load_entry`, `play`, `pause`, `stop`, `eject`, `seek`, `crossfader`, `crossfade`, `auto_mix`, `fade_seconds`.
+
+**Auto-mix côté application** : dès qu'une platine est libre (vide ou terminée) et que l'autre est occupée,
+le contrôleur y charge le titre suivant de la playlist. Si les deux sont libres, il charge et lance la platine du côté du crossfader.
+
+**Thèmes utilisateur** : fichiers `.toml` au même format que `themes/`, dans le dossier de configuration
+(`~/.config/fr.black-lab.blast/themes` sous Linux). Le bouton **Thèmes…** crée ce dossier et l'affiche.
+
 ## Dépendances envisagées
 
 | Besoin | Crate / bibliothèque | Licence |
@@ -65,7 +94,8 @@ le master est simplement écrêté à ±1 (le limiteur arrive en M6), et symphon
 | Encodage MP3 | LAME (liaison dynamique) | LGPL |
 | Encodage Opus / Vorbis / FLAC | libopus / libvorbis / libFLAC | BSD |
 | Rééchantillonnage | `rubato` | MIT |
-| Interface | Tauri | MIT / Apache-2.0 |
+| Interface | Tauri 2, tauri-plugin-dialog | MIT / Apache-2.0 |
+| Thèmes | `toml`, `serde_json` | MIT / Apache-2.0 |
 | WebSocket (OBS, chat) | `tokio-tungstenite` | MIT |
 | Files temps réel | `crossbeam-channel` | MIT / Apache-2.0 |
 | Ligne de commande, WAV | `clap`, `hound` | MIT / Apache-2.0 |
