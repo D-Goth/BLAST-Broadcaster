@@ -30,4 +30,20 @@ L'interface (M3a) a été avancée avant la diffusion (M2) pour que la suite s'a
 - Bouton **Ajouter** ouvrant le sélecteur de fichiers natif, avec sélection multiple, et **Ajouter un dossier**.
 - Fichiers non lisibles signalés dans la playlist plutôt que refusés en silence.
 
+## Panneau de configuration (M2 et M7)
+
+Fenêtre **Réglages** à onglets, ouverte depuis la barre du haut :
+
+- **Diffusion** (M2) : liste de sorties, chacune avec type de serveur (Icecast, Shoutcast v1, Shoutcast v2),
+  hôte, port, point de montage ou SID, utilisateur, mot de passe, codec, débit, fréquence, canaux,
+  nom et genre de la station. Boutons **Tester la connexion**, **Activer/Désactiver**, voyant d'état par sortie.
+- **Aura / OBS** (M7) : hôte, port (4455 par défaut), mot de passe obs-websocket, connexion automatique au démarrage,
+  test de connexion, choix des scènes et de la source texte « Now Playing ».
+- **Audio** : sortie principale, sortie casque (pré-écoute), fréquence.
+- **Général** : dossier de musique par défaut, durée de fondu, thème.
+
+Les mots de passe ne sont jamais écrits en clair dans les fichiers de configuration :
+ils sont rangés dans le trousseau du système (KWallet ou Secret Service sous Linux,
+Gestionnaire d'identifiants sous Windows, Trousseau sous macOS). Le reste des réglages est un fichier TOML lisible.
+
 Idées pour plus tard : invités à distance en WebRTC avec mix-minus, contrôleurs MIDI, mode rainbow synchronisé au BPM, API locale pour plugins.
