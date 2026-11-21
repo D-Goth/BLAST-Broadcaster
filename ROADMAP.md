@@ -16,8 +16,9 @@ L'interface (M3a) a été avancée avant la diffusion (M2) pour que la suite s'a
 | **M5** | **Voice FX** (micro) et **Sound FX** (soundboard) — voir ci-dessous. Reste : noise gate, compresseur voix, modes boucle/maintien des pads, couleurs de pads, pré-écoute casque | Animer une émission en direct ✅ (base) |
 | **M5b** | Platines façon SAM : volume et VU par platine, boutons Air/Cue, pitch, pochette, format du fichier ; file d'attente et historique séparés ; dispositions d'écran (bureaux A/B/C) | Parité avec SAM Broadcaster |
 | **M6** | Traitement audio master : AGC, compresseur, limiteur, normalisation EBU R128 | Un « son radio » homogène |
-| **M7** | Aura : connexion obs-websocket, scènes, stream, Now Playing vers OBS | Lancer le live vidéo depuis BLAST |
-| **M8** | Live : chat Twitch puis YouTube et Kick, commandes viewers, bot Now Playing | Interaction avec le public |
+| **M7** | Aura (repris du prototype Aura Control) : connexion obs-websocket avec reconnexion, scènes, stream, enregistrement et pause, replay, capture, volume et mute des sources, minuteurs, Now Playing vers une source texte OBS | Lancer le live vidéo depuis BLAST ✅ |
+| **M7b** | Sortie « antenne » vers OBS (micro inclus) via une sortie audio virtuelle, raccourcis clavier OBS configurables | OBS diffuse exactement ce qui part à l'antenne |
+| **M8** | Live : chat Twitch (lecture anonyme, jeton seulement pour écrire), YouTube, Kick ; commandes viewers ; bot Now Playing — repris du prototype Aura Control | Interaction avec le public |
 | **M9** | Formats supplémentaires : Opus, Vorbis, AAC | Plusieurs formats en parallèle |
 | **M10** | Rotations avancées, planificateur, voice tracking, historique exportable | Programmation complète d'une grille |
 | **M11** | Packaging Linux (AppImage, .deb, Flatpak), Windows (MSI), macOS (DMG) | Installation en un clic |
