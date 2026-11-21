@@ -17,6 +17,11 @@
     <button id="cast-btn" class="cast-btn" title="Démarrer ou arrêter la diffusion vers les serveurs">
       <span class="cast-dot"></span><span id="cast-label">DIFFUSER</span>
     </button>
+    <button id="obs-pill" class="obs-pill" title="OBS (module Aura)">
+      <span class="obs-dot"></span><span class="obs-name">OBS</span>
+      <span id="obs-live" class="obs-timer live hidden">&#9654; 00:00:00</span>
+      <span id="obs-rec" class="obs-timer rec hidden">&#9210; 00:00:00</span>
+    </button>
     <div class="topbar-right">
       <div id="clock" class="clock">00:00:00</div>
       <button id="rainbow-toggle" class="btn ghost small" title="Effet rainbow sur la platine à l'antenne">Rainbow</button>
@@ -158,8 +163,34 @@
       </section>
 
       <section class="fx soundfx" id="soundfx">
-        <div class="fx-head">
-          <span class="fx-title">SOUND FX</span>
+        <div class="fx-tabs">
+          <button class="fx-tab active" data-fx="pads">SOUND FX</button>
+          <button class="fx-tab" data-fx="obs">AURA &middot; OBS</button>
+        </div>
+        <div class="fx-page" data-fxpage="obs" hidden>
+          <div class="obs-status">
+            <span class="dot" id="obs-dot"></span>
+            <span id="obs-status-text">Déconnecté</span>
+            <span class="spacer"></span>
+            <button class="btn small" id="obs-connect">Connecter</button>
+          </div>
+          <div class="obs-grid">
+            <button class="hw" id="obs-stream" data-obs="stream"><span class="led"></span><b>&#9654;</b><small>STREAM</small></button>
+            <button class="hw" id="obs-record" data-obs="record"><span class="led"></span><b>&#9210;</b><small>REC</small></button>
+            <button class="hw" id="obs-pause" data-obs="record_pause"><span class="led"></span><b>&#10074;&#10074;</b><small>PAUSE REC</small></button>
+            <button class="hw" id="obs-replay" data-obs="replay"><b>&#8635;</b><small>REPLAY</small></button>
+            <button class="hw" id="obs-snap" data-obs="snap"><b>&#9673;</b><small>SNAP</small></button>
+            <button class="hw" id="obs-mute"><span class="led"></span><b>&#128263;</b><small>MUTE</small></button>
+          </div>
+          <div class="obs-label">SCÈNES</div>
+          <div class="obs-scenes" id="obs-scenes"></div>
+          <div class="obs-audio">
+            <select id="obs-input"></select>
+            <input type="range" id="obs-vol" min="0" max="100" step="1">
+            <output id="obs-vol-v">–</output>
+          </div>
+        </div>
+        <div class="fx-head" data-fxpage="pads">
           <button class="btn ghost small pager" id="pad-prev" title="Page précédente">&lsaquo;</button>
           <span id="pad-page" class="muted">1/3</span>
           <button class="btn ghost small pager" id="pad-next" title="Page suivante">&rsaquo;</button>
@@ -167,7 +198,7 @@
           <input type="range" id="sfx-vol" min="-30" max="6" step="0.5" title="Volume des sons">
           <button class="btn small danger" id="sfx-stop" title="Couper tous les sons">STOP</button>
         </div>
-        <div class="pads" id="pads"></div>
+        <div class="pads" id="pads" data-fxpage="pads"></div>
       </section>
     </aside>
     </section>
@@ -253,7 +284,7 @@
 
       <section class="tab-page hidden" data-page="aura">
         <form class="form" id="aura-form" autocomplete="off">
-          <p class="muted">Connexion au serveur WebSocket d'OBS Studio (Outils → Paramètres du serveur WebSocket). Le pilotage des scènes et l'affichage du titre en cours dans OBS arrivent avec le module Aura.</p>
+          <p class="muted">Connexion au serveur WebSocket d'OBS Studio (Outils → Paramètres du serveur WebSocket). Le pilotage se fait dans l'onglet <b>AURA · OBS</b> à côté de la Sound FX. Si une source texte est indiquée ci-dessous, BLAST y écrit « Artiste - Titre » à chaque changement de morceau.</p>
           <div class="grid2">
             <label>Adresse<input name="host" required></label>
             <label>Port<input name="port" type="number" min="1" max="65535" required></label>

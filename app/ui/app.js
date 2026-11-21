@@ -968,6 +968,131 @@ async function loadVoiceSettings() {
   }
 }
 
+
+let obs = { status: "off", scenes: [], inputs: [] };
+let obsInput = null;
+let obsVolHeld = false;
+const OBS_STATUS = { off: "Déconnecté", connecting: "Connexion…", connected: "Connecté", retrying: "Reconnexion…", error: "Erreur" };
+
+function hms(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+function showFx(page) {
+  $$(".fx-tab").forEach((t) => t.classList.toggle("active", t.dataset.fx === page));
+  $$("#soundfx [data-fxpage]").forEach((el) => (el.hidden = el.dataset.fxpage !== page));
+  try { localStorage.setItem("blast.fxtab", page); } catch (_) {}
+}
+
+function renderObsTimers() {
+  const now = Date.now();
+  const live = $("#obs-live");
+  live.classList.toggle("hidden", !(obs.stream && obs.stream_since));
+  if (obs.stream && obs.stream_since) live.innerHTML = `&#9654; ${hms(now - obs.stream_since)}`;
+  const rec = $("#obs-rec");
+  rec.classList.toggle("hidden", !(obs.record && obs.record_since));
+  rec.classList.toggle("paused", !!obs.record_paused);
+  if (obs.record && obs.record_since && !obs.record_paused) rec.innerHTML = `&#9210; ${hms(now - obs.record_since)}`;
+  if (obs.record_paused) rec.innerHTML = rec.innerHTML.replace("&#9210;", "&#10074;&#10074;").replace("⏺", "❚❚");
+}
+
+function renderObs() {
+  const st = obs.status;
+  const connected = st === "connected";
+  $("#obs-pill").className = `obs-pill ${st}`;
+  $("#obs-pill").title = `OBS : ${OBS_STATUS[st] || st}${obs.detail ? " — " + obs.detail : ""}`;
+  $(".fx-tab[data-fx='obs']").classList.toggle("obs-on", connected);
+  $("#obs-dot").className = `dot ${connected ? "live" : st === "error" ? "error" : st === "off" ? "" : "connecting"}`;
+  $("#obs-status-text").textContent = connected
+    ? `Connecté — OBS ${obs.obs_version || ""}`
+    : `${OBS_STATUS[st] || st}${obs.detail ? " : " + obs.detail : ""}`;
+  $("#obs-status-text").title = obs.detail || "";
+  $("#obs-connect").textContent = st === "off" || st === "error" ? "Connecter" : "Déconnecter";
+  $$(".obs-grid .hw").forEach((b) => (b.disabled = !connected));
+  $("#obs-pause").disabled = !connected || !obs.record;
+  $("#obs-stream").classList.toggle("on-stream", !!obs.stream);
+  $("#obs-stream small").textContent = obs.stream ? "STOP STREAM" : "STREAM";
+  $("#obs-record").classList.toggle("on-rec", !!obs.record);
+  $("#obs-record small").textContent = obs.record ? "STOP REC" : "REC";
+  $("#obs-pause").classList.toggle("on-warn", !!obs.record_paused);
+  $("#obs-pause small").textContent = obs.record_paused ? "REPRENDRE" : "PAUSE REC";
+
+  const box = $("#obs-scenes");
+  box.innerHTML = "";
+  if (!connected || !obs.scenes.length) {
+    const e = document.createElement("div");
+    e.className = "obs-empty";
+    e.textContent = connected ? "Aucune scène dans OBS" : "Connecte OBS pour afficher tes scènes";
+    box.appendChild(e);
+  } else {
+    for (const name of obs.scenes) {
+      const b = document.createElement("button");
+      b.className = "scene" + (name === obs.current ? " current" : "");
+      b.textContent = name;
+      b.title = name;
+      b.addEventListener("click", () => send({ type: "obs", action: "scene", name }));
+      box.appendChild(b);
+    }
+  }
+
+  const sel = $("#obs-input");
+  const names = obs.inputs.map((i) => i.name);
+  if (!names.includes(obsInput)) obsInput = names[0] || null;
+  sel.innerHTML = "";
+  if (!names.length) {
+    const o = document.createElement("option");
+    o.textContent = connected ? "Aucune source audio" : "Source audio OBS";
+    o.value = "";
+    sel.appendChild(o);
+  }
+  for (const i of obs.inputs) {
+    const o = document.createElement("option");
+    o.value = i.name;
+    o.textContent = (i.muted ? "🔇 " : "") + i.name;
+    sel.appendChild(o);
+  }
+  sel.value = obsInput || "";
+  sel.disabled = !connected || !names.length;
+  const cur = obs.inputs.find((i) => i.name === obsInput);
+  $("#obs-vol").disabled = !cur;
+  if (!obsVolHeld) $("#obs-vol").value = cur ? Math.round(cur.volume * 100) : 0;
+  $("#obs-vol-v").textContent = cur ? `${Math.round(cur.volume * 100)}%` : "–";
+  $("#obs-mute").disabled = !cur;
+  $("#obs-mute").classList.toggle("on-warn", !!(cur && cur.muted));
+  renderObsTimers();
+}
+
+$$(".fx-tab").forEach((t) => t.addEventListener("click", () => showFx(t.dataset.fx)));
+$("#obs-pill").addEventListener("click", () => {
+  showFx("obs");
+  if (obs.status === "off" || obs.status === "error") send({ type: "obs", action: "connect" });
+});
+$("#obs-connect").addEventListener("click", () => {
+  send({ type: "obs", action: obs.status === "off" || obs.status === "error" ? "connect" : "disconnect" });
+});
+$$(".obs-grid [data-obs]").forEach((b) => b.addEventListener("click", () => send({ type: "obs", action: b.dataset.obs })));
+$("#obs-mute").addEventListener("click", () => {
+  if (obsInput) send({ type: "obs", action: "mute", input: obsInput });
+});
+$("#obs-input").addEventListener("change", (e) => {
+  obsInput = e.target.value || null;
+  renderObs();
+});
+$("#obs-vol").addEventListener("pointerdown", () => (obsVolHeld = true));
+document.addEventListener("pointerup", () => (obsVolHeld = false));
+let obsVolPending = false;
+$("#obs-vol").addEventListener("input", (e) => {
+  $("#obs-vol-v").textContent = `${e.target.value}%`;
+  if (obsVolPending || !obsInput) return;
+  obsVolPending = true;
+  setTimeout(() => {
+    obsVolPending = false;
+    send({ type: "obs", action: "volume", input: obsInput, mul: Number($("#obs-vol").value) / 100 });
+  }, 60);
+});
+setInterval(renderObsTimers, 500);
+
 window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 (async () => {
@@ -980,6 +1105,10 @@ window.addEventListener("contextmenu", (e) => e.preventDefault());
     renderPlaylist(e.payload.total);
   });
   await listen("blast://notice", (e) => toast(e.payload.level, e.payload.message));
+  await listen("blast://obs", (e) => {
+    obs = e.payload;
+    renderObs();
+  });
   await listen("blast://pads", (e) => {
     padsData = e.payload;
     renderPads();
@@ -991,6 +1120,8 @@ window.addEventListener("contextmenu", (e) => e.preventDefault());
   await loadThemes();
   await loadVoiceSettings();
   renderPads();
+  renderObs();
+  showFx(localStorageGet("blast.fxtab") === "obs" ? "obs" : "pads");
   await setupOsDrop();
   renderPlaylist(0);
   send({ type: "refresh" });

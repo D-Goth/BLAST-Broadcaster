@@ -130,6 +130,25 @@ Le retard du micro est borné : si le tampon dépasse 80 ms (horloges d'entrée 
 l'excédent est abandonné. Le micro s'ouvre et se ferme avec une rampe de 20 ms pour éviter les clics.
 Les sons des pads sont décodés en arrière-plan et gardés en mémoire.
 
+## Aura — pilotage d'OBS (M7)
+
+`blast-aura/src/client.rs` ouvre une connexion obs-websocket v5 persistante dans son propre thread :
+identification (avec mot de passe si OBS en demande), abonnement aux événements, puis boucle
+commandes ↔ messages avec un délai de lecture de 50 ms. En cas de coupure, nouvelle tentative après
+2 s, puis 4, 8… jusqu'à 30 s ; un mot de passe refusé arrête les tentatives.
+
+| Requête OBS | Usage |
+|---|---|
+| `GetSceneList`, `SetCurrentProgramScene` | Grille de scènes (ordre de l'interface d'OBS) |
+| `GetStreamStatus`, `ToggleStream` | Bouton STREAM, minuteur ▶ (reprend la durée réelle si le stream tournait déjà) |
+| `GetRecordStatus`, `ToggleRecord`, `ToggleRecordPause` | Boutons REC et PAUSE REC, minuteur ⏺ |
+| `SaveReplayBuffer`, `SaveSourceScreenshot` | REPLAY et SNAP (PNG de la scène en cours) |
+| `GetInputList`, `GetInputMute`, `GetInputVolume`, `ToggleInputMute`, `SetInputVolume` | Sources audio de capture uniquement |
+| `SetInputSettings` (`text`) | Titre en cours dans une source texte OBS |
+
+Les événements `CurrentProgramSceneChanged`, `StreamStateChanged`, `RecordStateChanged`,
+`InputMuteStateChanged`, `InputVolumeChanged` tiennent l'interface à jour quand on agit directement dans OBS.
+
 ## Dépendances envisagées
 
 | Besoin | Crate / bibliothèque | Licence |

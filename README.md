@@ -8,7 +8,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 
 ![BLAST Broadcaster — thème Black-Lab](docs/img/interface-black-lab.png)
 
-> Statut : **M5 (première partie)**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX (micro, appuyer pour parler, ducking, égaliseur) et Sound FX (36 pads). Prochaine étape : compteurs d'auditeurs (M2b).
+> Statut : **M7 (Aura)**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX, Sound FX (36 pads) et pilotage d'OBS (stream, enregistrement, scènes, sources audio, titre en cours). Prochaine étape : chat Twitch et YouTube (M8).
 
 ## Fonctionnalités prévues
 
@@ -88,7 +88,8 @@ PipeWire et PulseAudio sont pris en charge via leur couche de compatibilité ALS
 | Soundboard | 36 pads sur 3 pages ; clic ou **F1 à F12** pour jouer (re-clic = stop), **STOP** coupe tout ; glisser un fichier (ou un titre de la playlist) sur un pad pour l'assigner ; clic droit : choisir, renommer, vider |
 | Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |
 | Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut |
-| OBS | **Réglages → Aura / OBS** : adresse, port et mot de passe du serveur WebSocket d'OBS, avec test de connexion |
+| OBS | **Réglages → Aura / OBS** : adresse, port, mot de passe et source texte « Now Playing » ; puis onglet **AURA · OBS** (à côté de SOUND FX) ou bouton **OBS** de la barre du haut |
+| Pilotage OBS | STREAM, REC, PAUSE REC, REPLAY, SNAP (capture dans `~/Images/BLAST`), MUTE et volume d'une source audio, changement de scène ; minuteurs ▶ stream et ⏺ enregistrement dans la barre du haut |
 
 **Diffusion** : le bouton passe au vert (**EN DIRECT n/n**) quand toutes les sorties actives sont connectées. En cas de coupure,
 BLAST se reconnecte tout seul toutes les 5 secondes ; un mot de passe refusé arrête la sortie concernée.

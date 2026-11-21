@@ -5,17 +5,64 @@ use std::time::Duration;
 
 use std::collections::HashMap;
 
+use blast_aura::{AuraClient, AuraSettings, ObsCommand, ObsEvent};
 use blast_cast::{Caster, OutputConfig, OutputStatus};
 use blast_core::dsp::db_to_gain;
 use blast_core::engine::{Engine, MicInput};
 use blast_core::{decode_file, Command, DeckId, DeckState, DeckStatus, Event, MicParams, Track};
 use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::config::{AppConfig, SoundboardSettings, VoiceSettings, PAD_COUNT};
 use crate::playlist::{self, Entry, Playlist};
-use crate::secrets::{output_key, Secrets};
+use crate::secrets::{output_key, Secrets, AURA_KEY};
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum ObsAction {
+    Connect,
+    Disconnect,
+    Scene { name: String },
+    Stream,
+    Record,
+    RecordPause,
+    Replay,
+    Snap,
+    Volume { input: String, mul: f32 },
+    Mute { input: String },
+}
+
+#[derive(Serialize, Clone)]
+struct ObsInputView {
+    name: String,
+    kind: String,
+    muted: bool,
+    volume: f32,
+}
+
+#[derive(Serialize, Clone, Default)]
+struct ObsView {
+    status: &'static str,
+    detail: String,
+    obs_version: String,
+    scenes: Vec<String>,
+    current: Option<String>,
+    stream: bool,
+    stream_since: Option<u64>,
+    record: bool,
+    record_paused: bool,
+    record_since: Option<u64>,
+    inputs: Vec<ObsInputView>,
+    now_playing_source: String,
+}
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 pub enum Deck {
@@ -108,6 +155,7 @@ pub enum UiCommand {
         index: u16,
     },
     PadStopAll,
+    Obs(ObsAction),
     #[serde(skip)]
     Config(Box<AppConfig>),
 }
@@ -282,6 +330,9 @@ struct Controller {
     mic_name: Option<String>,
     mic_error: Option<String>,
     mic_available: bool,
+    aura: Option<AuraClient>,
+    aura_settings: AuraSettings,
+    obs: ObsView,
 }
 
 fn mic_input(v: &VoiceSettings) -> MicInput {
@@ -332,6 +383,7 @@ impl Controller {
         let mic_available = mic_name.is_some();
         let voice = config.voice.clone();
         let soundboard = config.soundboard.clone();
+        let aura_settings = config.aura.clone();
         let mut c = Self {
             app,
             rx,
@@ -366,7 +418,17 @@ impl Controller {
             mic_name,
             mic_error,
             mic_available,
+            aura: None,
+            obs: ObsView {
+                status: "off",
+                now_playing_source: aura_settings.now_playing_source.clone(),
+                ..Default::default()
+            },
+            aura_settings,
         };
+        if c.aura_settings.auto_connect {
+            c.obs_connect();
+        }
         c.send_automix();
         c.apply_voice(&voice);
         c.sync_pads(&soundboard);
@@ -440,6 +502,182 @@ impl Controller {
             });
         }
         self.emit_pads();
+    }
+
+    fn obs_connect(&mut self) {
+        self.aura = None;
+        let pw = self.secrets.get(AURA_KEY);
+        self.aura = Some(AuraClient::start(self.aura_settings.clone(), pw));
+        self.obs.status = "connecting";
+        self.obs.detail.clear();
+        self.emit_obs();
+    }
+
+    fn obs_disconnect(&mut self) {
+        self.aura = None;
+        self.obs = ObsView {
+            status: "off",
+            now_playing_source: self.aura_settings.now_playing_source.clone(),
+            ..Default::default()
+        };
+        self.emit_obs();
+    }
+
+    fn obs_send(&self, cmd: ObsCommand) {
+        match &self.aura {
+            Some(a) if self.obs.status == "connected" => a.send(cmd),
+            _ => self.notice(
+                "warn",
+                "OBS n'est pas connecté (panneau AURA OBS → Connecter).",
+            ),
+        }
+    }
+
+    fn obs_now_playing(&self) {
+        let src = self.aura_settings.now_playing_source.trim();
+        if src.is_empty() || self.obs.status != "connected" || self.song.is_empty() {
+            return;
+        }
+        if let Some(a) = &self.aura {
+            a.send(ObsCommand::SetText {
+                source: src.to_string(),
+                text: self.song.clone(),
+            });
+        }
+    }
+
+    fn handle_obs(&mut self, action: ObsAction) {
+        match action {
+            ObsAction::Connect => self.obs_connect(),
+            ObsAction::Disconnect => self.obs_disconnect(),
+            ObsAction::Scene { name } => self.obs_send(ObsCommand::SetScene(name)),
+            ObsAction::Stream => self.obs_send(ObsCommand::ToggleStream),
+            ObsAction::Record => self.obs_send(ObsCommand::ToggleRecord),
+            ObsAction::RecordPause => {
+                if self.obs.record {
+                    self.obs_send(ObsCommand::ToggleRecordPause)
+                } else {
+                    self.notice("warn", "Aucun enregistrement en cours dans OBS.")
+                }
+            }
+            ObsAction::Replay => self.obs_send(ObsCommand::SaveReplay),
+            ObsAction::Snap => {
+                let dir = self
+                    .app
+                    .path()
+                    .picture_dir()
+                    .unwrap_or_else(|_| std::env::temp_dir())
+                    .join("BLAST");
+                let _ = std::fs::create_dir_all(&dir);
+                let file = dir.join(format!("obs-{}.png", now_ms()));
+                self.obs_send(ObsCommand::Screenshot(file));
+            }
+            ObsAction::Volume { input, mul } => self.obs_send(ObsCommand::SetVolume { input, mul }),
+            ObsAction::Mute { input } => self.obs_send(ObsCommand::ToggleMute(input)),
+        }
+    }
+
+    fn pump_obs(&mut self) {
+        let Some(a) = &self.aura else {
+            return;
+        };
+        let events = a.poll();
+        if events.is_empty() {
+            return;
+        }
+        let mut send_song = false;
+        for e in events {
+            match e {
+                ObsEvent::Connecting => {
+                    if self.obs.status != "connected" {
+                        self.obs.status = "connecting";
+                    }
+                }
+                ObsEvent::Connected { obs_version, .. } => {
+                    self.obs.status = "connected";
+                    self.obs.detail.clear();
+                    self.obs.obs_version = obs_version;
+                    send_song = true;
+                }
+                ObsEvent::Disconnected { reason, retrying } => {
+                    let np = self.obs.now_playing_source.clone();
+                    self.obs = ObsView {
+                        status: if retrying { "retrying" } else { "error" },
+                        detail: reason,
+                        now_playing_source: np,
+                        ..Default::default()
+                    };
+                }
+                ObsEvent::Scenes { scenes, current } => {
+                    self.obs.scenes = scenes;
+                    self.obs.current = current;
+                }
+                ObsEvent::CurrentScene(s) => self.obs.current = Some(s),
+                ObsEvent::Stream {
+                    active,
+                    duration_ms,
+                } => {
+                    self.obs.stream = active;
+                    self.obs.stream_since = if active {
+                        duration_ms
+                            .map(|d| now_ms().saturating_sub(d))
+                            .or(self.obs.stream_since)
+                    } else {
+                        None
+                    };
+                }
+                ObsEvent::Record {
+                    active,
+                    paused,
+                    duration_ms,
+                } => {
+                    self.obs.record = active;
+                    self.obs.record_paused = paused;
+                    self.obs.record_since = if active {
+                        duration_ms
+                            .map(|d| now_ms().saturating_sub(d))
+                            .or(self.obs.record_since)
+                    } else {
+                        None
+                    };
+                }
+                ObsEvent::Inputs(list) => {
+                    let old = std::mem::take(&mut self.obs.inputs);
+                    self.obs.inputs = list
+                        .into_iter()
+                        .map(|i| {
+                            let prev = old.iter().find(|o| o.name == i.name);
+                            ObsInputView {
+                                muted: prev.is_some_and(|p| p.muted),
+                                volume: prev.map_or(1.0, |p| p.volume),
+                                name: i.name,
+                                kind: i.kind,
+                            }
+                        })
+                        .collect();
+                }
+                ObsEvent::InputMuted { name, muted } => {
+                    if let Some(i) = self.obs.inputs.iter_mut().find(|i| i.name == name) {
+                        i.muted = muted;
+                    }
+                }
+                ObsEvent::InputVolume { name, mul } => {
+                    if let Some(i) = self.obs.inputs.iter_mut().find(|i| i.name == name) {
+                        i.volume = mul;
+                    }
+                }
+                ObsEvent::Info(m) => self.notice("info", m),
+                ObsEvent::Error(m) => self.notice("error", format!("OBS — {m}")),
+            }
+        }
+        if send_song {
+            self.obs_now_playing();
+        }
+        self.emit_obs();
+    }
+
+    fn emit_obs(&self) {
+        let _ = self.app.emit("blast://obs", self.obs.clone());
     }
 
     fn emit_pads(&self) {
@@ -528,6 +766,7 @@ impl Controller {
                 self.on_event(e);
             }
             self.pump_master();
+            self.pump_obs();
             let updates = self.caster.poll();
             if !updates.is_empty() {
                 for u in updates {
@@ -567,6 +806,7 @@ impl Controller {
         if !song.is_empty() && song != self.song {
             self.song = song;
             self.caster.set_metadata(&self.song);
+            self.obs_now_playing();
             self.emit_cast();
         }
     }
@@ -753,6 +993,7 @@ impl Controller {
                 self.emit_playlist();
                 self.emit_cast();
                 self.emit_pads();
+                self.emit_obs();
                 if let Some(w) = self.startup_warning.take() {
                     self.notice("warn", w);
                 }
@@ -802,7 +1043,20 @@ impl Controller {
                 }
             }
             UiCommand::PadStopAll => self.send(Command::StopAllSfx),
+            UiCommand::Obs(action) => self.handle_obs(action),
             UiCommand::Config(cfg) => {
+                if cfg.aura != self.aura_settings
+                    || (self.aura.is_some() && self.obs.status == "error")
+                {
+                    let reconnect = self.aura.is_some();
+                    self.aura_settings = cfg.aura.clone();
+                    self.obs.now_playing_source = cfg.aura.now_playing_source.clone();
+                    if reconnect {
+                        self.obs_connect();
+                    } else {
+                        self.emit_obs();
+                    }
+                }
                 self.apply_voice(&cfg.voice);
                 self.sync_pads(&cfg.soundboard);
                 let errored = self

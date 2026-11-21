@@ -1,3 +1,7 @@
+pub mod client;
+
+pub use client::{AuraClient, ObsCommand, ObsEvent, ObsInput};
+
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
@@ -85,7 +89,7 @@ pub fn auth_response(password: &str, salt: &str, challenge: &str) -> String {
     b64.encode(Sha256::digest(format!("{secret}{challenge}").as_bytes()))
 }
 
-fn read_json(ws: &mut tungstenite::WebSocket<TcpStream>) -> Result<Value, AuraError> {
+pub(crate) fn read_json(ws: &mut tungstenite::WebSocket<TcpStream>) -> Result<Value, AuraError> {
     loop {
         match ws.read() {
             Ok(Message::Text(t)) => {
