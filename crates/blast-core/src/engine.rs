@@ -54,8 +54,35 @@ pub fn default_output_device() -> Option<String> {
         .and_then(|d| d.name().ok())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MicInput {
+    Off,
+    Default,
+    Named(String),
+}
+
+pub fn list_input_devices() -> Result<Vec<String>, EngineError> {
+    let host = cpal::default_host();
+    let mut names = Vec::new();
+    for d in host.input_devices().map_err(backend)? {
+        if let Ok(n) = d.name() {
+            names.push(n);
+        }
+    }
+    Ok(names)
+}
+
+pub fn default_input_device() -> Option<String> {
+    cpal::default_host()
+        .default_input_device()
+        .and_then(|d| d.name().ok())
+}
+
 pub struct Engine {
     _stream: cpal::Stream,
+    _input: Option<cpal::Stream>,
+    input_name: Option<String>,
+    input_error: Option<String>,
     commands: Sender<Command>,
     events: Receiver<Event>,
     ticks: Receiver<Event>,
@@ -68,6 +95,10 @@ pub struct Engine {
 
 impl Engine {
     pub fn start(device: Option<&str>) -> Result<Self, EngineError> {
+        Self::start_with(device, MicInput::Off)
+    }
+
+    pub fn start_with(device: Option<&str>, mic: MicInput) -> Result<Self, EngineError> {
         let host = cpal::default_host();
         let device = match device {
             Some(name) => host
@@ -88,7 +119,15 @@ impl Engine {
         let (evt_tx, evt_rx) = bounded::<Event>(1024);
         let (tick_tx, tick_rx) = bounded::<Event>(16);
         let (trash_tx, trash_rx) = bounded::<Arc<Track>>(64);
-        let mixer = Mixer::new(sample_rate);
+        let mut mixer = Mixer::new(sample_rate);
+        let (input, input_name, input_error) = match open_mic(&host, &mic, sample_rate) {
+            Ok(Some((stream, name, consumer))) => {
+                mixer.attach_mic(consumer);
+                (Some(stream), Some(name), None)
+            }
+            Ok(None) => (None, None, None),
+            Err(e) => (None, None, Some(e.to_string())),
+        };
         let (tap_tx, tap_rx) = rtrb::RingBuffer::<f32>::new(sample_rate as usize * 2 * TAP_SECONDS);
         let parts = Parts {
             tap: tap_tx,
@@ -108,8 +147,15 @@ impl Engine {
         }?;
         stream.play().map_err(backend)?;
 
+        if let Some(i) = &input {
+            let _ = i.play();
+        }
+
         Ok(Self {
             _stream: stream,
+            _input: input,
+            input_name,
+            input_error,
             commands: cmd_tx,
             events: evt_rx,
             ticks: tick_rx,
@@ -131,6 +177,14 @@ impl Engine {
 
     pub fn device_name(&self) -> &str {
         &self.device_name
+    }
+
+    pub fn input_name(&self) -> Option<&str> {
+        self.input_name.as_deref()
+    }
+
+    pub fn input_error(&self) -> Option<&str> {
+        self.input_error.as_deref()
     }
 
     pub fn send(&self, cmd: Command) -> bool {
@@ -219,6 +273,11 @@ where
                         let _ = trash.try_send(old);
                     }
                 }
+                while let Some(old) = mixer.take_retired() {
+                    if trash.try_send(old).is_err() {
+                        break;
+                    }
+                }
                 let total = data.len() / channels.max(1);
                 let mut done = 0;
                 while done < total {
@@ -255,6 +314,81 @@ where
                 }
             },
             |err| eprintln!("flux audio : {err}"),
+            None,
+        )
+        .map_err(backend)
+}
+
+type MicStream = (cpal::Stream, String, rtrb::Consumer<f32>);
+
+fn open_mic(
+    host: &cpal::Host,
+    mic: &MicInput,
+    out_rate: u32,
+) -> Result<Option<MicStream>, EngineError> {
+    let device = match mic {
+        MicInput::Off => return Ok(None),
+        MicInput::Default => match host.default_input_device() {
+            Some(d) => d,
+            None => return Ok(None),
+        },
+        MicInput::Named(name) => host
+            .input_devices()
+            .map_err(backend)?
+            .find(|d| d.name().map(|n| &n == name).unwrap_or(false))
+            .ok_or_else(|| EngineError::DeviceNotFound(name.clone()))?,
+    };
+    let name = device.name().unwrap_or_default();
+    let supported = device.default_input_config().map_err(backend)?;
+    let format = supported.sample_format();
+    let config: cpal::StreamConfig = supported.into();
+    let (tx, rx) = rtrb::RingBuffer::<f32>::new(out_rate as usize);
+    let stream = match format {
+        SampleFormat::F32 => build_input::<f32>(&device, &config, tx, out_rate),
+        SampleFormat::I16 => build_input::<i16>(&device, &config, tx, out_rate),
+        SampleFormat::U16 => build_input::<u16>(&device, &config, tx, out_rate),
+        SampleFormat::I32 => build_input::<i32>(&device, &config, tx, out_rate),
+        other => return Err(EngineError::UnsupportedFormat(format!("micro {other:?}"))),
+    }?;
+    Ok(Some((stream, name, rx)))
+}
+
+fn build_input<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    mut tx: rtrb::Producer<f32>,
+    out_rate: u32,
+) -> Result<cpal::Stream, EngineError>
+where
+    T: SizedSample,
+    f32: FromSample<T>,
+{
+    let channels = (config.channels as usize).max(1);
+    let step = config.sample_rate.0 as f64 / out_rate as f64;
+    let mut phase = 0.0f64;
+    let mut prev = 0.0f32;
+    device
+        .build_input_stream(
+            config,
+            move |data: &[T], _: &cpal::InputCallbackInfo| {
+                for frame in data.chunks(channels) {
+                    let mut sum = 0.0f32;
+                    for s in frame {
+                        sum += s.to_sample::<f32>();
+                    }
+                    let cur = sum / frame.len() as f32;
+                    while phase < 1.0 {
+                        let v = prev + (cur - prev) * phase as f32;
+                        if tx.push(v).is_err() {
+                            break;
+                        }
+                        phase += step;
+                    }
+                    phase -= 1.0;
+                    prev = cur;
+                }
+            },
+            |err| eprintln!("micro : {err}"),
             None,
         )
         .map_err(backend)

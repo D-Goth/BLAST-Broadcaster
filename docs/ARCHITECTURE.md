@@ -110,6 +110,23 @@ Testé contre Icecast 2.4.4 (sortie normale et port de compatibilité Shoutcast)
 titre mis à jour au changement de morceau, reconnexion après redémarrage du serveur.
 Shoutcast v2 (DNAS 2) n'a été testé que contre un serveur simulé.
 
+## Voice FX et Sound FX (M5)
+
+```
+ micro (flux d'entrée cpal) ─▶ mono + rééchantillonnage linéaire ─▶ tampon rtrb ─▶ mixeur
+ mixeur : (platines × crossfader × volume musique × ducking) + micro (coupe-bas, EQ, gain, rampe 20 ms) + pads
+```
+
+| Fichier | Rôle |
+|---|---|
+| `blast-core/src/dsp.rs` | Filtres biquad (coupe-bas, plateaux grave et aigu, cloche médium) |
+| `blast-core/src/mixer.rs` | Jusqu'à 16 sons de pads simultanés, chaîne micro, ducking (descente 150 ms, remontée 600 ms) |
+| `blast-core/src/engine.rs` | Flux d'entrée micro, retour des pistes terminées hors du thread audio |
+
+Le retard du micro est borné : si le tampon dépasse 80 ms (horloges d'entrée et de sortie différentes),
+l'excédent est abandonné. Le micro s'ouvre et se ferme avec une rampe de 20 ms pour éviter les clics.
+Les sons des pads sont décodés en arrière-plan et gardés en mémoire.
+
 ## Dépendances envisagées
 
 | Besoin | Crate / bibliothèque | Licence |

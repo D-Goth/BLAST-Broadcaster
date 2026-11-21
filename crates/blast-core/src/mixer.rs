@@ -1,6 +1,31 @@
 use std::sync::Arc;
 
+use crate::dsp::{db_to_gain, Biquad};
 use crate::{crossfade_gains, DeckId, DeckState, Track};
+
+pub const MAX_VOICES: usize = 16;
+const MIC_MAX_BACKLOG_MS: usize = 80;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MicParams {
+    pub gain_db: f32,
+    pub low_db: f32,
+    pub mid_db: f32,
+    pub high_db: f32,
+    pub highpass: bool,
+}
+
+impl Default for MicParams {
+    fn default() -> Self {
+        Self {
+            gain_db: 0.0,
+            low_db: 0.0,
+            mid_db: 0.0,
+            high_db: 0.0,
+            highpass: true,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -15,6 +40,14 @@ pub enum Command {
     StartCrossfade { to: DeckId, frames: usize },
     SetMaster(f32),
     SetAutoMix { enabled: bool, fade_frames: usize },
+    PlaySfx { pad: u16, track: Arc<Track> },
+    StopSfx(u16),
+    StopAllSfx,
+    SetSfxGain(f32),
+    SetMusicGain(f32),
+    SetMicOpen(bool),
+    SetMicParams(MicParams),
+    SetDuck { enabled: bool, level_db: f32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -34,11 +67,29 @@ pub enum Event {
     CrossfadeDone {
         to: f32,
     },
+    SfxEnded(u16),
     Tick {
         decks: [DeckStatus; 2],
         crossfader: f32,
         peak: [f32; 2],
+        sfx: u64,
+        mic_peak: f32,
+        mic_open: bool,
+        duck: f32,
     },
+}
+
+struct Voice {
+    pad: u16,
+    track: Arc<Track>,
+    pos: usize,
+}
+
+struct MicChain {
+    hp: Biquad,
+    low: Biquad,
+    mid: Biquad,
+    high: Biquad,
 }
 
 #[derive(Debug, Default)]
@@ -83,7 +134,6 @@ struct Fade {
     outgoing: Option<usize>,
 }
 
-#[derive(Debug)]
 pub struct Mixer {
     sample_rate: u32,
     decks: [Slot; 2],
@@ -95,6 +145,20 @@ pub struct Mixer {
     tick_every: usize,
     tick_count: usize,
     peak: [f32; 2],
+    voices: Vec<Voice>,
+    retired: Vec<Arc<Track>>,
+    sfx_gain: f32,
+    music_gain: f32,
+    mic: Option<rtrb::Consumer<f32>>,
+    mic_open: bool,
+    mic_level: f32,
+    mic_gain: f32,
+    mic_params: MicParams,
+    mic_chain: MicChain,
+    mic_peak: f32,
+    duck_enabled: bool,
+    duck_target: f32,
+    duck: f32,
 }
 
 impl Mixer {
@@ -114,6 +178,45 @@ impl Mixer {
             tick_every: (sample_rate / 10).max(1) as usize,
             tick_count: 0,
             peak: [0.0; 2],
+            voices: Vec::with_capacity(MAX_VOICES),
+            retired: Vec::with_capacity(MAX_VOICES * 2),
+            sfx_gain: 1.0,
+            music_gain: 1.0,
+            mic: None,
+            mic_open: false,
+            mic_level: 0.0,
+            mic_gain: 1.0,
+            mic_params: MicParams::default(),
+            mic_chain: MicChain::build(&MicParams::default(), sample_rate as f32),
+            mic_peak: 0.0,
+            duck_enabled: true,
+            duck_target: db_to_gain(-12.0),
+            duck: 1.0,
+        }
+    }
+
+    pub fn attach_mic(&mut self, consumer: rtrb::Consumer<f32>) {
+        self.mic = Some(consumer);
+    }
+
+    pub fn has_mic(&self) -> bool {
+        self.mic.is_some()
+    }
+
+    pub fn take_retired(&mut self) -> Option<Arc<Track>> {
+        self.retired.pop()
+    }
+
+    pub fn sfx_mask(&self) -> u64 {
+        self.voices
+            .iter()
+            .filter(|v| v.pad < 64)
+            .fold(0u64, |m, v| m | (1u64 << v.pad))
+    }
+
+    fn retire(&mut self, track: Arc<Track>) {
+        if self.retired.len() < self.retired.capacity() {
+            self.retired.push(track);
         }
     }
 
@@ -182,6 +285,44 @@ impl Mixer {
             } => {
                 self.automix = enabled;
                 self.automix_frames = fade_frames.max(1);
+            }
+            Command::PlaySfx { pad, track } => {
+                if let Some(i) = self.voices.iter().position(|v| v.pad == pad) {
+                    let old = self.voices.swap_remove(i);
+                    self.retire(old.track);
+                }
+                if self.voices.len() >= MAX_VOICES {
+                    let old = self.voices.remove(0);
+                    self.retire(old.track);
+                }
+                self.voices.push(Voice { pad, track, pos: 0 });
+            }
+            Command::StopSfx(pad) => {
+                if let Some(i) = self.voices.iter().position(|v| v.pad == pad) {
+                    let old = self.voices.swap_remove(i);
+                    self.retire(old.track);
+                }
+            }
+            Command::StopAllSfx => {
+                while let Some(v) = self.voices.pop() {
+                    self.retire(v.track);
+                }
+            }
+            Command::SetSfxGain(g) => self.sfx_gain = g.max(0.0),
+            Command::SetMusicGain(g) => self.music_gain = g.max(0.0),
+            Command::SetMicOpen(open) => self.mic_open = open,
+            Command::SetMicParams(p) => {
+                self.mic_params = p;
+                self.mic_gain = db_to_gain(p.gain_db);
+                let fresh = MicChain::build(&p, self.sample_rate as f32);
+                self.mic_chain.hp.retune(fresh.hp);
+                self.mic_chain.low.retune(fresh.low);
+                self.mic_chain.mid.retune(fresh.mid);
+                self.mic_chain.high.retune(fresh.high);
+            }
+            Command::SetDuck { enabled, level_db } => {
+                self.duck_enabled = enabled;
+                self.duck_target = db_to_gain(level_db.min(0.0));
             }
         }
         None
@@ -286,8 +427,59 @@ impl Mixer {
         (l * slot.gain, r * slot.gain)
     }
 
+    fn mic_sample(&mut self) -> f32 {
+        let Some(mic) = self.mic.as_mut() else {
+            return 0.0;
+        };
+        match mic.pop() {
+            Ok(s) => {
+                let c = &mut self.mic_chain;
+                let mut x = s;
+                if self.mic_params.highpass {
+                    x = c.hp.process(x);
+                }
+                x = c.high.process(c.mid.process(c.low.process(x)));
+                x * self.mic_gain
+            }
+            Err(_) => 0.0,
+        }
+    }
+
+    fn sfx_sample<F: FnMut(Event)>(&mut self, emit: &mut F) -> (f32, f32) {
+        let mut l = 0.0;
+        let mut r = 0.0;
+        let mut i = 0;
+        while i < self.voices.len() {
+            let v = &mut self.voices[i];
+            let frames = v.track.frames();
+            if v.pos >= frames {
+                let done = self.voices.swap_remove(i);
+                emit(Event::SfxEnded(done.pad));
+                self.retire(done.track);
+                continue;
+            }
+            l += v.track.samples[2 * v.pos];
+            r += v.track.samples[2 * v.pos + 1];
+            v.pos += 1;
+            i += 1;
+        }
+        (l * self.sfx_gain, r * self.sfx_gain)
+    }
+
     pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], mut emit: F) {
         let frames = out.len() / 2;
+        if let Some(mic) = self.mic.as_mut() {
+            let max = self.sample_rate as usize * MIC_MAX_BACKLOG_MS / 1000 + frames;
+            let backlog = mic.slots();
+            if backlog > max {
+                if let Ok(chunk) = mic.read_chunk(backlog - max / 2) {
+                    chunk.commit_all();
+                }
+            }
+        }
+        let mic_step = 1.0 / (self.sample_rate as f32 * 0.02);
+        let duck_attack = 1.0 / (self.sample_rate as f32 * 0.15);
+        let duck_release = 1.0 / (self.sample_rate as f32 * 0.6);
         for f in 0..frames {
             self.check_automix(&mut emit);
             let (ga, gb) = crossfade_gains(self.crossfader);
@@ -295,8 +487,30 @@ impl Mixer {
             let (lb, rb) = self.next_sample(1, &mut emit);
             self.step_fade(&mut emit);
 
-            let l = ((la * ga + lb * gb) * self.master).clamp(-1.0, 1.0);
-            let r = ((ra * ga + rb * gb) * self.master).clamp(-1.0, 1.0);
+            let mic_target = if self.mic_open { 1.0 } else { 0.0 };
+            if self.mic_level < mic_target {
+                self.mic_level = (self.mic_level + mic_step).min(1.0);
+            } else if self.mic_level > mic_target {
+                self.mic_level = (self.mic_level - mic_step).max(0.0);
+            }
+            let duck_goal = if self.duck_enabled && self.mic_open {
+                self.duck_target
+            } else {
+                1.0
+            };
+            if self.duck > duck_goal {
+                self.duck = (self.duck - duck_attack).max(duck_goal);
+            } else if self.duck < duck_goal {
+                self.duck = (self.duck + duck_release).min(duck_goal);
+            }
+            let m = self.mic_sample();
+            self.mic_peak = self.mic_peak.max(m.abs());
+            let m = m * self.mic_level;
+            let (sl, sr) = self.sfx_sample(&mut emit);
+            let music = self.music_gain * self.duck;
+
+            let l = (((la * ga + lb * gb) * music + m + sl) * self.master).clamp(-1.0, 1.0);
+            let r = (((ra * ga + rb * gb) * music + m + sr) * self.master).clamp(-1.0, 1.0);
             out[2 * f] = l;
             out[2 * f + 1] = r;
 
@@ -309,9 +523,25 @@ impl Mixer {
                     decks: [self.decks[0].status(), self.decks[1].status()],
                     crossfader: self.crossfader,
                     peak: self.peak,
+                    sfx: self.sfx_mask(),
+                    mic_peak: self.mic_peak,
+                    mic_open: self.mic_open,
+                    duck: self.duck,
                 });
                 self.peak = [0.0; 2];
+                self.mic_peak = 0.0;
             }
+        }
+    }
+}
+
+impl MicChain {
+    fn build(p: &MicParams, rate: f32) -> Self {
+        Self {
+            hp: Biquad::highpass(90.0, 0.707, rate),
+            low: Biquad::low_shelf(150.0, p.low_db, rate),
+            mid: Biquad::peaking(1500.0, 0.8, p.mid_db, rate),
+            high: Biquad::high_shelf(6000.0, p.high_db, rate),
         }
     }
 }
@@ -467,5 +697,88 @@ mod tests {
         let mut m = Mixer::new(1000);
         assert!(m.apply(Command::Load(DeckId::A, tone(10, 0.1))).is_none());
         assert!(m.apply(Command::Load(DeckId::A, tone(10, 0.1))).is_some());
+    }
+
+    #[test]
+    fn sfx_plays_over_music_and_ends() {
+        let mut m = Mixer::new(1000);
+        m.apply(Command::PlaySfx {
+            pad: 3,
+            track: tone(20, 0.25),
+        });
+        assert_eq!(m.sfx_mask(), 1 << 3);
+        let (out, ev) = run(&mut m, 30);
+        assert!((out[0] - 0.25).abs() < 1e-6);
+        assert_eq!(out[2 * 25], 0.0);
+        assert_eq!(ev, vec![Event::SfxEnded(3)]);
+        assert_eq!(m.sfx_mask(), 0);
+        assert!(m.take_retired().is_some());
+    }
+
+    #[test]
+    fn sfx_restart_and_stop_all() {
+        let mut m = Mixer::new(1000);
+        m.apply(Command::PlaySfx {
+            pad: 1,
+            track: tone(100, 0.1),
+        });
+        m.apply(Command::PlaySfx {
+            pad: 1,
+            track: tone(100, 0.1),
+        });
+        m.apply(Command::PlaySfx {
+            pad: 2,
+            track: tone(100, 0.1),
+        });
+        assert_eq!(m.sfx_mask(), 0b110);
+        m.apply(Command::StopAllSfx);
+        assert_eq!(m.sfx_mask(), 0);
+    }
+
+    #[test]
+    fn mic_is_mixed_only_when_open_and_ducks_music() {
+        let mut m = Mixer::new(1000);
+        let (mut tx, rx) = rtrb::RingBuffer::<f32>::new(4096);
+        m.attach_mic(rx);
+        m.apply(Command::SetMicParams(MicParams {
+            highpass: false,
+            ..Default::default()
+        }));
+        m.apply(Command::SetDuck {
+            enabled: true,
+            level_db: -12.0,
+        });
+        m.apply(Command::Load(DeckId::A, tone(3000, 0.5)));
+        m.apply(Command::Play(DeckId::A));
+        for _ in 0..60 {
+            tx.push(0.2).unwrap();
+        }
+        let (out, _) = run(&mut m, 60);
+        assert!(
+            (out[2 * 59] - 0.5).abs() < 1e-4,
+            "micro fermé : musique seule"
+        );
+        m.apply(Command::SetMicOpen(true));
+        for _ in 0..900 {
+            tx.push(0.2).unwrap();
+        }
+        let (out, _) = run(&mut m, 900);
+        let expected = 0.5 * db_to_gain(-12.0) + 0.2;
+        assert!(
+            (out[2 * 899] - expected).abs() < 1e-3,
+            "{} vs {}",
+            out[2 * 899],
+            expected
+        );
+        m.apply(Command::SetMicOpen(false));
+        for _ in 0..1500 {
+            tx.push(0.2).unwrap();
+        }
+        let (out, _) = run(&mut m, 1500);
+        assert!(
+            (out[2 * 1499] - 0.5).abs() < 1e-3,
+            "retour de la musique : {}",
+            out[2 * 1499]
+        );
     }
 }

@@ -1,4 +1,5 @@
 pub mod decode;
+pub mod dsp;
 pub mod mixer;
 pub mod resample;
 
@@ -6,7 +7,7 @@ pub mod resample;
 pub mod engine;
 
 pub use decode::{decode_file, is_audio_path, probe_file, DecodeError, Track, TrackInfo};
-pub use mixer::{Command, DeckStatus, Event, Mixer};
+pub use mixer::{Command, DeckStatus, Event, MicParams, Mixer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeckId {

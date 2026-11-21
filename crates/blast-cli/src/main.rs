@@ -252,6 +252,7 @@ fn play(files: &[PathBuf], fade: f32, device: Option<&str>) -> AnyResult {
                 decks,
                 crossfader,
                 peak,
+                ..
             } => {
                 print!(
                     "\r{}  {}  {}  {}",
@@ -271,7 +272,7 @@ fn play(files: &[PathBuf], fade: f32, device: Option<&str>) -> AnyResult {
                 });
                 engine.collect_garbage();
             }
-            Event::CrossfadeDone { .. } => {}
+            _ => {}
         }
     }
     println!("\nFin de la liste.");

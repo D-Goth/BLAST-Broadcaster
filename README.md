@@ -8,7 +8,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 
 ![BLAST Broadcaster — thème Black-Lab](docs/img/interface-black-lab.png)
 
-> Statut : **diffusion (M2)**. Deux platines, crossfader, auto-mix, playlist avec glisser-déposer, thèmes, diffusion MP3 vers Icecast et Shoutcast avec titre en cours. Prochaine étape : Voice FX et Sound FX.
+> Statut : **M5 (première partie)**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX (micro, appuyer pour parler, ducking, égaliseur) et Sound FX (36 pads). Prochaine étape : compteurs d'auditeurs (M2b).
 
 ## Fonctionnalités prévues
 
@@ -79,7 +79,12 @@ PipeWire et PulseAudio sont pris en charge via leur couche de compatibilité ALS
 | Réordonner | Glisser un titre dans la playlist |
 | Enchaîner | **FONDU → A/B** démarre l'autre platine et fond vers elle, puis arrête la précédente |
 | Auto-mix | Pioche dans la playlist et enchaîne tout seul, avec la durée de fondu choisie (zone hachurée sur la barre de progression) |
+| Titre suivant | Bouton **⏭** d'une platine : fondu vers l'autre platine ; si elle est vide, le prochain titre de la playlist y est chargé puis enchaîné |
 | Se déplacer | Cliquer sur la barre de progression |
+| Micro | **MIC OFF/ON** (ou touche **M**) : micro ouvert en continu ; **Appuyer pour parler** (ou **Espace** maintenu) : ouvert tant qu'on appuie |
+| Ducking | **AUTO** : la musique baisse automatiquement (niveau réglable, -12 dB par défaut) quand le micro est ouvert |
+| Égaliseur micro | Grave, médium, aigu (±12 dB) et coupe-bas ; volume micro et volume musique séparés |
+| Soundboard | 36 pads sur 3 pages ; clic ou **F1 à F12** pour jouer (re-clic = stop), **STOP** coupe tout ; glisser un fichier (ou un titre de la playlist) sur un pad pour l'assigner ; clic droit : choisir, renommer, vider |
 | Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |
 | Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut |
 | OBS | **Réglages → Aura / OBS** : adresse, port et mot de passe du serveur WebSocket d'OBS, avec test de connexion |
@@ -91,6 +96,9 @@ Le titre en cours (« Artiste - Titre » de la platine à l'antenne) est envoyé
 **Mots de passe** : rangés dans le trousseau du système (KWallet sous KDE), jamais dans le fichier de réglages.
 Si le trousseau est indisponible, BLAST le signale et garde le mot de passe en mémoire pour la session uniquement.
 Les autres réglages sont dans `~/.config/fr.black-lab.blast/config.toml`.
+
+Le micro se choisit dans **Réglages → Audio** (pris en compte au redémarrage). Le VU-mètre MIC montre le niveau
+d'entrée même micro fermé, pour régler son gain avant de prendre l'antenne.
 
 Un titre chargé mais pas encore joué, remplacé par un autre, retourne en tête de playlist.
 Les fichiers illisibles restent dans la playlist, marqués ⚠, et sont sautés par l'auto-mix.

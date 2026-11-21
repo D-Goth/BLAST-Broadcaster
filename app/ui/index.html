@@ -52,6 +52,7 @@
           <button class="btn icon" data-action="pause" title="Pause">&#10074;&#10074;</button>
           <button class="btn icon" data-action="stop" title="Stop (retour au début)">&#9632;</button>
           <button class="btn icon" data-action="eject" title="Éjecter">&#9167;</button>
+          <button class="btn icon next" data-action="next" title="Titre suivant : fondu vers l'autre platine (charge le prochain titre de la playlist si besoin)">&#9197;</button>
         </div>
         <div class="drop-hint">Déposer pour charger la platine A</div>
       </article>
@@ -99,11 +100,13 @@
           <button class="btn icon" data-action="pause" title="Pause">&#10074;&#10074;</button>
           <button class="btn icon" data-action="stop" title="Stop (retour au début)">&#9632;</button>
           <button class="btn icon" data-action="eject" title="Éjecter">&#9167;</button>
+          <button class="btn icon next" data-action="next" title="Titre suivant : fondu vers l'autre platine (charge le prochain titre de la playlist si besoin)">&#9197;</button>
         </div>
         <div class="drop-hint">Déposer pour charger la platine B</div>
       </article>
     </section>
 
+    <section class="bottom">
     <section class="playlist" id="playlist">
       <div class="playlist-bar">
         <span class="playlist-title">PLAYLIST</span>
@@ -123,7 +126,59 @@
         <p class="muted">Double-clic sur un titre : chargement dans la platine libre. Glisser un titre sur une platine : chargement direct.</p>
       </div>
     </section>
+
+    <aside class="side">
+      <section class="fx voicefx" id="voicefx">
+        <div class="fx-head">
+          <span class="fx-title">VOICE FX</span>
+          <span class="fx-sub muted" id="mic-name"></span>
+        </div>
+        <div class="vfx-main">
+          <button id="mic-toggle" class="btn toggle mic" title="Micro ouvert en continu (touche M)">MIC OFF</button>
+          <button id="ptt" class="ptt" title="Micro ouvert tant que le bouton ou la touche Espace est maintenu">
+            <span>&#127908; APPUYER POUR PARLER</span><small>maintenir · Espace</small>
+          </button>
+          <button id="duck-toggle" class="btn toggle" title="Baisse automatiquement la musique quand le micro est ouvert">AUTO</button>
+        </div>
+        <div class="meter mic-meter"><span>MIC</span><div class="meter-bar"><div class="meter-fill" id="meter-mic"></div></div></div>
+        <div class="sliders">
+          <label><span>Micro</span><input type="range" id="mic-gain" min="-24" max="12" step="0.5"><output id="mic-gain-v"></output></label>
+          <label><span>Musique</span><input type="range" id="music-gain" min="-30" max="6" step="0.5"><output id="music-gain-v"></output></label>
+          <label><span>Ducking</span><input type="range" id="duck-db" min="-30" max="0" step="1"><output id="duck-db-v"></output></label>
+        </div>
+        <details class="eq">
+          <summary>Égaliseur micro</summary>
+          <div class="sliders">
+            <label><span>Grave</span><input type="range" id="eq-low" min="-12" max="12" step="0.5"><output id="eq-low-v"></output></label>
+            <label><span>Médium</span><input type="range" id="eq-mid" min="-12" max="12" step="0.5"><output id="eq-mid-v"></output></label>
+            <label><span>Aigu</span><input type="range" id="eq-high" min="-12" max="12" step="0.5"><output id="eq-high-v"></output></label>
+            <label class="check"><input type="checkbox" id="eq-hpf"> Coupe-bas (souffle, vibrations)</label>
+          </div>
+        </details>
+      </section>
+
+      <section class="fx soundfx" id="soundfx">
+        <div class="fx-head">
+          <span class="fx-title">SOUND FX</span>
+          <button class="btn ghost small pager" id="pad-prev" title="Page précédente">&lsaquo;</button>
+          <span id="pad-page" class="muted">1/3</span>
+          <button class="btn ghost small pager" id="pad-next" title="Page suivante">&rsaquo;</button>
+          <span class="spacer"></span>
+          <input type="range" id="sfx-vol" min="-30" max="6" step="0.5" title="Volume des sons">
+          <button class="btn small danger" id="sfx-stop" title="Couper tous les sons">STOP</button>
+        </div>
+        <div class="pads" id="pads"></div>
+      </section>
+    </aside>
+    </section>
   </main>
+
+  <div id="pad-menu" class="pad-menu hidden">
+    <input id="pad-name" placeholder="Nom du pad">
+    <button class="btn small wide" id="pad-pick">Choisir un son…</button>
+    <button class="btn small wide" id="pad-rename">Renommer</button>
+    <button class="btn ghost small wide danger" id="pad-clear">Vider le pad</button>
+  </div>
 
   <footer class="statusbar">
     <span id="device" class="muted">Sortie audio…</span>
@@ -216,13 +271,28 @@
       </section>
 
       <section class="tab-page hidden" data-page="audio">
+        <form class="form" id="mic-form">
+          <div class="grid2">
+            <label class="span2">Micro (Voice FX)
+              <select name="device"></select>
+            </label>
+            <label class="check span2"><input type="checkbox" name="enabled"> Activer l'entrée micro</label>
+          </div>
+          <p class="muted" id="mic-status"></p>
+          <div class="form-actions">
+            <span class="spacer"></span>
+            <span class="form-result" id="mic-result"></span>
+            <button type="submit" class="btn accent small">Enregistrer le micro</button>
+          </div>
+        </form>
+        <div class="form-section">Sortie</div>
         <form class="form" id="audio-form">
           <div class="grid2">
             <label class="span2">Sortie audio principale
               <select name="device"></select>
             </label>
           </div>
-          <p class="muted">Le changement de sortie prend effet au prochain démarrage de BLAST. La sortie casque (pré-écoute) arrivera avec le Voice FX.</p>
+          <p class="muted">Les changements de micro et de sortie prennent effet au prochain démarrage de BLAST. La sortie casque (pré-écoute) arrivera avec les platines façon SAM.</p>
           <div class="form-actions">
             <span class="spacer"></span>
             <span class="form-result" id="audio-result"></span>

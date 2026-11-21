@@ -78,6 +78,7 @@ function renderDeck(id, d) {
   $('[data-action="pause"]', el).disabled = d.state !== "playing";
   $('[data-action="stop"]', el).disabled = !has;
   $('[data-action="eject"]', el).disabled = !has || d.state === "playing";
+  $('[data-action="next"]', el).disabled = d.state === "loading";
 }
 
 function renderState() {
@@ -104,6 +105,8 @@ function renderState() {
     ? "Aucune sortie audio"
     : `Sortie : ${state.device} · ${state.sample_rate} Hz`;
   $("#audio-error").textContent = state.audio_error ? `Audio indisponible : ${state.audio_error}` : "";
+  renderVoice();
+  renderPadStates();
 }
 
 function renderPlaylist(total) {
@@ -199,6 +202,8 @@ async function loadThemes() {
 function targetAt(x, y) {
   const el = document.elementFromPoint(x, y);
   if (!el) return null;
+  const pad = el.closest(".pad");
+  if (pad) return { kind: "pad", index: Number(pad.dataset.index), el: pad };
   const deck = el.closest(".deck");
   if (deck) return { kind: "deck", deck: deck.dataset.deck, el: deck };
   const row = el.closest(".row");
@@ -219,7 +224,7 @@ function clearTargets() {
 function showTarget(t) {
   clearTargets();
   if (!t) return;
-  if (t.kind === "deck" || t.kind === "playlist") t.el.classList.add("drop-target");
+  if (t.kind === "deck" || t.kind === "playlist" || t.kind === "pad") t.el.classList.add("drop-target");
   if (t.kind === "row") t.el.classList.add(t.after ? "drop-after" : "drop-before");
 }
 
@@ -254,6 +259,10 @@ document.addEventListener("pointerup", (e) => {
   if (drag.active) {
     const t = targetAt(e.clientX, e.clientY);
     if (t && t.kind === "deck") send({ type: "load_entry", id: drag.id, deck: t.deck });
+    else if (t && t.kind === "pad") {
+      const e = entries.find((x) => x.id === drag.id);
+      if (e) assignPad(t.index, e.path, e.title);
+    }
     else if (t && (t.kind === "row" || t.kind === "playlist")) send({ type: "move", id: drag.id, to: t.index });
   }
   drag.row.classList.remove("dragging-src");
@@ -359,7 +368,8 @@ async function setupOsDrop() {
       clearTargets();
       const paths = p.paths || [];
       if (!paths.length) return;
-      if (at && at.kind === "deck") send({ type: "load_paths", deck: at.deck, paths });
+      if (at && at.kind === "pad") assignPad(at.index, paths[0], "");
+      else if (at && at.kind === "deck") send({ type: "load_paths", deck: at.deck, paths });
       else send({ type: "add_paths", paths, index: at && at.kind === "row" ? at.index : null });
     } else {
       clearTargets();
@@ -517,7 +527,39 @@ function applySettings(view, keepSelection = true) {
     dev.appendChild(o);
   }
   dev.value = view.audio.device || "";
+  const mic = $("#mic-form").elements.device;
+  mic.innerHTML = "";
+  const mdef = document.createElement("option");
+  mdef.value = "";
+  mdef.textContent = `Micro par défaut du système${view.default_input ? " (" + view.default_input + ")" : ""}`;
+  mic.appendChild(mdef);
+  for (const d of view.input_devices) {
+    const o = document.createElement("option");
+    o.value = d;
+    o.textContent = d;
+    mic.appendChild(o);
+  }
+  mic.value = view.voice.input_device || "";
+  $("#mic-form").elements.enabled.checked = !!view.voice.enabled;
+  $("#mic-status").textContent = state && state.mic
+    ? state.mic.available
+      ? `Micro actif : ${state.mic.name}`
+      : state.mic.error
+        ? `Micro indisponible : ${state.mic.error}`
+        : "Aucun micro détecté."
+    : "";
 }
+
+$("#mic-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = $("#mic-form").elements;
+  try {
+    applySettings(await invoke("save_input", { enabled: f.enabled.checked, device: f.device.value || null }));
+    setResult("#mic-result", "ok", "Enregistré.");
+  } catch (err) {
+    setResult("#mic-result", "err", String(err));
+  }
+});
 
 async function openSettings(tab) {
   try {
@@ -647,6 +689,279 @@ $("#cast-btn").addEventListener("click", () => {
   send({ type: cast.casting ? "cast_stop" : "cast_start" });
 });
 
+
+const PADS_PER_PAGE = 12;
+let padsData = { pads: [], count: 36 };
+let padPage = 0;
+let voice = null;
+let micLatched = false;
+let pttHeld = false;
+let menuPad = null;
+
+function setMic(open) {
+  send({ type: "mic_open", open });
+}
+
+function renderVoice() {
+  if (!state || !state.mic) return;
+  const m = state.mic;
+  $("#voicefx").classList.toggle("disabled", !m.available);
+  $("#mic-name").textContent = m.available ? m.name || "" : m.error ? "Micro indisponible" : "Aucun micro";
+  $("#mic-name").title = m.error || m.name || "";
+  $("#mic-toggle").classList.toggle("on", micLatched && m.open);
+  $("#mic-toggle").textContent = micLatched && m.open ? "MIC ON" : "MIC OFF";
+  $("#ptt").classList.toggle("active", m.open);
+  $("#meter-mic").style.width = `${(dbWidth(m.peak) * 100).toFixed(1)}%`;
+}
+
+function padColor(i) {
+  const palette = ["var(--accent)", "var(--deck-b)", "var(--meter-mid)", "var(--meter-low)"];
+  return palette[Math.floor(i / 4) % palette.length];
+}
+
+function renderPads() {
+  const pages = Math.max(1, Math.ceil(padsData.count / PADS_PER_PAGE));
+  padPage = Math.min(padPage, pages - 1);
+  $("#pad-page").textContent = `${padPage + 1}/${pages}`;
+  const box = $("#pads");
+  box.innerHTML = "";
+  for (let k = 0; k < PADS_PER_PAGE; k++) {
+    const index = padPage * PADS_PER_PAGE + k;
+    if (index >= padsData.count) break;
+    const p = padsData.pads.find((x) => x.index === index);
+    const el = document.createElement("button");
+    el.className = "pad" + (p ? "" : " vacant") + (p && !p.ready && !p.error ? " loading" : "") + (p && p.error ? " error" : "");
+    el.dataset.index = index;
+    el.style.setProperty("--pad-color", (p && p.color) || padColor(k));
+    el.title = p ? `${p.name}\n${p.path}${p.error ? "\n⚠ " + p.error : ""}\nClic droit : modifier` : "Pad vide : clic pour choisir un son, ou glisse un fichier ici";
+    const label = document.createElement("span");
+    label.textContent = p ? p.name : "+";
+    el.appendChild(label);
+    const key = document.createElement("span");
+    key.className = "key";
+    key.textContent = `F${k + 1}`;
+    el.appendChild(key);
+    box.appendChild(el);
+  }
+  renderPadStates();
+}
+
+function renderPadStates() {
+  const mask = state ? BigInt(state.sfx || 0) : 0n;
+  $$("#pads .pad").forEach((el) => {
+    const i = BigInt(el.dataset.index);
+    el.classList.toggle("playing", ((mask >> i) & 1n) === 1n);
+  });
+}
+
+async function pickSound() {
+  const picked = await T.dialog.open({ multiple: false, directory: false, title: "Choisir un son", filters: [{ name: "Audio", extensions: AUDIO_EXT }] });
+  return picked == null ? null : [].concat(picked)[0];
+}
+
+async function assignPad(index, path, name) {
+  try {
+    await invoke("save_pad", { pad: { index, name: name || "", path, color: "" } });
+  } catch (e) {
+    toast("error", String(e));
+  }
+}
+
+function playPad(index) {
+  const p = padsData.pads.find((x) => x.index === index);
+  if (p) send({ type: "pad_play", index });
+  return !!p;
+}
+
+function closePadMenu() {
+  $("#pad-menu").classList.add("hidden");
+  menuPad = null;
+}
+
+$("#pads").addEventListener("click", async (e) => {
+  const el = e.target.closest(".pad");
+  if (!el) return;
+  const index = Number(el.dataset.index);
+  if (!playPad(index)) {
+    const path = await pickSound();
+    if (path) assignPad(index, path, "");
+  }
+});
+
+$("#pads").addEventListener("contextmenu", (e) => {
+  const el = e.target.closest(".pad");
+  if (!el) return;
+  e.preventDefault();
+  e.stopPropagation();
+  menuPad = Number(el.dataset.index);
+  const p = padsData.pads.find((x) => x.index === menuPad);
+  $("#pad-name").value = p ? p.name : "";
+  $("#pad-rename").disabled = !p;
+  $("#pad-clear").disabled = !p;
+  const menu = $("#pad-menu");
+  menu.classList.remove("hidden");
+  const r = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(e.clientX, window.innerWidth - r.width - 8)}px`;
+  menu.style.top = `${Math.min(e.clientY, window.innerHeight - r.height - 8)}px`;
+  $("#pad-name").focus();
+});
+
+document.addEventListener("pointerdown", (e) => {
+  if (menuPad !== null && !e.target.closest("#pad-menu")) closePadMenu();
+});
+
+$("#pad-pick").addEventListener("click", async () => {
+  const index = menuPad;
+  closePadMenu();
+  const path = await pickSound();
+  if (path != null) assignPad(index, path, "");
+});
+
+async function renameFromMenu() {
+  const p = padsData.pads.find((x) => x.index === menuPad);
+  const name = $("#pad-name").value.trim();
+  closePadMenu();
+  if (p && name) assignPad(p.index, p.path, name);
+}
+$("#pad-rename").addEventListener("click", renameFromMenu);
+$("#pad-name").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") renameFromMenu();
+});
+$("#pad-clear").addEventListener("click", async () => {
+  const index = menuPad;
+  closePadMenu();
+  try {
+    await invoke("clear_pad", { index });
+  } catch (err) {
+    toast("error", String(err));
+  }
+});
+
+$("#pad-prev").addEventListener("click", () => {
+  padPage = Math.max(0, padPage - 1);
+  renderPads();
+});
+$("#pad-next").addEventListener("click", () => {
+  const pages = Math.ceil(padsData.count / PADS_PER_PAGE);
+  padPage = Math.min(pages - 1, padPage + 1);
+  renderPads();
+});
+$("#sfx-stop").addEventListener("click", () => send({ type: "pad_stop_all" }));
+$("#sfx-vol").addEventListener("change", (e) => {
+  invoke("save_sfx_volume", { volumeDb: Number(e.target.value) }).catch((err) => toast("error", String(err)));
+});
+
+$("#mic-toggle").addEventListener("click", () => {
+  micLatched = !(micLatched && state && state.mic.open);
+  setMic(micLatched);
+});
+
+function pttDown() {
+  if (pttHeld) return;
+  pttHeld = true;
+  setMic(true);
+}
+function pttUp() {
+  if (!pttHeld) return;
+  pttHeld = false;
+  if (!micLatched) setMic(false);
+}
+$("#ptt").addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  $("#ptt").setPointerCapture(e.pointerId);
+  pttDown();
+});
+$("#ptt").addEventListener("pointerup", pttUp);
+$("#ptt").addEventListener("pointercancel", pttUp);
+window.addEventListener("blur", pttUp);
+
+const VOICE_SLIDERS = [
+  ["#mic-gain", "mic_gain_db", (v) => `${v > 0 ? "+" : ""}${v} dB`],
+  ["#music-gain", "music_gain_db", (v) => `${v > 0 ? "+" : ""}${v} dB`],
+  ["#duck-db", "duck_db", (v) => `${v} dB`],
+  ["#eq-low", "low_db", (v) => `${v > 0 ? "+" : ""}${v} dB`],
+  ["#eq-mid", "mid_db", (v) => `${v > 0 ? "+" : ""}${v} dB`],
+  ["#eq-high", "high_db", (v) => `${v > 0 ? "+" : ""}${v} dB`],
+];
+let voiceTimer = null;
+
+function saveVoiceSoon() {
+  clearTimeout(voiceTimer);
+  voiceTimer = setTimeout(() => {
+    invoke("save_voice", { voice }).catch((e) => toast("error", String(e)));
+  }, 250);
+}
+
+function applyVoice(v) {
+  voice = { ...v };
+  for (const [sel, key, fmtv] of VOICE_SLIDERS) {
+    $(sel).value = voice[key];
+    $(sel + "-v").textContent = fmtv(voice[key]);
+  }
+  $("#eq-hpf").checked = !!voice.highpass;
+  $("#duck-toggle").classList.toggle("on", !!voice.duck);
+}
+
+for (const [sel, key, fmtv] of VOICE_SLIDERS) {
+  $(sel).addEventListener("input", (e) => {
+    if (!voice) return;
+    voice[key] = Number(e.target.value);
+    $(sel + "-v").textContent = fmtv(voice[key]);
+    saveVoiceSoon();
+  });
+}
+$("#eq-hpf").addEventListener("change", (e) => {
+  if (!voice) return;
+  voice.highpass = e.target.checked;
+  saveVoiceSoon();
+});
+$("#duck-toggle").addEventListener("click", () => {
+  if (!voice) return;
+  voice.duck = !voice.duck;
+  $("#duck-toggle").classList.toggle("on", voice.duck);
+  saveVoiceSoon();
+});
+
+function typingTarget(e) {
+  const t = e.target;
+  return t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA");
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closePadMenu();
+  if (!$("#settings").classList.contains("hidden") || typingTarget(e)) return;
+  if (e.code === "Space") {
+    e.preventDefault();
+    if (!e.repeat) pttDown();
+    return;
+  }
+  if (e.key === "m" || e.key === "M") {
+    if (!e.repeat) $("#mic-toggle").click();
+    return;
+  }
+  const f = /^F([1-9]|1[0-2])$/.exec(e.key);
+  if (f) {
+    e.preventDefault();
+    if (!e.repeat) playPad(padPage * PADS_PER_PAGE + Number(f[1]) - 1);
+  }
+});
+document.addEventListener("keyup", (e) => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    pttUp();
+  }
+});
+
+async function loadVoiceSettings() {
+  try {
+    const view = await invoke("get_settings");
+    applyVoice(view.voice);
+    $("#sfx-vol").value = view.soundboard.volume_db;
+  } catch (e) {
+    toast("error", String(e));
+  }
+}
+
 window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 (async () => {
@@ -659,11 +974,17 @@ window.addEventListener("contextmenu", (e) => e.preventDefault());
     renderPlaylist(e.payload.total);
   });
   await listen("blast://notice", (e) => toast(e.payload.level, e.payload.message));
+  await listen("blast://pads", (e) => {
+    padsData = e.payload;
+    renderPads();
+  });
   await listen("blast://cast", (e) => {
     cast = e.payload;
     renderCast();
   });
   await loadThemes();
+  await loadVoiceSettings();
+  renderPads();
   await setupOsDrop();
   renderPlaylist(0);
   send({ type: "refresh" });
