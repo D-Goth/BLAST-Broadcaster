@@ -244,7 +244,7 @@ impl Controller {
         if !self.automix {
             return;
         }
-        let mut changed = false;
+        let mut changed = self.rotation_fill();
         if !self.decks[0].is_active() && !self.decks[1].is_active() {
             if let Some(e) = self.take_next_auto() {
                 let start = Deck::from_index(self.on_air_side());
@@ -373,6 +373,7 @@ impl Controller {
             sfx: self.pads.mask,
             duck: self.mic.duck,
             reduction: self.reduction,
+            clock: self.current_clock(),
         };
         self.emit(EV_STATE, &view);
     }

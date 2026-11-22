@@ -20,6 +20,15 @@ pub struct Entry {
     pub error: Option<String>,
     pub blocked: Option<String>,
     pub kind: Kind,
+    pub bpm: Option<f32>,
+    pub slot: Option<SlotTag>,
+}
+
+// [PL-10]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct SlotTag {
+    pub name: String,
+    pub color: String,
 }
 
 impl Entry {
@@ -33,6 +42,8 @@ impl Entry {
             year: self.year,
             duration: self.duration,
             kind: self.kind,
+            bpm: self.bpm,
+            mtime: file_mtime(&self.path),
         }
     }
 }
@@ -177,6 +188,40 @@ pub fn classify(path: &Path, cats: &CategorySettings) -> Kind {
     Kind::Morceau
 }
 
+// [PL-11]
+pub fn file_mtime(path: &Path) -> Option<i64> {
+    std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+}
+
+// [PL-12]
+pub fn from_library(t: &blast_library::LibraryTrack, slot: SlotTag) -> Entry {
+    let path = PathBuf::from(&t.path);
+    let title = if t.title.trim().is_empty() {
+        path.file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    } else {
+        t.title.clone()
+    };
+    Entry {
+        id: 0,
+        path,
+        title,
+        artist: t.artist.clone(),
+        genre: t.genre.clone(),
+        year: t.year,
+        duration: t.duration,
+        kind: t.kind,
+        bpm: t.bpm,
+        slot: Some(slot),
+        ..Default::default()
+    }
+}
+
 // [PL-06]
 pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
     let kind = classify(path, cats);
@@ -193,6 +238,8 @@ pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
             error: None,
             blocked: None,
             kind,
+            bpm: info.bpm,
+            slot: None,
         },
         Err(e) => Entry {
             id: 0,

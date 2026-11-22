@@ -6,6 +6,7 @@ mod jingles;
 mod obs;
 mod pads;
 mod playlist_ops;
+mod rotation;
 mod views;
 mod voice;
 
@@ -39,6 +40,7 @@ use decks::DeckSide;
 use jingles::JingleState;
 use obs::ObsState;
 use pads::PadState;
+use rotation::RotationState;
 use views::{Notice, EV_NOTICE};
 use voice::MicState;
 
@@ -138,6 +140,10 @@ enum Work {
     Listeners {
         id: String,
         result: Result<blast_cast::Listeners, String>,
+    },
+    LibraryBatch(Vec<blast_library::TrackMeta>),
+    LibraryDone {
+        files: usize,
     },
     JinglesScanned {
         generation: u64,
@@ -244,6 +250,7 @@ struct Controller {
     auto: AutoState,
     jingles: JingleState,
     categories: CategorySettings,
+    rot: RotationState,
 }
 
 impl Controller {
@@ -287,6 +294,7 @@ impl Controller {
             auto: AutoState::new(library, config.automation.clone()),
             jingles: JingleState::default(),
             categories: config.categories.clone(),
+            rot: RotationState::new(config.rotation.clone(), &config.library),
         };
         c.send(Command::SetMasterParams(master_preset(&c.master_preset)));
         if c.obs.settings.auto_connect {
@@ -296,6 +304,8 @@ impl Controller {
         c.apply_voice(&config.voice);
         c.sync_pads(&config.soundboard);
         c.sync_jingles(&config.jingles);
+        c.load_library_tracks();
+        c.library_rescan();
         c
     }
 
@@ -387,6 +397,7 @@ impl Controller {
             UiCommand::JinglePlay { index } => self.jingle_play(index),
             UiCommand::JingleStopAll => self.jingle_stop_all(),
             UiCommand::JingleRescan => self.rescan_jingles(),
+            UiCommand::LibraryRescan => self.library_rescan(),
             UiCommand::Obs(action) => self.handle_obs(action),
             UiCommand::HistoryClear => self.history_clear(),
             UiCommand::Config(cfg) => self.apply_config(*cfg),
@@ -434,6 +445,7 @@ impl Controller {
         self.emit_cast();
         self.emit_pads();
         self.emit_jingles();
+        self.emit_library();
         self.emit_obs();
         self.emit_history();
         if let Some(w) = self.startup_warning.take() {
@@ -458,6 +470,7 @@ impl Controller {
                 self.emit_playlist();
             }
         }
+        self.apply_rotation(cfg.rotation, &cfg.library);
         self.apply_outputs(cfg.outputs);
     }
 
@@ -485,6 +498,8 @@ impl Controller {
                 generation,
                 entries,
             } => self.on_jingles_scanned(generation, entries),
+            Work::LibraryBatch(batch) => self.on_library_batch(batch),
+            Work::LibraryDone { files } => self.on_library_done(files),
             Work::JingleDecoded {
                 generation,
                 index,

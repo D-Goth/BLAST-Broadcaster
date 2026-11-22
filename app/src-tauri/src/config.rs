@@ -150,6 +150,13 @@ impl Default for UpdateSettings {
 }
 
 // [CFG-08]
+// [CFG-14]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LibrarySettings {
+    pub dirs: Vec<PathBuf>,
+}
+
 // [CFG-13]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -195,6 +202,8 @@ pub struct AppConfig {
     pub categories: CategorySettings,
     pub jingles: JingleSettings,
     pub appearance: AppearanceSettings,
+    pub library: LibrarySettings,
+    pub rotation: blast_library::Rotation,
 }
 
 // [CFG-09]
@@ -231,6 +240,32 @@ pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn full_config_survives_a_toml_round_trip() {
+        let mut cfg = super::AppConfig::default();
+        cfg.rotation.clocks.push(blast_library::Clock {
+            id: "soir".into(),
+            name: "Soirée".into(),
+            color: "#7A5AF8".into(),
+            slots: vec!["metal".into()],
+        });
+        cfg.rotation
+            .categories
+            .push(blast_library::RotationCategory {
+                id: "metal".into(),
+                name: "Metal".into(),
+                ..Default::default()
+            });
+        cfg.rotation.schedule = vec![String::new(); blast_library::SCHEDULE_SLOTS];
+        cfg.rotation.schedule[5] = "soir".into();
+        cfg.rotation.default_clock = Some("soir".into());
+        cfg.appearance.background = Some("background-1.jpg".into());
+        cfg.library.dirs.push("/musique".into());
+        let text = toml::to_string_pretty(&cfg).unwrap();
+        let back: super::AppConfig = toml::from_str(&text).unwrap();
+        assert_eq!(back, cfg);
+    }
+
     #[test]
     fn appearance_is_clamped() {
         let a = super::AppearanceSettings {

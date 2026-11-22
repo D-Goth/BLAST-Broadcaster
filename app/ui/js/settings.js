@@ -1,6 +1,7 @@
 import { $, $$, S, invoke, toast, formValues, fillForm, setResult } from "./core.js";
 import { cast, statusOf, STATUS_LABEL } from "./cast.js";
 import { renderAbout } from "./update.js";
+import { applySettingsView as applyRotation } from "./rotation.js";
 
 // [UI-41]
 const BITRATES = [32, 40, 48, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
@@ -120,6 +121,7 @@ function applySettings(view, keepSelection = true) {
   fillDevices(mic.device, view.input_devices, view.default_input, "Micro par défaut du système", view.voice.input_device);
   mic.enabled.checked = !!view.voice.enabled;
   $("#mic-status").textContent = micStatus();
+  applyRotation(view);
 }
 
 // [UI-47]

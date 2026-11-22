@@ -3,11 +3,12 @@ use std::path::Path;
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::{
-    HistoryRow, HistoryStore, Kind, LibraryStats, NewPlay, PlayLookup, StoreError, TrackMeta,
+    HistoryRow, HistoryStore, Kind, LibraryStats, LibraryTrack, NewPlay, PlayLookup, StoreError,
+    TrackMeta,
 };
 
 // [LIB-01]
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 // [LIB-02]
 const SCHEMA: &str = "
@@ -26,6 +27,8 @@ CREATE TABLE IF NOT EXISTS tracks (
     duration    REAL,
     category    TEXT NOT NULL DEFAULT 'Musique',
     kind        TEXT NOT NULL DEFAULT 'morceau',
+    bpm         REAL,
+    mtime       INTEGER,
     added_at    INTEGER NOT NULL,
     play_count  INTEGER NOT NULL DEFAULT 0,
     last_played INTEGER
@@ -103,16 +106,24 @@ impl SqliteStore {
 
 // [LIB-28]
 fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
-    for table in ["tracks", "historique_diffusion"] {
-        let has_kind: bool = conn
+    let columns = [
+        ("tracks", "kind", "TEXT NOT NULL DEFAULT 'morceau'"),
+        (
+            "historique_diffusion",
+            "kind",
+            "TEXT NOT NULL DEFAULT 'morceau'",
+        ),
+        ("tracks", "bpm", "REAL"),
+        ("tracks", "mtime", "INTEGER"),
+    ];
+    for (table, column, decl) in columns {
+        let exists: bool = conn
             .prepare(&format!(
-                "SELECT 1 FROM pragma_table_info('{table}') WHERE name = 'kind'"
+                "SELECT 1 FROM pragma_table_info('{table}') WHERE name = '{column}'"
             ))?
             .exists([])?;
-        if !has_kind {
-            conn.execute_batch(&format!(
-                "ALTER TABLE {table} ADD COLUMN kind TEXT NOT NULL DEFAULT 'morceau'"
-            ))?;
+        if !exists {
+            conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"))?;
         }
     }
     Ok(())
@@ -176,12 +187,13 @@ impl HistoryStore for SqliteStore {
         {
             let mut st = tx
                 .prepare_cached(
-                    "INSERT INTO tracks(path, title, artist, album, genre, year, duration, kind, added_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                    "INSERT INTO tracks(path, title, artist, album, genre, year, duration, kind, bpm, mtime, added_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
                      ON CONFLICT(path) DO UPDATE SET
                         title = excluded.title, artist = excluded.artist, album = excluded.album,
                         genre = excluded.genre, year = excluded.year, duration = excluded.duration,
-                        kind = excluded.kind",
+                        kind = excluded.kind, bpm = COALESCE(excluded.bpm, tracks.bpm),
+                        mtime = COALESCE(excluded.mtime, tracks.mtime)",
                 )
                 .map_err(err)?;
             for t in tracks {
@@ -194,6 +206,8 @@ impl HistoryStore for SqliteStore {
                     t.year,
                     t.duration,
                     t.kind.as_str(),
+                    t.bpm,
+                    t.mtime,
                     now
                 ])
                 .map_err(err)?;
@@ -291,6 +305,47 @@ impl HistoryStore for SqliteStore {
         self.conn
             .execute("DELETE FROM historique_diffusion", [])
             .map_err(err)
+    }
+
+    // [LIB-42]
+    fn tracks(&self) -> Result<Vec<LibraryTrack>, StoreError> {
+        let mut st = self
+            .conn
+            .prepare_cached(
+                "SELECT path, title, artist, genre, year, bpm, duration, kind, play_count, last_played
+                 FROM tracks ORDER BY path",
+            )
+            .map_err(err)?;
+        let rows = st
+            .query_map([], |r| {
+                let kind: String = r.get(7)?;
+                Ok(LibraryTrack {
+                    path: r.get(0)?,
+                    title: r.get(1)?,
+                    artist: r.get(2)?,
+                    genre: r.get(3)?,
+                    year: r.get(4)?,
+                    bpm: r.get(5)?,
+                    duration: r.get(6)?,
+                    kind: Kind::parse(&kind).unwrap_or_default(),
+                    play_count: r.get(8)?,
+                    last_played: r.get(9)?,
+                })
+            })
+            .map_err(err)?;
+        rows.collect::<Result<_, _>>().map_err(err)
+    }
+
+    // [LIB-43]
+    fn track_mtimes(&self) -> Result<std::collections::HashMap<String, i64>, StoreError> {
+        let mut st = self
+            .conn
+            .prepare_cached("SELECT path, mtime FROM tracks WHERE mtime IS NOT NULL")
+            .map_err(err)?;
+        let rows = st
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
+            .map_err(err)?;
+        rows.collect::<Result<_, _>>().map_err(err)
     }
 
     // [LIB-18]
@@ -457,7 +512,7 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(v, "2");
+        assert_eq!(v, "3");
         drop(lib);
         let _ = std::fs::remove_dir_all(dir);
     }

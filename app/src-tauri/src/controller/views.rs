@@ -17,6 +17,7 @@ pub const EV_PADS: &str = "blast://pads";
 pub const EV_OBS: &str = "blast://obs";
 pub const EV_HISTORY: &str = "blast://history";
 pub const EV_JINGLES: &str = "blast://jingles";
+pub const EV_LIBRARY: &str = "blast://library";
 
 // [CTL-28]
 #[derive(Serialize, Clone)]
@@ -101,6 +102,23 @@ pub struct DeckView {
 }
 
 // [CTL-35]
+// [CTL-148]
+#[derive(Serialize, Clone)]
+pub struct ClockView {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+}
+
+// [CTL-149]
+#[derive(Serialize, Clone)]
+pub struct LibraryView {
+    pub dirs: Vec<PathBuf>,
+    pub tracks: usize,
+    pub scanning: bool,
+    pub scanned: usize,
+}
+
 #[derive(Serialize, Clone)]
 pub struct StateView {
     pub decks: [DeckView; 2],
@@ -116,6 +134,7 @@ pub struct StateView {
     pub sfx: u64,
     pub duck: f32,
     pub reduction: f32,
+    pub clock: Option<ClockView>,
 }
 
 // [CTL-36]

@@ -1,11 +1,16 @@
 mod cache;
 mod history;
+mod rotation;
 mod sqlite;
 
 use serde::{Deserialize, Serialize};
 
 pub use cache::HistoryCache;
 pub use history::History;
+pub use rotation::{
+    clock_index, pick_weighted, weight, CategoryRule, Clock, Rotation, RotationCategory,
+    SCHEDULE_SLOTS,
+};
 pub use sqlite::SqliteStore;
 
 // [LIB-21]
@@ -61,6 +66,23 @@ pub struct TrackMeta {
     pub year: Option<i32>,
     pub duration: Option<f64>,
     pub kind: Kind,
+    pub bpm: Option<f32>,
+    pub mtime: Option<i64>,
+}
+
+// [LIB-41]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct LibraryTrack {
+    pub path: String,
+    pub title: String,
+    pub artist: String,
+    pub genre: String,
+    pub year: Option<i32>,
+    pub bpm: Option<f32>,
+    pub duration: Option<f64>,
+    pub kind: Kind,
+    pub play_count: i64,
+    pub last_played: Option<i64>,
 }
 
 // [LIB-23]
@@ -165,6 +187,8 @@ pub trait HistoryStore: PlayLookup + Send {
     fn purge_older_than(&mut self, cutoff: i64) -> Result<usize, StoreError>;
     fn clear_history(&mut self) -> Result<usize, StoreError>;
     fn stats(&self) -> Result<LibraryStats, StoreError>;
+    fn tracks(&self) -> Result<Vec<LibraryTrack>, StoreError>;
+    fn track_mtimes(&self) -> Result<std::collections::HashMap<String, i64>, StoreError>;
 }
 
 // [LIB-26]

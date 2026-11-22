@@ -8,7 +8,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 
 ![BLAST Broadcaster — thème Black-Lab](docs/img/interface-black-lab.png)
 
-> Statut : **piliers 1 et 3**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX, Sound FX (36 pads) pilotage d'OBS, historique de diffusion avec règles de séparation, traitement audio antenne et effets de voix. Historique typé (morceaux, jingles, pubs) avec box à jingles. Prochaines étapes : clockwheels (pilier 2) et chat (M8).
+> Statut : **piliers 1 et 3**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX, Sound FX (36 pads) pilotage d'OBS, historique de diffusion avec règles de séparation, traitement audio antenne et effets de voix. Historique typé (morceaux, jingles, pubs), box à jingles, verre dépoli et grilles horaires (pilier 2). Prochaine étape : chat (M8).
 
 ## Fonctionnalités prévues
 
@@ -122,6 +122,7 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 | Effets voix | Sélecteur dans l'en-tête du Voice FX : Naturel, Podcast chaleureux, Voix radio FM, ASMR, Radio TSF 1930, Téléphone, Mégaphone (porte de bruit, filtres, saturation « lampe », compresseur, de-esser, souffle et craquements selon l'effet) |
 | Son antenne | Sélecteur **Son** du panneau MIX : Aucun traitement, Doux, Radio FM, Puissant (AGC, compresseur, limiteur à anticipation). Le VU **RÉD** montre la réduction de gain appliquée |
 | Historique | Onglet **HISTORIQUE** de la playlist : chaque passage avec l'heure, le type (morceau, jingle, pub), la durée réellement diffusée, l'état de la diffusion et le nombre d'auditeurs ; filtres **Tout / Morceaux / Jingles / Pubs** ; **Exporter…** par catégorie et par période (mois en cours par défaut), pour les bilans et les déclarations de droits |
+| Grilles (clockwheels) | **Réglages → Grilles** : ajoute les dossiers de ta musique (**Bibliothèque**), crée des **Catégories** (genres, années, BPM, dossiers, type), compose des **Grilles** (suite de catégories jouée en boucle) et peins le **Planning** de la semaine. Avec l'auto-mix actif, BLAST garde 3 titres d'avance dans la playlist selon la grille de l'heure (affichée à côté de MIX), en favorisant les titres pas entendus depuis longtemps et en respectant les règles de séparation ; tu peux tout corriger avant que ça passe |
 | Verre dépoli | **Réglages → Apparence** : choisis une image de fond, les panneaux deviennent translucides et floutés par-dessus ; flou, opacité et assombrissement réglables en direct, désactivable à tout moment |
 | Jingles | Onglet **JINGLES** à côté de la Sound FX : **Dossier…** choisit le dossier de tes jingles, clic sur un jingle pour le lancer à l'antenne par-dessus la musique (re-clic = stop), volume et **STOP** propres. Les fichiers rangés dans un dossier nommé « Jingles » ou « Pubs » (mots-clés réglables dans Réglages → Automation) sont aussi reconnus dans la playlist |
 | Règles de séparation | **Réglages → Automation** : pas le même artiste avant 120 min, pas le même titre avant 240 min (réglables). L'auto-mix et le bouton Suivant sautent les titres en attente, marqués d'une horloge dans la playlist |

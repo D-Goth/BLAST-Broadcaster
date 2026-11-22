@@ -347,6 +347,8 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
 .mix-row .master-select select { min-width: 0; width: 100%; }
 .red-meter .clip { margin-left: 4px; }
 
+.clock-tag { color: var(--clock-color); letter-spacing: 1px; }
+
 /* [STY-07] */
 .playlist {
   position: relative;
@@ -423,6 +425,8 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
 .export-menu select, .export-menu input { -webkit-appearance: none; appearance: none; font: inherit; color: var(--text); background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
 .export-menu p { margin: 0; font-size: 11px; }
 .menu-title { font-weight: 800; letter-spacing: 1px; font-size: 12px; }
+
+.slot-tag { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .5px; padding: 1px 6px; margin-right: 6px; border-radius: 4px; color: var(--text); background: color-mix(in srgb, var(--slot-color) 30%, transparent); border: 1px solid var(--slot-color); vertical-align: 1px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* [STY-08] */
 .drag-ghost {
@@ -638,6 +642,39 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .ap-sliders { display: grid; grid-template-columns: 170px 1fr 56px; gap: 10px 12px; align-items: center; font-size: 12px; color: var(--text-muted); }
 .ap-sliders input[type=range] { -webkit-appearance: auto; appearance: auto; accent-color: var(--accent); width: 100%; padding: 0; border: 0; background: none; height: 18px; box-shadow: none; }
 .ap-sliders span { font-family: var(--mono); font-size: 11px; color: var(--text); text-align: right; }
+
+.rot-nav { margin-bottom: 14px; align-items: center; }
+.rot-page[hidden] { display: none; }
+.rot-split { display: grid; grid-template-columns: 230px 1fr; gap: 18px; align-items: start; }
+.rot-side { display: flex; flex-direction: column; gap: 8px; }
+.rot-list { display: flex; flex-direction: column; gap: 4px; max-height: 420px; overflow-y: auto; }
+.rot-item { -webkit-appearance: none; appearance: none; font: inherit; display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-alt); color: var(--text); text-align: left; cursor: pointer; min-width: 0; }
+.rot-item.active { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.rot-item .rot-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.rot-empty { padding: 8px 0; }
+.rot-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid var(--border); }
+.rot-form[hidden] { display: none; }
+.rot-form input[type=color] { height: 32px; width: 64px; padding: 2px; }
+.rot-form textarea { -webkit-appearance: none; appearance: none; font: inherit; font-size: 12px; color: var(--text); background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; resize: vertical; }
+.rot-kinds { display: flex; align-items: center; gap: 16px; font-size: 12px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.rot-form > label, .grid4 label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-muted); }
+.rot-kinds label.check { display: flex; align-items: center; gap: 6px; color: var(--text); }
+.clock-slots { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
+.clock-slot { display: grid; grid-template-columns: 28px 1fr auto auto auto; gap: 6px; align-items: center; border-left: 4px solid var(--slot-color); padding-left: 6px; }
+.clock-slot select { -webkit-appearance: none; appearance: none; font: inherit; font-size: 12px; color: var(--text); background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+.slot-num { font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-align: right; }
+.sched-tools { margin-bottom: 10px; }
+.sched-palette { display: flex; flex-wrap: wrap; gap: 6px; }
+.sched-chip { display: inline-flex; align-items: center; gap: 6px; }
+.sched-default { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+.sched-default select { -webkit-appearance: none; appearance: none; font: inherit; font-size: 12px; color: var(--text); background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+.sched-grid { display: grid; grid-template-columns: 36px repeat(24, 1fr); gap: 2px; user-select: none; }
+.sched-hour { font-family: var(--mono); font-size: 9px; color: var(--text-muted); text-align: center; }
+.sched-day { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; }
+.sched-cell { height: 26px; border-radius: 3px; background: var(--panel-alt); border: 1px solid var(--border); cursor: crosshair; }
+.sched-cell.set { border-color: transparent; }
+.sched-cell:hover { outline: 1px solid var(--text); }
 
 /* [STY-14] */
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }

@@ -127,6 +127,7 @@ pub enum UiCommand {
     },
     JingleStopAll,
     JingleRescan,
+    LibraryRescan,
     Obs(ObsAction),
     HistoryClear,
     #[serde(skip)]
