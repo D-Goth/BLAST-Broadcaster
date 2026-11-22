@@ -33,17 +33,17 @@ ne pas le modifier à la main.
 | [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 39 |
 | [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 4 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
-| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 32 |
-| [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 12 |
+| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 40 |
+| [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 13 |
 | [`SEC`](#sec) | Mots de passe dans le trousseau du système | 6 |
 | [`JRN`](#jrn) | Journal de diagnostic (blast.log) | 8 |
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
 | [`PL`](#pl) | Playlist côté application | 9 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
 | [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 124 |
-| [`UI`](#ui) | Interface : modules JavaScript | 84 |
-| [`STY`](#sty) | Interface : feuille de style | 16 |
-| [`HTM`](#htm) | Interface : structure de la page | 20 |
+| [`UI`](#ui) | Interface : modules JavaScript | 89 |
+| [`STY`](#sty) | Interface : feuille de style | 17 |
+| [`HTM`](#htm) | Interface : structure de la page | 21 |
 
 ## CORE
 
@@ -4022,6 +4022,134 @@ pub fn save_jingles(
 …
 ```
 
+### [APP-33] Formats d'image de fond
+
+JPEG, PNG, WebP et AVIF.
+
+`app/src-tauri/src/api.rs` ligne 534
+
+```rust
+const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
+```
+
+### [APP-34] Poids maximal de l'image de fond
+
+40 Mo.
+
+`app/src-tauri/src/api.rs` ligne 536
+
+```rust
+const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
+```
+
+### [APP-35] Vue de l'apparence
+
+Réglages du verre dépoli et chemin de l'image de fond copiée.
+
+`app/src-tauri/src/api.rs` ligne 539
+
+```rust
+#[derive(Serialize)]
+pub struct AppearanceView {
+    settings: AppearanceSettings,
+    image: Option<String>,
+}
+```
+
+### [APP-36] Calcul de la vue d'apparence
+
+Lit les réglages et vérifie que l'image de fond existe encore ; gère le dossier de BLAST où l'image est copiée et le ménage des anciennes images.
+
+`app/src-tauri/src/api.rs` ligne 554
+
+```rust
+fn appearance_view(&self) -> AppearanceView {
+    let settings = self
+        .config
+        .lock()
+        .map(|c| c.appearance.clone())
+        .unwrap_or_default();
+    let image = settings
+        .background
+        .as_ref()
+        .map(|name| self.config_dir().join(name))
+        .filter(|p| p.is_file())
+        .map(|p| p.display().to_string());
+…
+```
+
+### [APP-37] Commande get_appearance
+
+Renvoie l'apparence au démarrage de l'interface.
+
+`app/src-tauri/src/api.rs` ligne 583
+
+```rust
+#[tauri::command]
+pub fn get_appearance(state: tauri::State<'_, App>) -> AppearanceView {
+    state.appearance_view()
+}
+```
+
+### [APP-38] Commande save_appearance
+
+Enregistre activation, flou, opacité et assombrissement, bornés à des valeurs sûres.
+
+`app/src-tauri/src/api.rs` ligne 589
+
+```rust
+#[tauri::command]
+pub fn save_appearance(
+    state: tauri::State<'_, App>,
+    appearance: AppearanceSettings,
+) -> Result<AppearanceView, String> {
+    let appearance = appearance.clamped();
+    state.commit(move |cfg| {
+        cfg.appearance = AppearanceSettings {
+            background: cfg.appearance.background.clone(),
+            ..appearance
+        }
+    })?;
+…
+```
+
+### [APP-39] Commande set_background
+
+Copie l'image choisie dans le dossier de BLAST sous un nom unique, active le verre et supprime l'image précédente.
+
+`app/src-tauri/src/api.rs` ligne 605
+
+```rust
+#[tauri::command]
+pub fn set_background(
+    state: tauri::State<'_, App>,
+    path: PathBuf,
+) -> Result<AppearanceView, String> {
+    let ext = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .filter(|e| IMAGE_EXTENSIONS.contains(&e.as_str()))
+        .ok_or("Format d'image non pris en charge (JPEG, PNG, WebP ou AVIF).")?;
+    let size = std::fs::metadata(&path).map_err(|e| e.to_string())?.len();
+    if size > MAX_IMAGE_BYTES {
+…
+```
+
+### [APP-40] Commande clear_background
+
+Retire l'image de fond ; le verre s'affiche alors sur un dégradé du thème.
+
+`app/src-tauri/src/api.rs` ligne 633
+
+```rust
+#[tauri::command]
+pub fn clear_background(state: tauri::State<'_, App>) -> Result<AppearanceView, String> {
+    state.commit(|cfg| cfg.appearance.background = None)?;
+    state.remove_backgrounds(None);
+    Ok(state.appearance_view())
+}
+```
+
 
 ## CFG
 
@@ -4144,26 +4272,14 @@ Contenu de config.toml ; aucun mot de passe n'y figure.
 `app/src-tauri/src/config.rs` ligne 152
 
 ```rust
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct AppConfig {
-    pub audio: AudioSettings,
-    pub voice: VoiceSettings,
-    pub soundboard: SoundboardSettings,
-    pub automation: AutomationSettings,
-    pub aura: AuraSettings,
-    pub outputs: Vec<OutputConfig>,
-    pub updates: UpdateSettings,
-    pub categories: CategorySettings,
-    pub jingles: JingleSettings,
-…
+
 ```
 
 ### [CFG-09] Chargement
 
 Lit config.toml ; un fichier illisible est mis de côté et remplacé par les valeurs par défaut.
 
-`app/src-tauri/src/config.rs` ligne 167
+`app/src-tauri/src/config.rs` ligne 200
 
 ```rust
 pub fn load(path: &Path) -> (AppConfig, Option<String>) {
@@ -4185,7 +4301,7 @@ pub fn load(path: &Path) -> (AppConfig, Option<String>) {
 
 Écrit config.toml via un fichier temporaire renommé, pour ne jamais laisser de fichier à moitié écrit.
 
-`app/src-tauri/src/config.rs` ligne 188
+`app/src-tauri/src/config.rs` ligne 221
 
 ```rust
 pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
@@ -4226,6 +4342,24 @@ Dossier de la box à jingles et volume des jingles.
 pub struct JingleSettings {
     pub dirs: Vec<PathBuf>,
     pub volume_db: f32,
+}
+```
+
+### [CFG-13] Réglages d'apparence
+
+Verre dépoli activé ou non, flou, opacité des panneaux, assombrissement du fond et image de fond.
+
+`app/src-tauri/src/config.rs` ligne 153
+
+```rust
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppearanceSettings {
+    pub glass: bool,
+    pub blur: f64,
+    pub opacity: f64,
+    pub dim: f64,
+    pub background: Option<String>,
 }
 ```
 
@@ -7400,7 +7534,7 @@ export async function pickAudio(multiple, title) {
 
 Met à jour l'horloge de la barre du haut.
 
-`app/ui/js/main.js` ligne 15
+`app/ui/js/main.js` ligne 16
 
 ```js
 function tickClock() {
@@ -7412,7 +7546,7 @@ function tickClock() {
 
 Relie chaque événement blast:// à son module.
 
-`app/ui/js/main.js` ligne 20
+`app/ui/js/main.js` ligne 21
 
 ```js
 async function subscribe() {
@@ -7434,11 +7568,11 @@ async function subscribe() {
 
 Initialise les modules, s'abonne, charge thèmes et voix, active le glisser-déposer puis vérifie les mises à jour.
 
-`app/ui/js/main.js` ligne 38
+`app/ui/js/main.js` ligne 39
 
 ```js
 async function start() {
-  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update]) m.init();
+  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance]) m.init();
   $("#themes-folder").addEventListener("click", async () => {
     try {
       const dir = await invoke("themes_dir");
@@ -7456,12 +7590,13 @@ async function start() {
 
 Pose les variables CSS du thème et le mémorise.
 
-`app/ui/js/theme.js` ligne 7
+`app/ui/js/theme.js` ligne 11
 
 ```js
 function applyTheme(id) {
   const theme = themes.find((t) => t.id === id) || themes[0];
   if (!theme) return;
+  current = theme;
   const root = document.documentElement;
   for (const section of ["colors", "meters"]) {
     for (const [k, v] of Object.entries(theme[section] || {})) {
@@ -7470,7 +7605,6 @@ function applyTheme(id) {
   }
   const fx = theme.effects || {};
   root.style.setProperty("--rainbow-speed", `${3 / Math.max(0.1, fx.rainbow_speed || 1)}s`);
-  $("#theme-select").value = theme.id;
 …
 ```
 
@@ -7478,7 +7612,7 @@ function applyTheme(id) {
 
 Active ou coupe l'effet arc-en-ciel de la platine à l'antenne.
 
-`app/ui/js/theme.js` ligne 24
+`app/ui/js/theme.js` ligne 30
 
 ```js
 function setRainbow(on, persist = true) {
@@ -7493,7 +7627,7 @@ function setRainbow(on, persist = true) {
 
 Remplit la liste et applique le thème mémorisé.
 
-`app/ui/js/theme.js` ligne 32
+`app/ui/js/theme.js` ligne 38
 
 ```js
 export async function loadThemes() {
@@ -8663,6 +8797,102 @@ function categoryValues() {
 }
 ```
 
+### [UI-85] Couleur translucide
+
+Convertit une couleur du thème en couleur avec transparence.
+
+`app/ui/js/appearance.js` ligne 7
+
+```js
+function rgba(color, alpha) {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec((color || "").trim());
+  if (!m) return color;
+  let hex = m[1];
+  if (hex.length === 3) hex = [...hex].map((c) => c + c).join("");
+  const n = parseInt(hex, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+```
+
+### [UI-86] Fond du verre
+
+Image choisie, servie par le protocole de fichiers de Tauri, ou dégradé aux couleurs du thème.
+
+`app/ui/js/appearance.js` ligne 24
+
+```js
+function backdrop(colors) {
+  if (view.image) return `url("${T.core.convertFileSrc(view.image)}")`;
+  const accent = colors.accent || "#FF1654";
+  const second = colors.deck_b || "#888888";
+  return `radial-gradient(circle at 18% 22%, ${rgba(accent, 0.55)}, transparent 45%), radial-gradient(circle at 82% 78%, ${rgba(second, 0.35)}, transparent 50%), linear-gradient(135deg, ${colors.bg || "#101010"}, ${colors.panel_alt || "#202020"})`;
+}
+```
+
+### [UI-87] Application de l'apparence
+
+Rend translucides les couleurs de fond du thème, règle flou et assombrissement, ou rétablit les couleurs pleines.
+
+`app/ui/js/appearance.js` ligne 32
+
+```js
+export function applyAppearance() {
+  const s = view.settings;
+  const colors = themeColors();
+  const root = document.documentElement;
+  root.classList.toggle("glass", s.glass);
+  root.style.setProperty("--glass-backdrop", backdrop(colors));
+  root.style.setProperty("--glass-blur", `${s.blur}px`);
+  root.style.setProperty("--glass-dim", String(s.dim));
+  const light = luminance(colors.bg) > 0.5;
+  root.style.setProperty("--glass-edge", light ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 255, 255, 0.12)");
+  const panels = { bg: [colors.bg, s.opacity * 0.6], panel: [colors.panel, s.opacity], "panel-alt": [colors.panel_alt, Math.min(0.95, s.opacity + 0.1)] };
+  for (const [name, [color, alpha]] of Object.entries(panels)) {
+…
+```
+
+### [UI-88] Réglage en direct
+
+Applique chaque mouvement de curseur immédiatement et enregistre 300 ms après le dernier.
+
+`app/ui/js/appearance.js` ligne 69
+
+```js
+function editLive() {
+  const v = formValues($("#appearance-form"));
+  view.settings = { ...view.settings, glass: v.glass, blur: Number(v.blur), opacity: Number(v.opacity), dim: Number(v.dim) };
+  applyAppearance();
+  renderForm();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      view = await invoke("save_appearance", { appearance: view.settings });
+      setResult("#appearance-result", "ok", "Enregistré.");
+    } catch (e) {
+      setResult("#appearance-result", "err", String(e));
+…
+```
+
+### [UI-89] Choix de l'image de fond
+
+Sélecteur d'image du système, puis copie dans le dossier de BLAST.
+
+`app/ui/js/appearance.js` ligne 86
+
+```js
+async function chooseImage() {
+  const picked = await T.dialog.open({ multiple: false, directory: false, title: "Image de fond", filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "webp", "avif"] }] });
+  if (!picked) return;
+  setResult("#appearance-result", "busy", "Copie de l'image…");
+  try {
+    setView(await invoke("set_background", { path: picked }));
+    setResult("#appearance-result", "ok", "Image appliquée.");
+  } catch (e) {
+    setResult("#appearance-result", "err", String(e));
+  }
+}
+```
+
 
 ## STY
 
@@ -8871,7 +9101,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 628
+`app/ui/style.css` ligne 635
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -8881,7 +9111,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 647
+`app/ui/style.css` ligne 654
 
 ```css
 .statusbar {
@@ -8899,10 +9129,24 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 658
+`app/ui/style.css` ligne 687
 
 ```css
 .hidden { display: none !important; }
+```
+
+### [STY-17] Verre dépoli
+
+Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
+
+`app/ui/style.css` ligne 665
+
+```css
+html.glass body {
+  background:
+    linear-gradient(rgba(0, 0, 0, var(--glass-dim)), rgba(0, 0, 0, var(--glass-dim))),
+    var(--glass-backdrop) center / cover no-repeat fixed;
+}
 ```
 
 
@@ -9079,7 +9323,7 @@ Fenêtre des réglages et ses onglets.
 
 Liste et formulaire des sorties Icecast / Shoutcast.
 
-`app/ui/index.html` ligne 313
+`app/ui/index.html` ligne 314
 
 ```html
 <section class="tab-page" data-page="cast">
@@ -9094,7 +9338,7 @@ Liste et formulaire des sorties Icecast / Shoutcast.
 
 Connexion à obs-websocket et source « Now Playing ».
 
-`app/ui/index.html` ligne 366
+`app/ui/index.html` ligne 367
 
 ```html
 <section class="tab-page hidden" data-page="aura">
@@ -9109,7 +9353,7 @@ Connexion à obs-websocket et source « Now Playing ».
 
 Règles de séparation et conservation de l'historique.
 
-`app/ui/index.html` ligne 386
+`app/ui/index.html` ligne 387
 
 ```html
 <section class="tab-page hidden" data-page="automation">
@@ -9124,7 +9368,7 @@ Règles de séparation et conservation de l'historique.
 
 Micro, retour et sortie audio.
 
-`app/ui/index.html` ligne 420
+`app/ui/index.html` ligne 421
 
 ```html
 <section class="tab-page hidden" data-page="audio">
@@ -9139,7 +9383,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 453
+`app/ui/index.html` ligne 479
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -9199,7 +9443,7 @@ Catégorie et période de l'export CSV de l'historique.
 
 Mots-clés de dossier des jingles et des pubs.
 
-`app/ui/index.html` ligne 405
+`app/ui/index.html` ligne 406
 
 ```html
 <form class="form" id="categories-form">
@@ -9208,4 +9452,19 @@ Mots-clés de dossier des jingles et des pubs.
     <label>Dossiers de jingles<input name="jingle_keywords" placeholder="JINGLE"></label>
     <label>Dossiers de pubs<input name="pub_keywords" placeholder="PUB, PUBLICITE"></label>
   </div>
+```
+
+### [HTM-21] Réglages : Apparence
+
+Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement.
+
+`app/ui/index.html` ligne 454
+
+```html
+<section class="tab-page hidden" data-page="appearance">
+  <form class="form" id="appearance-form">
+    <p class="muted">Verre dépoli : BLAST s'affiche sur une image de fond de ton choix, et ses panneaux deviennent translucides et floutent l'image derrière eux. L'image est copiée dans le dossier de BLAST. Les réglages s'appliquent en direct ; le flou demande un peu de carte graphique : décoche si l'interface ralentit.</p>
+    <label class="check"><input type="checkbox" name="glass"> Activer l'effet verre dépoli</label>
+    <div class="bg-pick">
+      <div class="bg-thumb" id="bg-thumb"></div>
 ```

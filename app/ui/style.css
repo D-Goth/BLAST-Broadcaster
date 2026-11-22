@@ -625,6 +625,13 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .btn.danger { color: var(--accent); }
 .form-empty { padding: 30px 0; }
 
+.bg-pick { display: flex; gap: 14px; align-items: center; }
+.bg-thumb { width: 160px; height: 90px; flex: none; border-radius: 8px; border: 1px solid var(--border); background: var(--glass-backdrop) center / cover no-repeat; }
+.bg-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 12px; }
+.ap-sliders { display: grid; grid-template-columns: 170px 1fr 56px; gap: 10px 12px; align-items: center; font-size: 12px; color: var(--text-muted); }
+.ap-sliders input[type=range] { -webkit-appearance: auto; appearance: auto; accent-color: var(--accent); width: 100%; padding: 0; border: 0; background: none; height: 18px; box-shadow: none; }
+.ap-sliders span { font-family: var(--mono); font-size: 11px; color: var(--text); text-align: right; }
+
 /* [STY-14] */
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
 .toast {
@@ -654,6 +661,28 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
   background: var(--panel);
   border-top: 1px solid var(--border);
 }
+
+/* [STY-17] */
+html.glass body {
+  background:
+    linear-gradient(rgba(0, 0, 0, var(--glass-dim)), rgba(0, 0, 0, var(--glass-dim))),
+    var(--glass-backdrop) center / cover no-repeat fixed;
+}
+html.glass .topbar,
+html.glass .deck,
+html.glass .mixer,
+html.glass .playlist,
+html.glass .fx,
+html.glass .statusbar,
+html.glass .modal-panel,
+html.glass .pad-menu,
+html.glass .toast {
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+}
+html.glass .topbar { border-bottom-color: var(--glass-edge); }
+html.glass .deck, html.glass .mixer, html.glass .playlist, html.glass .fx { border-color: var(--glass-edge); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 var(--glass-edge); }
+html.glass .modal { background: rgba(0, 0, 0, 0.35); }
 
 /* [STY-16] */
 .hidden { display: none !important; }
