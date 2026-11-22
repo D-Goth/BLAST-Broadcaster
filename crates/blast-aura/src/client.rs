@@ -18,6 +18,8 @@ use crate::{auth_response, AuraError, AuraSettings};
 
 // [AURA-08]
 const EVENTS_ALL: u32 = 2047;
+// [AURA-21]
+const IDLE: Duration = Duration::from_millis(15);
 // [AURA-09]
 const AUDIO_KINDS: &[&str] = &[
     "pulse_input_capture",
@@ -218,8 +220,13 @@ impl Session<'_> {
         if !data.is_null() {
             d["requestData"] = data;
         }
-        self.ws
+        match self
+            .ws
             .send(Message::text(json!({"op": 6, "d": d}).to_string()))
+        {
+            Err(e) if would_block(&e) => Ok(()),
+            r => r,
+        }
     }
 
     fn emit(&self, e: ObsEvent) {
@@ -479,7 +486,8 @@ fn handshake(
         }
     }
     ws.get_ref()
-        .set_read_timeout(Some(Duration::from_millis(50)))
+        .set_read_timeout(None)
+        .and_then(|_| ws.get_ref().set_nonblocking(true))
         .map_err(|e| AuraError::Connect(e.to_string()))?;
     Ok((ws, obs_version, websocket_version))
 }
@@ -547,6 +555,7 @@ fn session(
                         return End::Lost(e.to_string());
                     }
                 }
+                thread::sleep(IDLE);
             }
             Err(e) => return End::Lost(e.to_string()),
         }

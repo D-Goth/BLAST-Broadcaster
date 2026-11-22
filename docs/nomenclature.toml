@@ -1869,3 +1869,7 @@ definition = "Micro, retour et sortie audio."
 [codes.HTM-16]
 titre = "Réglages : À propos"
 definition = "Version, mises à jour et diagnostic."
+
+[codes.AURA-21]
+titre = "Pause de la boucle OBS"
+definition = "Attente quand la socket non bloquante n'a rien à lire ; évite les lectures à délai, dont l'état est indéterminé sous Windows après expiration."
