@@ -100,6 +100,10 @@ function renderState() {
   meterHold.r = Math.max(dbWidth(state.peak[1]), meterHold.r * 0.85);
   $("#meter-l").style.width = `${(meterHold.l * 100).toFixed(1)}%`;
   $("#meter-r").style.width = `${(meterHold.r * 100).toFixed(1)}%`;
+  const red = Math.max(0, state.reduction || 0);
+  meterHold.red = Math.max(red, (meterHold.red || 0) * 0.8);
+  $("#meter-red").style.width = `${Math.min(100, (meterHold.red / 12) * 100).toFixed(1)}%`;
+  $("#red-v").textContent = meterHold.red >= 0.1 ? `-${meterHold.red.toFixed(1)} dB` : "0 dB";
   if (Math.max(state.peak[0], state.peak[1]) >= 0.999) meterHold.clipUntil = now + 1500;
   $("#clip").classList.toggle("on", now < meterHold.clipUntil);
   $("#device").textContent = state.audio_error
@@ -742,8 +746,7 @@ function renderVoice() {
   if (!state || !state.mic) return;
   const m = state.mic;
   $("#voicefx").classList.toggle("disabled", !m.available);
-  $("#mic-name").textContent = m.available ? m.name || "" : m.error ? "Micro indisponible" : "Aucun micro";
-  $("#mic-name").title = m.error || m.name || "";
+  $("#mic-name").title = m.available ? `Micro : ${m.name || "par défaut"}` : m.error ? `Micro indisponible : ${m.error}` : "Aucun micro";
   $("#mic-toggle").classList.toggle("on", micLatched && m.open);
   $("#mic-toggle").innerHTML = micLatched && m.open ? `${ico("unlock")}<span>OUVERT</span>` : `${ico("lock")}<span>VERROU</span>`;
   $("#ptt").classList.toggle("active", m.open);
@@ -994,9 +997,31 @@ document.addEventListener("keyup", (e) => {
   }
 });
 
+function fillPresetSelect(sel, list, value) {
+  sel.innerHTML = "";
+  for (const [id, label] of list) {
+    const o = document.createElement("option");
+    o.value = id;
+    o.textContent = label;
+    sel.appendChild(o);
+  }
+  sel.value = value;
+}
+
+$("#voice-preset").addEventListener("change", (e) => {
+  if (!voice) return;
+  voice.preset = e.target.value;
+  saveVoiceSoon();
+});
+$("#master-preset").addEventListener("change", (e) => {
+  invoke("save_master_preset", { preset: e.target.value }).catch((err) => toast("error", String(err)));
+});
+
 async function loadVoiceSettings() {
   try {
     const view = await invoke("get_settings");
+    fillPresetSelect($("#voice-preset"), view.voice_presets, view.voice.preset);
+    fillPresetSelect($("#master-preset"), view.master_presets, view.audio.master_preset);
     applyVoice(view.voice);
     $("#sfx-vol").value = view.soundboard.volume_db;
   } catch (e) {

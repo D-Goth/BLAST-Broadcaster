@@ -4,10 +4,20 @@ use blast_aura::AuraSettings;
 use blast_cast::OutputConfig;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AudioSettings {
     pub device: Option<String>,
+    pub master_preset: String,
+}
+
+impl Default for AudioSettings {
+    fn default() -> Self {
+        Self {
+            device: None,
+            master_preset: "doux".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -24,6 +34,7 @@ pub struct VoiceSettings {
     pub high_db: f32,
     pub highpass: bool,
     pub monitor: bool,
+    pub preset: String,
 }
 
 impl Default for VoiceSettings {
@@ -40,6 +51,7 @@ impl Default for VoiceSettings {
             high_db: 0.0,
             highpass: true,
             monitor: false,
+            preset: "naturel".into(),
         }
     }
 }

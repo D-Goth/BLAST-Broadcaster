@@ -7,6 +7,9 @@ pub mod resample;
 pub mod engine;
 
 pub use decode::{decode_file, is_audio_path, probe_file, DecodeError, Track, TrackInfo};
+pub use dsp::{
+    master_preset, voice_preset, MasterParams, VoiceParams, MASTER_PRESETS, VOICE_PRESETS,
+};
 pub use mixer::{Command, DeckStatus, Event, MicParams, Mixer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

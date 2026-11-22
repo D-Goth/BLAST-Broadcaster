@@ -50,6 +50,8 @@ struct SettingsView {
     default_device: Option<String>,
     input_devices: Vec<String>,
     default_input: Option<String>,
+    voice_presets: Vec<(&'static str, &'static str)>,
+    master_presets: Vec<(&'static str, &'static str)>,
     secret_store: String,
     config_path: String,
     warning: Option<String>,
@@ -81,6 +83,8 @@ impl App {
             default_device: blast_core::engine::default_output_device(),
             input_devices: blast_core::engine::list_input_devices().unwrap_or_default(),
             default_input: blast_core::engine::default_input_device(),
+            voice_presets: blast_core::VOICE_PRESETS.to_vec(),
+            master_presets: blast_core::MASTER_PRESETS.to_vec(),
             secret_store: self.secrets.store_label(),
             config_path: self.config_path.display().to_string(),
             warning,
@@ -302,6 +306,17 @@ fn save_sfx_volume(state: tauri::State<'_, App>, volume_db: f32) -> Result<(), S
 }
 
 #[tauri::command]
+fn save_master_preset(state: tauri::State<'_, App>, preset: String) -> Result<(), String> {
+    if !blast_core::MASTER_PRESETS
+        .iter()
+        .any(|(id, _)| *id == preset)
+    {
+        return Err(format!("Préréglage inconnu : {preset}"));
+    }
+    state.commit(move |cfg| cfg.audio.master_preset = preset)
+}
+
+#[tauri::command]
 fn save_automation(
     state: tauri::State<'_, App>,
     automation: AutomationSettings,
@@ -388,7 +403,8 @@ fn main() {
             clear_pad,
             save_sfx_volume,
             save_automation,
-            export_history
+            export_history,
+            save_master_preset
         ])
         .run(tauri::generate_context!())
         .expect("BLAST Broadcaster");

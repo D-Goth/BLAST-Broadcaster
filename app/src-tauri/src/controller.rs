@@ -9,7 +9,10 @@ use blast_aura::{AuraClient, AuraSettings, ObsCommand, ObsEvent};
 use blast_cast::{fetch_listeners, Caster, Listeners, OutputConfig, OutputStatus};
 use blast_core::dsp::db_to_gain;
 use blast_core::engine::{Engine, MicInput};
-use blast_core::{decode_file, Command, DeckId, DeckState, DeckStatus, Event, MicParams, Track};
+use blast_core::{
+    decode_file, master_preset, voice_preset, Command, DeckId, DeckState, DeckStatus, Event,
+    MicParams, Track,
+};
 use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -251,6 +254,7 @@ struct StateView {
     mic: MicView,
     sfx: u64,
     duck: f32,
+    reduction: f32,
 }
 
 #[derive(Serialize, Clone)]
@@ -373,6 +377,8 @@ struct Controller {
     current_play: Option<CurrentPlay>,
     last_purge: std::time::Instant,
     last_rules_refresh: std::time::Instant,
+    master_preset: String,
+    reduction: f32,
 }
 
 fn mic_input(v: &VoiceSettings) -> MicInput {
@@ -486,7 +492,10 @@ impl Controller {
             current_play: None,
             last_purge: std::time::Instant::now() - Duration::from_secs(7200),
             last_rules_refresh: std::time::Instant::now(),
+            master_preset: config.audio.master_preset.clone(),
+            reduction: 0.0,
         };
+        c.send(Command::SetMasterParams(master_preset(&c.master_preset)));
         if c.aura_settings.auto_connect {
             c.obs_connect();
         }
@@ -510,6 +519,7 @@ impl Controller {
             level_db: v.duck_db,
         });
         self.send(Command::SetMicMonitor(v.monitor));
+        self.send(Command::SetVoiceParams(voice_preset(&v.preset)));
     }
 
     fn sync_pads(&mut self, sb: &SoundboardSettings) {
@@ -1324,6 +1334,10 @@ impl Controller {
                 self.emit_playlist();
             }
             UiCommand::Config(cfg) => {
+                if cfg.audio.master_preset != self.master_preset {
+                    self.master_preset = cfg.audio.master_preset.clone();
+                    self.send(Command::SetMasterParams(master_preset(&self.master_preset)));
+                }
                 if cfg.automation != self.automation {
                     self.automation = cfg.automation.clone();
                     self.last_purge = std::time::Instant::now() - Duration::from_secs(7200);
@@ -1596,7 +1610,9 @@ impl Controller {
                 mic_peak,
                 mic_open,
                 duck,
+                reduction,
             } => {
+                self.reduction = reduction;
                 self.sfx_mask = sfx;
                 self.mic_peak = mic_peak;
                 self.mic_open = mic_open;
@@ -1679,6 +1695,7 @@ impl Controller {
             },
             sfx: self.sfx_mask,
             duck: self.duck,
+            reduction: self.reduction,
         };
         let _ = self.app.emit("blast://state", view);
     }

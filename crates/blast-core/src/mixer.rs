@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::dsp::{db_to_gain, Biquad};
+use crate::dsp::{db_to_gain, Biquad, MasterChain, MasterParams, VoiceFx, VoiceParams};
 use crate::{crossfade_gains, DeckId, DeckState, Track};
 
 pub const MAX_VOICES: usize = 16;
@@ -49,6 +49,8 @@ pub enum Command {
     SetMicParams(MicParams),
     SetDuck { enabled: bool, level_db: f32 },
     SetMicMonitor(bool),
+    SetMasterParams(MasterParams),
+    SetVoiceParams(VoiceParams),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -77,6 +79,7 @@ pub enum Event {
         mic_peak: f32,
         mic_open: bool,
         duck: f32,
+        reduction: f32,
     },
 }
 
@@ -161,6 +164,9 @@ pub struct Mixer {
     duck_target: f32,
     duck: f32,
     mic_monitor: bool,
+    master_chain: Option<MasterChain>,
+    master_spare: Option<MasterChain>,
+    voice_fx: VoiceFx,
 }
 
 impl Mixer {
@@ -195,6 +201,9 @@ impl Mixer {
             duck_target: db_to_gain(-12.0),
             duck: 1.0,
             mic_monitor: false,
+            master_chain: None,
+            master_spare: Some(MasterChain::new(sample_rate as f32)),
+            voice_fx: VoiceFx::new(sample_rate as f32),
         }
     }
 
@@ -324,6 +333,15 @@ impl Mixer {
                 self.mic_chain.high.retune(fresh.high);
             }
             Command::SetMicMonitor(on) => self.mic_monitor = on,
+            Command::SetMasterParams(p) => {
+                if self.master_chain.is_none() {
+                    self.master_chain = self.master_spare.take();
+                }
+                if let Some(c) = self.master_chain.as_mut() {
+                    c.configure(p);
+                }
+            }
+            Command::SetVoiceParams(p) => self.voice_fx.configure(p),
             Command::SetDuck { enabled, level_db } => {
                 self.duck_enabled = enabled;
                 self.duck_target = db_to_gain(level_db.min(0.0));
@@ -442,6 +460,8 @@ impl Mixer {
                 if self.mic_params.highpass {
                     x = c.hp.process(x);
                 }
+                x = self.voice_fx.process(x);
+                let c = &mut self.mic_chain;
                 x = c.high.process(c.mid.process(c.low.process(x)));
                 x * self.mic_gain
             }
@@ -524,14 +544,20 @@ impl Mixer {
 
             let bed_l = (la * ga + lb * gb) * music + sl;
             let bed_r = (ra * ga + rb * gb) * music + sr;
-            let l = ((bed_l + m) * self.master).clamp(-1.0, 1.0);
-            let r = ((bed_r + m) * self.master).clamp(-1.0, 1.0);
+            let mon = if self.mic_monitor { m } else { 0.0 };
+            let air = [(bed_l + m) * self.master, (bed_r + m) * self.master];
+            let loc = [(bed_l + mon) * self.master, (bed_r + mon) * self.master];
+            let (air, loc) = match self.master_chain.as_mut() {
+                Some(c) => c.process(air, loc),
+                None => (air, loc),
+            };
+            let l = air[0].clamp(-1.0, 1.0);
+            let r = air[1].clamp(-1.0, 1.0);
             out[2 * f] = l;
             out[2 * f + 1] = r;
-            if let Some(loc) = local.as_deref_mut() {
-                let mon = if self.mic_monitor { m } else { 0.0 };
-                loc[2 * f] = ((bed_l + mon) * self.master).clamp(-1.0, 1.0);
-                loc[2 * f + 1] = ((bed_r + mon) * self.master).clamp(-1.0, 1.0);
+            if let Some(dst) = local.as_deref_mut() {
+                dst[2 * f] = loc[0].clamp(-1.0, 1.0);
+                dst[2 * f + 1] = loc[1].clamp(-1.0, 1.0);
             }
 
             self.peak[0] = self.peak[0].max(l.abs());
@@ -547,6 +573,10 @@ impl Mixer {
                     mic_peak: self.mic_peak,
                     mic_open: self.mic_open,
                     duck: self.duck,
+                    reduction: self
+                        .master_chain
+                        .as_mut()
+                        .map_or(0.0, |c| c.take_reduction()),
                 });
                 self.peak = [0.0; 2];
                 self.mic_peak = 0.0;
