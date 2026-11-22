@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use blast_core::{is_audio_path, probe_file};
 use serde::Serialize;
 
+// [PL-01]
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct Entry {
     pub id: u64,
@@ -31,12 +32,14 @@ impl Entry {
     }
 }
 
+// [PL-02]
 #[derive(Debug, Default)]
 pub struct Playlist {
     entries: Vec<Entry>,
     next_id: u64,
 }
 
+// [PL-03]
 impl Playlist {
     pub fn entries(&self) -> &[Entry] {
         &self.entries
@@ -81,6 +84,7 @@ impl Playlist {
     }
 }
 
+// [PL-04]
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(read) = std::fs::read_dir(dir) else {
         return;
@@ -96,6 +100,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+// [PL-05]
 pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
     let mut out = Vec::new();
     for p in paths {
@@ -108,6 +113,7 @@ pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
     out
 }
 
+// [PL-06]
 pub fn make_entry(path: &Path) -> Entry {
     match probe_file(path) {
         Ok(info) => Entry {

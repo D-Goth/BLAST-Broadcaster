@@ -1,5 +1,6 @@
 use mp3lame_encoder::{Bitrate, Builder, InterleavedPcm, Mode, MonoPcm, Quality};
 
+// [CAST-06]
 pub struct Mp3Encoder {
     inner: mp3lame_encoder::Encoder,
     mono: bool,
@@ -7,6 +8,7 @@ pub struct Mp3Encoder {
     out: Vec<u8>,
 }
 
+// [CAST-07]
 fn bitrate(kbps: u32) -> Bitrate {
     match kbps {
         0..=32 => Bitrate::Kbps32,
@@ -47,6 +49,7 @@ impl Mp3Encoder {
         })
     }
 
+    // [CAST-08]
     pub fn encode(&mut self, interleaved: &[f32]) -> Result<&[u8], String> {
         let frames = interleaved.len() / 2;
         self.out.clear();

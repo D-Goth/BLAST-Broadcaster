@@ -11,9 +11,12 @@ use crate::encoder::Mp3Encoder;
 use crate::protocol::{open_source, update_metadata};
 use crate::OutputConfig;
 
+// [CAST-09]
 const RETRY_DELAY: Duration = Duration::from_secs(5);
+// [CAST-10]
 const PCM_QUEUE: usize = 128;
 
+// [CAST-11]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "state", content = "detail", rename_all = "snake_case")]
 pub enum OutputStatus {
@@ -24,12 +27,14 @@ pub enum OutputStatus {
     Error(String),
 }
 
+// [CAST-12]
 #[derive(Debug, Clone)]
 pub struct StatusEvent {
     pub id: String,
     pub status: OutputStatus,
 }
 
+// [CAST-13]
 struct Handle {
     id: String,
     pcm: Sender<Arc<[f32]>>,
@@ -38,6 +43,7 @@ struct Handle {
     thread: Option<thread::JoinHandle<()>>,
 }
 
+// [CAST-14]
 pub struct Caster {
     sample_rate: u32,
     outputs: Vec<Handle>,
@@ -46,6 +52,7 @@ pub struct Caster {
     metadata: String,
 }
 
+// [CAST-15]
 impl Caster {
     pub fn new(sample_rate: u32) -> Self {
         let (status_tx, status_rx) = unbounded();
@@ -134,6 +141,7 @@ impl Drop for Caster {
     }
 }
 
+// [CAST-16]
 struct Worker {
     cfg: OutputConfig,
     password: String,
@@ -145,12 +153,14 @@ struct Worker {
     song: String,
 }
 
+// [CAST-17]
 enum Outcome {
     Stopped,
     Lost(String),
     Fatal(String),
 }
 
+// [CAST-18]
 impl Worker {
     fn report(&self, status: OutputStatus) {
         let _ = self.status.send(StatusEvent {

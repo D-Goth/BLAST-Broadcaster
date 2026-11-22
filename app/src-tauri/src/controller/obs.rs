@@ -5,12 +5,14 @@ use super::views::{ObsInputView, ObsView, EV_OBS};
 use super::{now_ms, Controller};
 use crate::secrets::AURA_KEY;
 
+// [CTL-89]
 pub struct ObsState {
     pub client: Option<AuraClient>,
     pub settings: AuraSettings,
     pub view: ObsView,
 }
 
+// [CTL-90]
 impl ObsState {
     pub fn new(settings: AuraSettings) -> Self {
         Self {
@@ -103,6 +105,7 @@ impl ObsState {
 }
 
 impl Controller {
+    // [CTL-91]
     pub(super) fn obs_connect(&mut self) {
         self.obs.client = None;
         let pw = self.secrets.get(AURA_KEY);
@@ -112,12 +115,14 @@ impl Controller {
         self.emit_obs();
     }
 
+    // [CTL-92]
     fn obs_disconnect(&mut self) {
         self.obs.client = None;
         self.obs.view = ObsView::idle("off", self.obs.settings.now_playing_source.clone());
         self.emit_obs();
     }
 
+    // [CTL-93]
     fn obs_send(&self, cmd: ObsCommand) {
         match &self.obs.client {
             Some(a) if self.obs.connected() => a.send(cmd),
@@ -128,6 +133,7 @@ impl Controller {
         }
     }
 
+    // [CTL-94]
     pub(super) fn obs_now_playing(&self) {
         let src = self.obs.settings.now_playing_source.trim();
         if src.is_empty() || !self.obs.connected() || self.cast.song.is_empty() {
@@ -141,6 +147,7 @@ impl Controller {
         }
     }
 
+    // [CTL-95]
     pub(super) fn handle_obs(&mut self, action: ObsAction) {
         match action {
             ObsAction::Connect => self.obs_connect(),
@@ -167,6 +174,7 @@ impl Controller {
         }
     }
 
+    // [CTL-96]
     pub(super) fn pump_obs(&mut self) {
         let Some(a) = &self.obs.client else {
             return;
@@ -193,6 +201,7 @@ impl Controller {
         self.emit_obs();
     }
 
+    // [CTL-97]
     pub(super) fn apply_aura(&mut self, settings: AuraSettings) {
         let errored = self.obs.client.is_some() && self.obs.view.status == "error";
         if settings == self.obs.settings && !errored {
@@ -208,6 +217,7 @@ impl Controller {
         }
     }
 
+    // [CTL-98]
     pub(super) fn emit_obs(&self) {
         self.emit(EV_OBS, &self.obs.view);
     }

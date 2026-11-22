@@ -2,9 +2,12 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
+// [UPD-01]
 pub const REPO: &str = "D-Goth/BLAST-Broadcaster";
+// [UPD-02]
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
 
+// [UPD-03]
 #[derive(Debug, Deserialize)]
 struct Release {
     tag_name: String,
@@ -18,6 +21,7 @@ struct Release {
     prerelease: bool,
 }
 
+// [UPD-04]
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct UpdateInfo {
     pub current: String,
@@ -43,10 +47,12 @@ impl UpdateInfo {
     }
 }
 
+// [UPD-05]
 pub fn releases_page() -> String {
     format!("https://github.com/{REPO}/releases")
 }
 
+// [UPD-06]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Version {
     major: u64,
@@ -55,6 +61,7 @@ pub struct Version {
     stable: bool,
 }
 
+// [UPD-07]
 pub fn parse_version(text: &str) -> Option<Version> {
     let text = text.trim().trim_start_matches(['v', 'V']);
     let text = text.split('+').next().unwrap_or_default();
@@ -77,6 +84,7 @@ pub fn parse_version(text: &str) -> Option<Version> {
     })
 }
 
+// [UPD-08]
 pub fn is_newer(candidate: &str, current: &str) -> bool {
     match (parse_version(candidate), parse_version(current)) {
         (Some(c), Some(cur)) => c > cur,
@@ -84,6 +92,7 @@ pub fn is_newer(candidate: &str, current: &str) -> bool {
     }
 }
 
+// [UPD-09]
 fn evaluate(release: Release) -> UpdateInfo {
     if release.draft || release.prerelease {
         return UpdateInfo::none();
@@ -103,6 +112,7 @@ fn evaluate(release: Release) -> UpdateInfo {
     }
 }
 
+// [UPD-10]
 pub fn check() -> Result<UpdateInfo, String> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(10)))

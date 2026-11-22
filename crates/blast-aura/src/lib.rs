@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tungstenite::Message;
 
+// [AURA-01]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AuraSettings {
@@ -37,6 +38,7 @@ impl AuraSettings {
     }
 }
 
+// [AURA-02]
 #[derive(Debug, Clone, PartialEq)]
 pub enum AuraAction {
     SetScene(String),
@@ -55,6 +57,7 @@ pub enum AuraAction {
     },
 }
 
+// [AURA-03]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ObsInfo {
     pub obs_version: String,
@@ -62,6 +65,7 @@ pub struct ObsInfo {
     pub platform: String,
 }
 
+// [AURA-04]
 #[derive(Debug)]
 pub enum AuraError {
     Connect(String),
@@ -83,12 +87,14 @@ impl std::fmt::Display for AuraError {
 
 impl std::error::Error for AuraError {}
 
+// [AURA-05]
 pub fn auth_response(password: &str, salt: &str, challenge: &str) -> String {
     let b64 = base64::engine::general_purpose::STANDARD;
     let secret = b64.encode(Sha256::digest(format!("{password}{salt}").as_bytes()));
     b64.encode(Sha256::digest(format!("{secret}{challenge}").as_bytes()))
 }
 
+// [AURA-06]
 pub(crate) fn read_json(ws: &mut tungstenite::WebSocket<TcpStream>) -> Result<Value, AuraError> {
     loop {
         match ws.read() {
@@ -113,6 +119,7 @@ pub(crate) fn read_json(ws: &mut tungstenite::WebSocket<TcpStream>) -> Result<Va
     }
 }
 
+// [AURA-07]
 pub fn test_connection(
     settings: &AuraSettings,
     password: Option<&str>,

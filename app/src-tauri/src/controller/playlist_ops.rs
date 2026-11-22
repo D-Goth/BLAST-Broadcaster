@@ -8,6 +8,7 @@ use crate::journal;
 use crate::playlist::{self, Entry};
 
 impl Controller {
+    // [CTL-105]
     pub(super) fn scan(&self, paths: Vec<PathBuf>, index: Option<usize>, to_deck: Option<Deck>) {
         let tx = self.work_tx.clone();
         thread::spawn(move || {
@@ -21,6 +22,7 @@ impl Controller {
         });
     }
 
+    // [CTL-106]
     pub(super) fn on_scanned(
         &mut self,
         mut entries: Vec<Entry>,
@@ -71,6 +73,7 @@ impl Controller {
         self.emit_state();
     }
 
+    // [CTL-107]
     pub(super) fn emit_playlist(&self) {
         let now = now_secs();
         let entries: Vec<Entry> = self

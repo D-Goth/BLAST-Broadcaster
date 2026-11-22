@@ -15,6 +15,7 @@ use crate::controller::UiCommand;
 use crate::secrets::{output_key, Secrets, Stored, AURA_KEY};
 use crate::{journal, themes, update};
 
+// [APP-03]
 pub struct App {
     pub tx: Sender<UiCommand>,
     pub config: Mutex<AppConfig>,
@@ -23,6 +24,7 @@ pub struct App {
     pub secrets: Arc<Secrets>,
 }
 
+// [APP-04]
 #[derive(Serialize)]
 pub struct OutputView {
     #[serde(flatten)]
@@ -30,6 +32,7 @@ pub struct OutputView {
     has_password: bool,
 }
 
+// [APP-05]
 #[derive(Serialize)]
 pub struct SettingsView {
     outputs: Vec<OutputView>,
@@ -52,6 +55,7 @@ pub struct SettingsView {
     warning: Option<String>,
 }
 
+// [APP-06]
 impl App {
     fn view(&self, warning: Option<String>) -> SettingsView {
         let cfg = self.config.lock().map(|c| c.clone()).unwrap_or_default();
@@ -105,17 +109,20 @@ impl App {
     }
 }
 
+// [APP-07]
 #[tauri::command]
 pub fn blast(state: tauri::State<'_, App>, cmd: UiCommand) -> Result<(), String> {
     state.tx.send(cmd).map_err(|e| e.to_string())
 }
 
+// [APP-08]
 #[tauri::command]
 pub fn themes(app: tauri::AppHandle) -> Vec<serde_json::Value> {
     let dir = app.path().app_config_dir().ok().map(|d| d.join("themes"));
     themes::list(dir.as_deref())
 }
 
+// [APP-09]
 #[tauri::command]
 pub fn themes_dir(app: tauri::AppHandle) -> Option<String> {
     let dir = app.path().app_config_dir().ok()?.join("themes");
@@ -123,11 +130,13 @@ pub fn themes_dir(app: tauri::AppHandle) -> Option<String> {
     Some(dir.to_string_lossy().into_owned())
 }
 
+// [APP-10]
 #[tauri::command]
 pub fn get_settings(state: tauri::State<'_, App>) -> SettingsView {
     state.view(None)
 }
 
+// [APP-11]
 #[tauri::command]
 pub fn save_output(
     state: tauri::State<'_, App>,
@@ -153,6 +162,7 @@ pub fn save_output(
     Ok(state.view(warning))
 }
 
+// [APP-12]
 #[tauri::command]
 pub fn delete_output(state: tauri::State<'_, App>, id: String) -> Result<SettingsView, String> {
     state.secrets.delete(&output_key(&id));
@@ -160,6 +170,7 @@ pub fn delete_output(state: tauri::State<'_, App>, id: String) -> Result<Setting
     Ok(state.view(None))
 }
 
+// [APP-13]
 #[tauri::command]
 pub async fn test_output(
     state: tauri::State<'_, App>,
@@ -178,6 +189,7 @@ pub async fn test_output(
     .map_err(|e| e.to_string())?
 }
 
+// [APP-14]
 #[tauri::command]
 pub fn save_aura(
     state: tauri::State<'_, App>,
@@ -192,6 +204,7 @@ pub fn save_aura(
     Ok(state.view(warning))
 }
 
+// [APP-15]
 #[tauri::command]
 pub async fn test_aura(
     state: tauri::State<'_, App>,
@@ -221,6 +234,7 @@ pub async fn test_aura(
     .map_err(|e| e.to_string())?
 }
 
+// [APP-16]
 #[tauri::command]
 pub fn save_audio(
     state: tauri::State<'_, App>,
@@ -233,6 +247,7 @@ pub fn save_audio(
     )))
 }
 
+// [APP-17]
 #[tauri::command]
 pub fn save_voice(state: tauri::State<'_, App>, voice: VoiceSettings) -> Result<(), String> {
     state.commit(move |cfg| {
@@ -249,6 +264,7 @@ pub fn save_voice(state: tauri::State<'_, App>, voice: VoiceSettings) -> Result<
     })
 }
 
+// [APP-18]
 #[tauri::command]
 pub fn save_input(
     state: tauri::State<'_, App>,
@@ -265,6 +281,7 @@ pub fn save_input(
     )))
 }
 
+// [APP-19]
 #[tauri::command]
 pub fn save_pad(state: tauri::State<'_, App>, pad: PadConfig) -> Result<(), String> {
     if pad.index >= PAD_COUNT {
@@ -288,16 +305,19 @@ pub fn save_pad(state: tauri::State<'_, App>, pad: PadConfig) -> Result<(), Stri
     })
 }
 
+// [APP-20]
 #[tauri::command]
 pub fn clear_pad(state: tauri::State<'_, App>, index: u16) -> Result<(), String> {
     state.commit(move |cfg| cfg.soundboard.pads.retain(|p| p.index != index))
 }
 
+// [APP-21]
 #[tauri::command]
 pub fn save_sfx_volume(state: tauri::State<'_, App>, volume_db: f32) -> Result<(), String> {
     state.commit(move |cfg| cfg.soundboard.volume_db = volume_db.clamp(-60.0, 6.0))
 }
 
+// [APP-22]
 #[tauri::command]
 pub fn save_master_preset(state: tauri::State<'_, App>, preset: String) -> Result<(), String> {
     if !blast_core::MASTER_PRESETS
@@ -309,6 +329,7 @@ pub fn save_master_preset(state: tauri::State<'_, App>, preset: String) -> Resul
     state.commit(move |cfg| cfg.audio.master_preset = preset)
 }
 
+// [APP-23]
 #[tauri::command]
 pub fn save_automation(
     state: tauri::State<'_, App>,
@@ -318,6 +339,7 @@ pub fn save_automation(
     Ok(state.view(None))
 }
 
+// [APP-24]
 #[tauri::command]
 pub fn export_history(state: tauri::State<'_, App>, path: String) -> Result<usize, String> {
     let lib = blast_library::Library::open(&state.db_path).map_err(|e| e.to_string())?;
@@ -339,6 +361,7 @@ pub fn export_history(state: tauri::State<'_, App>, path: String) -> Result<usiz
     Ok(rows.len())
 }
 
+// [APP-25]
 #[derive(Serialize)]
 pub struct AppInfo {
     version: &'static str,
@@ -350,6 +373,7 @@ pub struct AppInfo {
     platform: &'static str,
 }
 
+// [APP-26]
 #[tauri::command]
 pub fn app_info(state: tauri::State<'_, App>) -> AppInfo {
     let updates = state
@@ -368,6 +392,7 @@ pub fn app_info(state: tauri::State<'_, App>) -> AppInfo {
     }
 }
 
+// [APP-27]
 #[tauri::command]
 pub async fn check_update(
     state: tauri::State<'_, App>,
@@ -402,6 +427,7 @@ pub async fn check_update(
     }
 }
 
+// [APP-28]
 #[tauri::command]
 pub fn save_updates(
     state: tauri::State<'_, App>,
@@ -418,6 +444,7 @@ pub fn save_updates(
     })
 }
 
+// [APP-29]
 #[tauri::command]
 pub fn open_link(url: String) -> Result<(), String> {
     let allowed = format!("https://github.com/{}", update::REPO);
@@ -427,6 +454,7 @@ pub fn open_link(url: String) -> Result<(), String> {
     open::that_detached(&url).map_err(|e| e.to_string())
 }
 
+// [APP-30]
 #[tauri::command]
 pub fn open_folder(state: tauri::State<'_, App>, which: String) -> Result<(), String> {
     let dir = match which.as_str() {

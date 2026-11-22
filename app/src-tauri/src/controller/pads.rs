@@ -10,6 +10,7 @@ use super::views::{PadView, PadsView, EV_PADS};
 use super::{Controller, Work};
 use crate::config::{SoundboardSettings, PAD_COUNT};
 
+// [CTL-99]
 pub struct Pad {
     pub name: String,
     pub color: String,
@@ -18,6 +19,7 @@ pub struct Pad {
     pub error: Option<String>,
 }
 
+// [CTL-100]
 #[derive(Default)]
 pub struct PadState {
     pub pads: HashMap<u16, Pad>,
@@ -37,6 +39,7 @@ impl PadState {
 }
 
 impl Controller {
+    // [CTL-101]
     pub(super) fn sync_pads(&mut self, sb: &SoundboardSettings) {
         self.send(Command::SetSfxGain(db_to_gain(sb.volume_db)));
         let wanted: Vec<_> = sb
@@ -93,6 +96,7 @@ impl Controller {
         self.emit_pads();
     }
 
+    // [CTL-102]
     pub(super) fn on_pad_decoded(
         &mut self,
         index: u16,
@@ -112,6 +116,7 @@ impl Controller {
         self.emit_pads();
     }
 
+    // [CTL-103]
     pub(super) fn pad_play(&mut self, index: u16) {
         if self.pads.is_playing(index) {
             self.send(Command::StopSfx(index));
@@ -130,6 +135,7 @@ impl Controller {
         }
     }
 
+    // [CTL-104]
     pub(super) fn emit_pads(&self) {
         let mut pads: Vec<PadView> = self
             .pads

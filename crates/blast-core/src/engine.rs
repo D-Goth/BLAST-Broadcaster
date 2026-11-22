@@ -7,9 +7,12 @@ use crossbeam_channel::{bounded, select, Receiver, Sender};
 
 use crate::{Command, Event, Mixer, Track};
 
+// [ENG-01]
 const SCRATCH_FRAMES: usize = 4096;
+// [ENG-02]
 const TAP_SECONDS: usize = 2;
 
+// [ENG-03]
 #[derive(Debug)]
 pub enum EngineError {
     NoDevice,
@@ -33,10 +36,12 @@ impl std::fmt::Display for EngineError {
 
 impl std::error::Error for EngineError {}
 
+// [ENG-04]
 fn backend<E: std::fmt::Display>(e: E) -> EngineError {
     EngineError::Backend(e.to_string())
 }
 
+// [ENG-05]
 pub fn list_output_devices() -> Result<Vec<String>, EngineError> {
     let host = cpal::default_host();
     let mut names = Vec::new();
@@ -48,12 +53,14 @@ pub fn list_output_devices() -> Result<Vec<String>, EngineError> {
     Ok(names)
 }
 
+// [ENG-06]
 pub fn default_output_device() -> Option<String> {
     cpal::default_host()
         .default_output_device()
         .and_then(|d| d.name().ok())
 }
 
+// [ENG-07]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MicInput {
     Off,
@@ -61,6 +68,7 @@ pub enum MicInput {
     Named(String),
 }
 
+// [ENG-08]
 pub fn list_input_devices() -> Result<Vec<String>, EngineError> {
     let host = cpal::default_host();
     let mut names = Vec::new();
@@ -72,12 +80,14 @@ pub fn list_input_devices() -> Result<Vec<String>, EngineError> {
     Ok(names)
 }
 
+// [ENG-09]
 pub fn default_input_device() -> Option<String> {
     cpal::default_host()
         .default_input_device()
         .and_then(|d| d.name().ok())
 }
 
+// [ENG-10]
 pub struct Engine {
     _stream: cpal::Stream,
     _input: Option<cpal::Stream>,
@@ -98,6 +108,7 @@ impl Engine {
         Self::start_with(device, MicInput::Off)
     }
 
+    // [ENG-11]
     pub fn start_with(device: Option<&str>, mic: MicInput) -> Result<Self, EngineError> {
         let host = cpal::default_host();
         let device = match device {
@@ -199,6 +210,7 @@ impl Engine {
         last
     }
 
+    // [ENG-12]
     pub fn try_event(&self) -> Option<Event> {
         if let Ok(e) = self.events.try_recv() {
             return Some(e);
@@ -217,6 +229,7 @@ impl Engine {
         }
     }
 
+    // [ENG-13]
     pub fn read_master(&mut self, out: &mut Vec<f32>) -> usize {
         let n = self.tap.slots() & !1;
         if n == 0 {
@@ -231,11 +244,13 @@ impl Engine {
         n
     }
 
+    // [ENG-14]
     pub fn collect_garbage(&self) {
         while self.trash.try_recv().is_ok() {}
     }
 }
 
+// [ENG-15]
 struct Parts {
     tap: rtrb::Producer<f32>,
     mixer: Mixer,
@@ -245,6 +260,7 @@ struct Parts {
     trash: Sender<Arc<Track>>,
 }
 
+// [ENG-16]
 fn build<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
@@ -321,8 +337,10 @@ where
         .map_err(backend)
 }
 
+// [ENG-17]
 type MicStream = (cpal::Stream, String, rtrb::Consumer<f32>);
 
+// [ENG-18]
 fn open_mic(
     host: &cpal::Host,
     mic: &MicInput,
@@ -355,6 +373,7 @@ fn open_mic(
     Ok(Some((stream, name, rx)))
 }
 
+// [ENG-19]
 fn build_input<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,

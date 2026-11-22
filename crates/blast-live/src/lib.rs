@@ -1,3 +1,4 @@
+// [LIVE-01]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Platform {
     Twitch,
@@ -5,6 +6,7 @@ pub enum Platform {
     Kick,
 }
 
+// [LIVE-02]
 #[derive(Debug, Clone)]
 pub struct ChatMessage {
     pub platform: Platform,
@@ -12,6 +14,7 @@ pub struct ChatMessage {
     pub text: String,
 }
 
+// [LIVE-03]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChatCommand {
     Request(String),
@@ -19,6 +22,7 @@ pub enum ChatCommand {
     Sfx(String),
 }
 
+// [LIVE-04]
 pub fn parse_command(text: &str) -> Option<ChatCommand> {
     let text = text.trim();
     let rest = text.strip_prefix('!')?;

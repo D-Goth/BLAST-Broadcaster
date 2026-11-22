@@ -9,8 +9,10 @@ use super::views::{CastOutputView, CastView, EV_CAST};
 use super::{now_ms, Controller, Work};
 use crate::secrets::output_key;
 
+// [CTL-76]
 const STATS_EVERY: Duration = Duration::from_secs(10);
 
+// [CTL-77]
 pub struct CastState {
     pub outputs: Vec<OutputConfig>,
     pub caster: Caster,
@@ -24,6 +26,7 @@ pub struct CastState {
     pub song: String,
 }
 
+// [CTL-78]
 impl CastState {
     pub fn new(outputs: Vec<OutputConfig>, sample_rate: u32) -> Self {
         Self {
@@ -85,6 +88,7 @@ impl CastState {
 }
 
 impl Controller {
+    // [CTL-79]
     pub(super) fn pump_master(&mut self) {
         let Some(engine) = self.engine.as_mut() else {
             return;
@@ -97,6 +101,7 @@ impl Controller {
         }
     }
 
+    // [CTL-80]
     pub(super) fn pump_caster(&mut self) {
         let updates = self.cast.caster.poll();
         if updates.is_empty() {
@@ -120,6 +125,7 @@ impl Controller {
         self.emit_cast();
     }
 
+    // [CTL-81]
     pub(super) fn now_playing(&self) -> String {
         let side = self.on_air_side();
         if !self.is_playing(side) {
@@ -132,6 +138,7 @@ impl Controller {
         }
     }
 
+    // [CTL-82]
     pub(super) fn update_song(&mut self) {
         let song = self.now_playing();
         if !song.is_empty() && song != self.cast.song {
@@ -142,6 +149,7 @@ impl Controller {
         }
     }
 
+    // [CTL-83]
     pub(super) fn start_casting(&mut self) {
         self.cast.session_peak = 0;
         let enabled: Vec<OutputConfig> = self
@@ -187,6 +195,7 @@ impl Controller {
         self.emit_cast();
     }
 
+    // [CTL-84]
     pub(super) fn stop_casting(&mut self) {
         let cast = &mut self.cast;
         cast.casting = false;
@@ -199,6 +208,7 @@ impl Controller {
         self.emit_cast();
     }
 
+    // [CTL-85]
     pub(super) fn apply_outputs(&mut self, outputs: Vec<OutputConfig>) {
         let errored = self
             .cast
@@ -221,6 +231,7 @@ impl Controller {
         }
     }
 
+    // [CTL-86]
     pub(super) fn poll_listeners(&mut self) {
         if !self.cast.casting || self.cast.last_stats.elapsed() < STATS_EVERY {
             return;
@@ -241,6 +252,7 @@ impl Controller {
         }
     }
 
+    // [CTL-87]
     pub(super) fn on_listeners(&mut self, id: String, result: Result<Listeners, String>) {
         let l = match result {
             Ok(l) => l,
@@ -258,6 +270,7 @@ impl Controller {
         self.emit_cast();
     }
 
+    // [CTL-88]
     pub(super) fn emit_cast(&self) {
         self.emit(EV_CAST, &self.cast.view());
     }

@@ -1,0 +1,1871 @@
+[prefixes]
+CORE = "Types communs du moteur audio (blast-core)"
+DEC = "Décodage, tags et rééchantillonnage (blast-core)"
+DSP = "Traitement du signal : filtres, dynamique, chaîne antenne, effets de voix (blast-core)"
+MIX = "Mixeur temps réel (blast-core)"
+ENG = "Moteur audio et périphériques (blast-core)"
+CAST = "Sorties de diffusion, encodage MP3 et fils d'envoi (blast-cast)"
+PROT = "Protocoles Icecast / Shoutcast et statistiques (blast-cast)"
+AURA = "Pilotage d'OBS par obs-websocket (blast-aura)"
+LIB = "Bibliothèque SQLite, historique et règles de séparation (blast-library)"
+LIVE = "Chat en direct (blast-live, en préparation)"
+CLI = "Outil en ligne de commande « blast » (blast-cli)"
+APP = "Démarrage de l'application et commandes Tauri"
+CFG = "Réglages enregistrés (config.toml)"
+SEC = "Mots de passe dans le trousseau du système"
+JRN = "Journal de diagnostic (blast.log)"
+UPD = "Vérification des mises à jour sur GitHub"
+PL = "Playlist côté application"
+THM = "Thèmes de couleurs"
+CTL = "Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque"
+UI = "Interface : modules JavaScript"
+STY = "Interface : feuille de style"
+HTM = "Interface : structure de la page"
+
+[codes.CORE-01]
+titre = "Identifiant de platine"
+definition = "Désigne la platine A ou B ; donne son index, la platine opposée et le côté du crossfader qui la met à l'antenne."
+
+[codes.CORE-02]
+titre = "États d'une platine"
+definition = "Vide, chargée, en lecture, en pause ou terminée."
+
+[codes.CORE-03]
+titre = "Fondu à puissance constante"
+definition = "Calcule les gains des platines A et B selon la position du crossfader (loi cosinus / sinus) pour garder un volume perçu stable pendant le fondu."
+
+[codes.DEC-01]
+titre = "Titre décodé"
+definition = "Échantillons stéréo entrelacés en f32 à la fréquence du moteur, avec titre et artiste lus dans les tags."
+
+[codes.DEC-02]
+titre = "Erreurs de décodage"
+definition = "Fichier illisible, format non pris en charge, absence de piste audio ou erreur du décodeur."
+
+[codes.DEC-03]
+titre = "Année des tags"
+definition = "Extrait une année sur quatre chiffres d'un champ de date libre."
+
+[codes.DEC-04]
+titre = "Lecture des tags"
+definition = "Récupère titre, artiste, album, genre et année dans les métadonnées lues par Symphonia."
+
+[codes.DEC-05]
+titre = "Extensions audio reconnues"
+definition = "Extensions acceptées dans la playlist, sur les platines et sur les pads."
+
+[codes.DEC-06]
+titre = "Filtre des fichiers audio"
+definition = "Indique si un chemin porte une extension audio reconnue."
+
+[codes.DEC-07]
+titre = "Fiche d'un titre"
+definition = "Métadonnées et durée lues sans décoder l'audio, pour la playlist et la bibliothèque."
+
+[codes.DEC-08]
+titre = "Ouverture d'un fichier audio"
+definition = "Sonde le conteneur et retient la première piste audio décodable."
+
+[codes.DEC-09]
+titre = "Rassemblement des tags"
+definition = "Fusionne les tags du conteneur et ceux du flux, ces derniers étant prioritaires."
+
+[codes.DEC-10]
+titre = "Sonde rapide"
+definition = "Lit les tags et la durée d'un fichier sans le décoder entièrement."
+
+[codes.DEC-11]
+titre = "Décodage complet"
+definition = "Décode un fichier entier en stéréo f32 puis le rééchantillonne à la fréquence du moteur."
+
+[codes.DEC-12]
+titre = "Rééchantillonnage"
+definition = "Convertit un signal stéréo entrelacé vers une autre fréquence avec un filtre sinc (rubato), par blocs."
+
+[codes.DSP-01]
+titre = "Filtre biquad"
+definition = "Cellule IIR du second ordre (forme directe transposée II) utilisée par tous les égaliseurs et filtres."
+
+[codes.DSP-02]
+titre = "Formules des filtres"
+definition = "Coefficients RBJ : passe-haut, passe-bas, cloche, plateaux grave et aigu ; réaccord sans perte d'état et traitement échantillon par échantillon."
+
+[codes.DSP-03]
+titre = "Conversion dB vers gain"
+definition = "Convertit des décibels en facteur linéaire."
+
+[codes.DSP-04]
+titre = "Conversion gain vers dB"
+definition = "Convertit un facteur linéaire en décibels, avec un plancher à -120 dB."
+
+[codes.DSP-05]
+titre = "Coefficient de lissage"
+definition = "Coefficient d'un filtre à un pôle pour un temps d'attaque ou de relâchement donné en millisecondes."
+
+[codes.DSP-06]
+titre = "Réglages du compresseur"
+definition = "Seuil, taux, largeur du genou, attaque, relâchement et gain de compensation."
+
+[codes.DSP-07]
+titre = "Compresseur"
+definition = "Compresseur à genou doux sur crête lissée ; renvoie le gain à appliquer et la réduction en cours."
+
+[codes.DSP-08]
+titre = "Réglages de l'AGC"
+definition = "Niveau cible, gain maximal, vitesses de montée et de descente, seuil de silence."
+
+[codes.DSP-09]
+titre = "Contrôle automatique de gain"
+definition = "Rapproche lentement le niveau moyen de la cible ; le gain est figé sous le seuil de silence."
+
+[codes.DSP-10]
+titre = "Anticipation du limiteur"
+definition = "Le limiteur voit le signal 3 ms à l'avance."
+
+[codes.DSP-11]
+titre = "Limiteur à anticipation"
+definition = "Retarde le signal de 3 ms pour baisser le gain avant la crête : aucun échantillon ne dépasse le plafond."
+
+[codes.DSP-12]
+titre = "Réglages du traitement antenne"
+definition = "AGC, compresseur, limiteur et activation de la chaîne."
+
+[codes.DSP-13]
+titre = "Liste des préréglages antenne"
+definition = "Identifiants et libellés : aucun, doux, radio FM, puissant."
+
+[codes.DSP-14]
+titre = "Préréglages antenne"
+definition = "Construit les réglages de la chaîne antenne à partir d'un identifiant."
+
+[codes.DSP-15]
+titre = "Chaîne de traitement antenne"
+definition = "AGC, compresseur puis limiteur sur le mélange stéréo, avec la réduction mesurée pour le vumètre RÉD."
+
+[codes.DSP-16]
+titre = "Réglages des effets de voix"
+definition = "Porte de bruit, filtres, saturation, compresseur, de-esser, souffle et craquements."
+
+[codes.DSP-17]
+titre = "Liste des préréglages voix"
+definition = "Identifiants et libellés des effets de voix proposés dans Voice FX."
+
+[codes.DSP-18]
+titre = "Raccourci de compresseur"
+definition = "Construit des réglages de compresseur pour les préréglages de voix."
+
+[codes.DSP-19]
+titre = "Préréglages voix"
+definition = "Naturel, podcast, radio FM, ASMR, TSF 1930, téléphone et mégaphone."
+
+[codes.DSP-20]
+titre = "Boîte d'effets de voix"
+definition = "Traite le micro : porte, filtres, saturation tanh ou lampe, compression, de-esser large bande, souffle et craquements simulés."
+
+[codes.MIX-01]
+titre = "Polyphonie Sound FX"
+definition = "Nombre maximal de sons de pads joués en même temps (16)."
+
+[codes.MIX-02]
+titre = "Retard micro maximal"
+definition = "Au-delà de 80 ms de son micro en attente, le surplus est jeté pour garder une latence faible."
+
+[codes.MIX-03]
+titre = "Réglages du micro"
+definition = "Gain, égaliseur trois bandes et passe-haut."
+
+[codes.MIX-04]
+titre = "Commandes du mixeur"
+definition = "Messages envoyés au fil audio : platines, crossfader, auto-mix, pads, micro, ducking et traitements."
+
+[codes.MIX-05]
+titre = "État publié d'une platine"
+definition = "État, position et durée en trames, renvoyés à chaque tick."
+
+[codes.MIX-06]
+titre = "Événements du mixeur"
+definition = "Fin de titre, transition automatique, fin de fondu, fin d'un son de pad et tick de mesure."
+
+[codes.MIX-07]
+titre = "Voix Sound FX"
+definition = "Son de pad en cours de lecture et sa position."
+
+[codes.MIX-08]
+titre = "Chaîne micro"
+definition = "File d'entrée, filtres, gain et effets du micro avant le mélange."
+
+[codes.MIX-09]
+titre = "Emplacement de platine"
+definition = "Titre chargé, position, état et gain d'une platine dans le fil audio."
+
+[codes.MIX-10]
+titre = "Fondu en cours"
+definition = "Positions de départ et d'arrivée du crossfader et durée du fondu."
+
+[codes.MIX-11]
+titre = "Mixeur temps réel"
+definition = "Mélange les deux platines, les sons de pads et le micro, sans aucune allocation dans le fil audio."
+
+[codes.MIX-12]
+titre = "Application des commandes"
+definition = "Exécute une commande de l'interface ; les titres remplacés partent dans une corbeille vidée hors du fil audio."
+
+[codes.MIX-13]
+titre = "Rendu simple"
+definition = "Produit un bloc de mélange sans séparer antenne et écoute locale."
+
+[codes.MIX-14]
+titre = "Rendu antenne et écoute locale"
+definition = "Produit le mélange antenne (avec micro) et le mélange local (micro seulement si le retour est activé), applique ducking, auto-mix et traitement antenne."
+
+[codes.MIX-15]
+titre = "Traitement du micro"
+definition = "Lit le micro dans sa file, limite le retard, filtre et applique les effets de voix."
+
+[codes.ENG-01]
+titre = "Tampon de travail"
+definition = "Nombre de trames préallouées pour un rappel audio."
+
+[codes.ENG-02]
+titre = "Capacité de la prise antenne"
+definition = "Secondes de son gardées dans la file vers les encodeurs."
+
+[codes.ENG-03]
+titre = "Erreurs du moteur"
+definition = "Aucune sortie, périphérique introuvable, format non pris en charge ou erreur du pilote audio."
+
+[codes.ENG-04]
+titre = "Conversion d'erreur du pilote"
+definition = "Transforme une erreur cpal en erreur du moteur."
+
+[codes.ENG-05]
+titre = "Sorties audio"
+definition = "Liste les périphériques de sortie du système."
+
+[codes.ENG-06]
+titre = "Sortie par défaut"
+definition = "Nom de la sortie audio par défaut du système."
+
+[codes.ENG-07]
+titre = "Choix du micro"
+definition = "Pas de micro, micro par défaut ou micro désigné par son nom."
+
+[codes.ENG-08]
+titre = "Entrées audio"
+definition = "Liste les micros du système."
+
+[codes.ENG-09]
+titre = "Micro par défaut"
+definition = "Nom du micro par défaut du système."
+
+[codes.ENG-10]
+titre = "Moteur audio"
+definition = "Ouvre la sortie et le micro, fait tourner le mixeur dans le rappel audio et expose commandes, événements et prise antenne."
+
+[codes.ENG-11]
+titre = "Démarrage du moteur"
+definition = "Ouvre la sortie demandée ou celle par défaut, et le micro choisi ; un micro absent n'empêche pas le démarrage."
+
+[codes.ENG-12]
+titre = "Lecture des événements"
+definition = "Renvoie les événements du mixeur ; le tick passe par un canal séparé qui ne garde que le plus récent."
+
+[codes.ENG-13]
+titre = "Prise antenne"
+definition = "Vide la file du mélange antenne dans un tampon pour les encodeurs."
+
+[codes.ENG-14]
+titre = "Libération différée"
+definition = "Libère hors du fil audio les titres retirés par le mixeur."
+
+[codes.ENG-15]
+titre = "Éléments du rappel audio"
+definition = "Mixeur, files et tampons déplacés dans le rappel de sortie."
+
+[codes.ENG-16]
+titre = "Rappel de sortie"
+definition = "Construit le flux de sortie pour un format d'échantillon et y fait tourner le mixeur."
+
+[codes.ENG-17]
+titre = "Flux micro"
+definition = "Flux d'entrée et extrémité de lecture de sa file."
+
+[codes.ENG-18]
+titre = "Ouverture du micro"
+definition = "Ouvre le micro choisi et relie sa file au mixeur."
+
+[codes.ENG-19]
+titre = "Rappel d'entrée"
+definition = "Convertit le micro en stéréo f32 et le pousse dans la file sans jamais bloquer."
+
+[codes.CAST-01]
+titre = "Débits proposés"
+definition = "Débits MP3 proposés dans les réglages d'une sortie."
+
+[codes.CAST-02]
+titre = "Codec de diffusion"
+definition = "Format envoyé au serveur et son type MIME."
+
+[codes.CAST-03]
+titre = "Type de serveur"
+definition = "Icecast 2, Shoutcast v1 ou Shoutcast v2."
+
+[codes.CAST-04]
+titre = "Sortie de diffusion"
+definition = "Serveur, point de montage ou SID, identifiant, débit, canaux et informations de la station, sans mot de passe."
+
+[codes.CAST-05]
+titre = "Règles d'une sortie"
+definition = "Point de montage normalisé, nombre de canaux et validation des champs avant enregistrement."
+
+[codes.CAST-06]
+titre = "Encodeur MP3"
+definition = "Encodeur LAME à débit constant, en stéréo ou en mono."
+
+[codes.CAST-07]
+titre = "Débit LAME"
+definition = "Associe un débit en kb/s à la constante LAME correspondante."
+
+[codes.CAST-08]
+titre = "Encodage"
+definition = "Convertit un bloc stéréo f32 en trames MP3."
+
+[codes.CAST-09]
+titre = "Délai de reconnexion"
+definition = "Attente de 5 secondes entre deux tentatives de connexion."
+
+[codes.CAST-10]
+titre = "File de son par sortie"
+definition = "Nombre de blocs gardés en attente par sortie avant d'en jeter."
+
+[codes.CAST-11]
+titre = "État d'une sortie"
+definition = "Arrêtée, connexion, en direct, reconnexion (avec la raison) ou erreur."
+
+[codes.CAST-12]
+titre = "Changement d'état"
+definition = "Identifiant de la sortie et son nouvel état, remontés à l'interface."
+
+[codes.CAST-13]
+titre = "Poignée de sortie"
+definition = "Canaux de son, de titre et d'arrêt d'un fil d'envoi."
+
+[codes.CAST-14]
+titre = "Gestionnaire de diffusion"
+definition = "Un fil par sortie ; répartit le son et le titre en cours, collecte les états."
+
+[codes.CAST-15]
+titre = "Pilotage des sorties"
+definition = "Démarrer, arrêter sans bloquer, pousser le son et le titre, relever les états."
+
+[codes.CAST-16]
+titre = "Fil d'envoi"
+definition = "Encode et envoie le son d'une sortie, se reconnecte en cas de coupure."
+
+[codes.CAST-17]
+titre = "Fin de session d'envoi"
+definition = "Arrêt demandé, coupure à retenter ou erreur définitive (mot de passe refusé)."
+
+[codes.CAST-18]
+titre = "Boucle d'envoi"
+definition = "Connexion, envoi, mise à jour du titre, reconnexion toutes les 5 secondes, arrêt définitif sur mot de passe refusé."
+
+[codes.PROT-01]
+titre = "Délai de connexion"
+definition = "Temps maximal pour joindre le serveur."
+
+[codes.PROT-02]
+titre = "Délai d'échange"
+definition = "Temps maximal d'attente d'une réponse ou d'un envoi."
+
+[codes.PROT-03]
+titre = "Agent annoncé"
+definition = "Nom et version de BLAST annoncés aux serveurs."
+
+[codes.PROT-04]
+titre = "Erreurs de diffusion"
+definition = "Réseau, authentification refusée, point de montage occupé ou réponse inattendue ; indique si l'erreur est définitive."
+
+[codes.PROT-05]
+titre = "Nettoyage d'en-tête"
+definition = "Retire retours à la ligne et caractères de contrôle d'une valeur d'en-tête."
+
+[codes.PROT-06]
+titre = "Encodage d'URL"
+definition = "Encode un texte pour une requête de mise à jour du titre."
+
+[codes.PROT-07]
+titre = "Connexion TCP"
+definition = "Résout l'adresse et se connecte avec délais."
+
+[codes.PROT-08]
+titre = "Lecture d'en-têtes"
+definition = "Lit la réponse jusqu'à la fin des en-têtes."
+
+[codes.PROT-09]
+titre = "Statut HTTP"
+definition = "Extrait le code de la ligne de statut."
+
+[codes.PROT-10]
+titre = "Authentification Basic"
+definition = "Construit l'en-tête Authorization."
+
+[codes.PROT-11]
+titre = "Informations audio"
+definition = "Débit, canaux et fréquence annoncés au serveur."
+
+[codes.PROT-12]
+titre = "Ouverture de la source"
+definition = "Ouvre la connexion source selon le type de serveur."
+
+[codes.PROT-13]
+titre = "Source Icecast"
+definition = "Requête PUT avec Expect: 100-continue et authentification Basic."
+
+[codes.PROT-14]
+titre = "Source Shoutcast"
+definition = "Mot de passe sur le port + 1 (v1) ou « motdepasse:#sid » (v2), puis attente de OK2."
+
+[codes.PROT-15]
+titre = "Titre en cours"
+definition = "Envoie « Artiste - Titre » par /admin/metadata (Icecast) ou /admin.cgi (Shoutcast)."
+
+[codes.PROT-16]
+titre = "Auditeurs"
+definition = "Nombre d'auditeurs en cours et pic."
+
+[codes.PROT-17]
+titre = "Requête de statistiques"
+definition = "Requête GET avec authentification vers la page de statistiques."
+
+[codes.PROT-18]
+titre = "Lecture JSON minimale"
+definition = "Extrait la valeur numérique d'une clé dans une réponse JSON."
+
+[codes.PROT-19]
+titre = "Statistiques Icecast"
+definition = "Lit status-json.xsl et retient le point de montage de la sortie."
+
+[codes.PROT-20]
+titre = "Statistiques Shoutcast v1"
+definition = "Lit la page 7.html."
+
+[codes.PROT-21]
+titre = "Statistiques Shoutcast v2"
+definition = "Lit stats?sid=&json=1."
+
+[codes.PROT-22]
+titre = "Relevé des auditeurs"
+definition = "Interroge le serveur selon son type et renvoie les auditeurs."
+
+[codes.PROT-23]
+titre = "Test de connexion"
+definition = "Ouvre une source, envoie un court silence puis referme."
+
+[codes.AURA-01]
+titre = "Réglages OBS"
+definition = "Adresse, port, connexion au démarrage et source texte « Now Playing »."
+
+[codes.AURA-02]
+titre = "Actions OBS élémentaires"
+definition = "Changer de scène, lancer ou arrêter stream et enregistrement, afficher une source, écrire un texte."
+
+[codes.AURA-03]
+titre = "Informations OBS"
+definition = "Versions d'OBS et d'obs-websocket, plateforme."
+
+[codes.AURA-04]
+titre = "Erreurs OBS"
+definition = "Connexion impossible, authentification refusée ou réponse inattendue."
+
+[codes.AURA-05]
+titre = "Authentification obs-websocket"
+definition = "SHA-256 du mot de passe et du sel, puis du défi, encodés en base64."
+
+[codes.AURA-06]
+titre = "Lecture d'un message"
+definition = "Lit le prochain message texte JSON de la WebSocket."
+
+[codes.AURA-07]
+titre = "Test de connexion OBS"
+definition = "Se connecte, s'authentifie et renvoie les versions."
+
+[codes.AURA-08]
+titre = "Abonnement aux événements"
+definition = "Masque de tous les événements obs-websocket (2047)."
+
+[codes.AURA-09]
+titre = "Sources audio OBS"
+definition = "Types de sources traités comme audio."
+
+[codes.AURA-10]
+titre = "Commandes OBS"
+definition = "Scène, stream, enregistrement, pause, replay, capture, volume, muet, texte et rafraîchissement."
+
+[codes.AURA-11]
+titre = "Source audio OBS"
+definition = "Nom et type d'une source audio."
+
+[codes.AURA-12]
+titre = "Événements OBS"
+definition = "Connexion, scènes, stream, enregistrement, sources, volume, informations et erreurs."
+
+[codes.AURA-13]
+titre = "Client OBS"
+definition = "Fil de connexion persistant, piloté par commandes, qui remonte des événements."
+
+[codes.AURA-14]
+titre = "Fin de session OBS"
+definition = "Arrêt demandé ou coupure."
+
+[codes.AURA-15]
+titre = "Boucle de connexion"
+definition = "Se reconnecte avec un délai croissant de 2 à 30 secondes."
+
+[codes.AURA-16]
+titre = "Lecture non bloquante"
+definition = "Reconnaît une attente sans données sur la socket."
+
+[codes.AURA-17]
+titre = "Session OBS"
+definition = "État d'une connexion : requêtes en attente par requestId et sources suivies."
+
+[codes.AURA-18]
+titre = "Traitement de session"
+definition = "Envoi des requêtes, lecture des réponses et des événements, conversion en ObsEvent."
+
+[codes.AURA-19]
+titre = "Poignée de main"
+definition = "Hello, Identify avec authentification et attente de Identified."
+
+[codes.AURA-20]
+titre = "Session complète"
+definition = "Ouvre la WebSocket, s'identifie et fait tourner la session."
+
+[codes.LIB-01]
+titre = "Version du schéma"
+definition = "Numéro de version de la base, enregistré dans la table meta."
+
+[codes.LIB-02]
+titre = "Schéma SQLite"
+definition = "Tables tracks, historique_diffusion et meta, avec leurs index."
+
+[codes.LIB-03]
+titre = "Titre en bibliothèque"
+definition = "Chemin, titre, artiste, album, genre, année et durée enregistrés."
+
+[codes.LIB-04]
+titre = "Règles de séparation"
+definition = "Activation et délais minimaux entre deux passages d'un même artiste ou d'un même titre."
+
+[codes.LIB-05]
+titre = "Règle enfreinte"
+definition = "Artiste ou titre passé trop récemment, avec le délai restant ; décrite en français pour la playlist."
+
+[codes.LIB-06]
+titre = "Ligne d'historique"
+definition = "Un passage : début, titre, artiste, durée écoutée, diffusion en direct et auditeurs."
+
+[codes.LIB-07]
+titre = "Statistiques"
+definition = "Nombre de titres connus et de passages enregistrés."
+
+[codes.LIB-08]
+titre = "Bibliothèque"
+definition = "Base SQLite en mode WAL : titres connus et historique de diffusion."
+
+[codes.LIB-09]
+titre = "Ouverture de la base"
+definition = "Ouvre ou crée la base et applique le schéma."
+
+[codes.LIB-10]
+titre = "Enregistrement des titres"
+definition = "Ajoute ou met à jour les titres scannés."
+
+[codes.LIB-11]
+titre = "Début de passage"
+definition = "Inscrit un passage dans historique_diffusion et renvoie son identifiant."
+
+[codes.LIB-12]
+titre = "Fin de passage"
+definition = "Enregistre la durée réellement écoutée."
+
+[codes.LIB-13]
+titre = "Contrôle des règles"
+definition = "Vérifie par requêtes SQL si un titre ou son artiste est passé trop récemment."
+
+[codes.LIB-14]
+titre = "Derniers passages"
+definition = "Renvoie les passages les plus récents."
+
+[codes.LIB-15]
+titre = "Passages sur une période"
+definition = "Renvoie les passages entre deux instants."
+
+[codes.LIB-16]
+titre = "Purge"
+definition = "Supprime les passages plus anciens qu'une date."
+
+[codes.LIB-17]
+titre = "Effacement"
+definition = "Vide tout l'historique."
+
+[codes.LIB-18]
+titre = "Calcul des statistiques"
+definition = "Compte les titres et les passages."
+
+[codes.LIB-19]
+titre = "Champ CSV"
+definition = "Met un champ entre guillemets si nécessaire."
+
+[codes.LIB-20]
+titre = "Export CSV"
+definition = "Produit l'historique au format CSV avec des dates lisibles."
+
+[codes.LIVE-01]
+titre = "Plateforme de chat"
+definition = "Twitch, YouTube ou Kick."
+
+[codes.LIVE-02]
+titre = "Message de chat"
+definition = "Plateforme, auteur et texte."
+
+[codes.LIVE-03]
+titre = "Commande de chat"
+definition = "Demande de titre, titre en cours ou déclenchement d'un son."
+
+[codes.LIVE-04]
+titre = "Lecture des commandes"
+definition = "Reconnaît !request, !np et !sfx dans un message."
+
+[codes.CLI-01]
+titre = "Arguments"
+definition = "Point d'entrée des arguments de la commande blast."
+
+[codes.CLI-02]
+titre = "Sous-commandes"
+definition = "devices, info, play et render."
+
+[codes.CLI-03]
+titre = "Lancement"
+definition = "Analyse les arguments et exécute la sous-commande."
+
+[codes.CLI-04]
+titre = "Résultat générique"
+definition = "Résultat avec erreur quelconque pour la ligne de commande."
+
+[codes.CLI-05]
+titre = "Horodatage"
+definition = "Formate une durée en minutes et secondes."
+
+[codes.CLI-06]
+titre = "blast devices"
+definition = "Liste les sorties et entrées audio."
+
+[codes.CLI-07]
+titre = "blast info"
+definition = "Affiche les tags et la durée de fichiers audio."
+
+[codes.CLI-08]
+titre = "Enchaîneur"
+definition = "Charge les fichiers à tour de rôle sur les deux platines."
+
+[codes.CLI-09]
+titre = "Logique d'enchaînement"
+definition = "Choisit la platine libre et le fichier suivant à chaque fin de titre."
+
+[codes.CLI-10]
+titre = "Ligne de platine"
+definition = "Affiche l'état d'une platine dans le terminal."
+
+[codes.CLI-11]
+titre = "Crossfader texte"
+definition = "Dessine la position du crossfader."
+
+[codes.CLI-12]
+titre = "Vumètre texte"
+definition = "Dessine un vumètre en caractères."
+
+[codes.CLI-13]
+titre = "blast play"
+definition = "Joue des fichiers en auto-mix sur la sortie audio."
+
+[codes.CLI-14]
+titre = "blast render"
+definition = "Mixe des fichiers hors temps réel vers un fichier WAV."
+
+[codes.APP-01]
+titre = "Démarrage"
+definition = "Ouvre le journal, charge les réglages, lance le contrôleur et ajoute les fichiers passés en argument."
+
+[codes.APP-02]
+titre = "Point d'entrée"
+definition = "Construit l'application Tauri, déclare les commandes et journalise un arrêt anormal."
+
+[codes.APP-03]
+titre = "État partagé"
+definition = "Canal vers le contrôleur, réglages en mémoire, chemins et trousseau."
+
+[codes.APP-04]
+titre = "Sortie vue par l'interface"
+definition = "Réglages d'une sortie et présence d'un mot de passe enregistré."
+
+[codes.APP-05]
+titre = "Réglages vus par l'interface"
+definition = "Tout ce qu'affiche la fenêtre Réglages : sorties, OBS, audio, voix, pads, automation et périphériques."
+
+[codes.APP-06]
+titre = "Écriture des réglages"
+definition = "Construit la vue des réglages, enregistre une modification puis la transmet au contrôleur, range un mot de passe."
+
+[codes.APP-07]
+titre = "Commande blast"
+definition = "Transmet une commande de l'interface au contrôleur."
+
+[codes.APP-08]
+titre = "Commande themes"
+definition = "Liste les thèmes intégrés et ceux de l'utilisateur."
+
+[codes.APP-09]
+titre = "Commande themes_dir"
+definition = "Crée et renvoie le dossier des thèmes de l'utilisateur."
+
+[codes.APP-10]
+titre = "Commande get_settings"
+definition = "Renvoie la vue des réglages."
+
+[codes.APP-11]
+titre = "Commande save_output"
+definition = "Valide et enregistre une sortie, range son mot de passe."
+
+[codes.APP-12]
+titre = "Commande delete_output"
+definition = "Supprime une sortie et son mot de passe."
+
+[codes.APP-13]
+titre = "Commande test_output"
+definition = "Teste une sortie sans l'enregistrer."
+
+[codes.APP-14]
+titre = "Commande save_aura"
+definition = "Enregistre les réglages OBS et leur mot de passe."
+
+[codes.APP-15]
+titre = "Commande test_aura"
+definition = "Teste la connexion à OBS."
+
+[codes.APP-16]
+titre = "Commande save_audio"
+definition = "Enregistre la sortie audio, prise en compte au redémarrage."
+
+[codes.APP-17]
+titre = "Commande save_voice"
+definition = "Enregistre les réglages de Voice FX en conservant le choix du micro."
+
+[codes.APP-18]
+titre = "Commande save_input"
+definition = "Enregistre le micro et son activation, pris en compte au redémarrage."
+
+[codes.APP-19]
+titre = "Commande save_pad"
+definition = "Affecte un son à un pad."
+
+[codes.APP-20]
+titre = "Commande clear_pad"
+definition = "Vide un pad."
+
+[codes.APP-21]
+titre = "Commande save_sfx_volume"
+definition = "Enregistre le volume de la Sound FX."
+
+[codes.APP-22]
+titre = "Commande save_master_preset"
+definition = "Choisit le préréglage du traitement antenne."
+
+[codes.APP-23]
+titre = "Commande save_automation"
+definition = "Enregistre les règles de séparation et la durée de conservation."
+
+[codes.APP-24]
+titre = "Commande export_history"
+definition = "Exporte l'historique en CSV."
+
+[codes.APP-25]
+titre = "Informations de l'application"
+definition = "Version, dépôt, journal, dossier de réglages et préférences de mise à jour."
+
+[codes.APP-26]
+titre = "Commande app_info"
+definition = "Renvoie les informations de l'onglet À propos."
+
+[codes.APP-27]
+titre = "Commande check_update"
+definition = "Interroge GitHub ; au démarrage, ne signale que les versions plus récentes et non ignorées."
+
+[codes.APP-28]
+titre = "Commande save_updates"
+definition = "Enregistre la vérification au démarrage et la version ignorée."
+
+[codes.APP-29]
+titre = "Commande open_link"
+definition = "Ouvre dans le navigateur un lien du dépôt GitHub, et seulement celui-ci."
+
+[codes.APP-30]
+titre = "Commande open_folder"
+definition = "Ouvre le dossier du journal ou des réglages."
+
+[codes.CFG-01]
+titre = "Réglages audio"
+definition = "Sortie audio choisie et préréglage du traitement antenne."
+
+[codes.CFG-02]
+titre = "Réglages Voice FX"
+definition = "Micro, gains, ducking, égaliseur, passe-haut, retour et préréglage de voix."
+
+[codes.CFG-03]
+titre = "Pad"
+definition = "Numéro, nom, fichier et couleur d'un pad."
+
+[codes.CFG-04]
+titre = "Réglages Sound FX"
+definition = "Volume général et liste des pads."
+
+[codes.CFG-05]
+titre = "Nombre de pads"
+definition = "36 pads, en trois pages de 12."
+
+[codes.CFG-06]
+titre = "Réglages d'automation"
+definition = "Règles de séparation et durée de conservation de l'historique."
+
+[codes.CFG-07]
+titre = "Réglages de mise à jour"
+definition = "Vérification au démarrage et version ignorée."
+
+[codes.CFG-08]
+titre = "Réglages complets"
+definition = "Contenu de config.toml ; aucun mot de passe n'y figure."
+
+[codes.CFG-09]
+titre = "Chargement"
+definition = "Lit config.toml ; un fichier illisible est mis de côté et remplacé par les valeurs par défaut."
+
+[codes.CFG-10]
+titre = "Enregistrement"
+definition = "Écrit config.toml via un fichier temporaire renommé, pour ne jamais laisser de fichier à moitié écrit."
+
+[codes.SEC-01]
+titre = "Nom du service"
+definition = "Identifiant sous lequel les mots de passe sont rangés dans le trousseau."
+
+[codes.SEC-02]
+titre = "Lieu de rangement"
+definition = "Trousseau du système ou mémoire seule (avec la raison)."
+
+[codes.SEC-03]
+titre = "Trousseau"
+definition = "Lecture et écriture des mots de passe dans le trousseau, avec repli en mémoire."
+
+[codes.SEC-04]
+titre = "Clé d'une sortie"
+definition = "Nom de la clé du mot de passe d'une sortie de diffusion."
+
+[codes.SEC-05]
+titre = "Clé OBS"
+definition = "Nom de la clé du mot de passe OBS."
+
+[codes.SEC-06]
+titre = "Opérations du trousseau"
+definition = "Lire, tester, écrire, supprimer et décrire le lieu de rangement."
+
+[codes.JRN-01]
+titre = "Taille maximale"
+definition = "Au-delà de 1 Mo, le journal est renommé en blast.log.1 au démarrage."
+
+[codes.JRN-02]
+titre = "Journal"
+definition = "Fichier ouvert en ajout et son chemin."
+
+[codes.JRN-03]
+titre = "Ouverture du journal"
+definition = "Crée le dossier, fait tourner le fichier trop gros et note le démarrage."
+
+[codes.JRN-04]
+titre = "Chemin du journal"
+definition = "Chemin du fichier, pour l'onglet À propos."
+
+[codes.JRN-05]
+titre = "Écriture"
+definition = "Ajoute une ligne horodatée avec son niveau ; sans journal ouvert, écrit sur la sortie d'erreur."
+
+[codes.JRN-06]
+titre = "Niveau info"
+definition = "Raccourci pour une information."
+
+[codes.JRN-07]
+titre = "Niveau avertissement"
+definition = "Raccourci pour un avertissement."
+
+[codes.JRN-08]
+titre = "Niveau erreur"
+definition = "Raccourci pour une erreur."
+
+[codes.UPD-01]
+titre = "Dépôt"
+definition = "Dépôt GitHub interrogé."
+
+[codes.UPD-02]
+titre = "Version installée"
+definition = "Version de l'application, issue du workspace."
+
+[codes.UPD-03]
+titre = "Version publiée"
+definition = "Champs utiles de la réponse de l'API GitHub Releases."
+
+[codes.UPD-04]
+titre = "Résultat de vérification"
+definition = "Version installée, dernière version publiée, nouveauté, lien et notes."
+
+[codes.UPD-05]
+titre = "Page des versions"
+definition = "Adresse de la page des versions sur GitHub."
+
+[codes.UPD-06]
+titre = "Numéro de version"
+definition = "Majeur, mineur, correctif et stabilité, comparables entre eux."
+
+[codes.UPD-07]
+titre = "Lecture d'un numéro"
+definition = "Lit « v1.2.3 », « 1.2 » ou « 1.2.3-rc.1 »."
+
+[codes.UPD-08]
+titre = "Comparaison"
+definition = "Indique si une version est plus récente que la version installée."
+
+[codes.UPD-09]
+titre = "Évaluation d'une version"
+definition = "Ignore brouillons et préversions, puis compare à la version installée."
+
+[codes.UPD-10]
+titre = "Vérification"
+definition = "Interroge l'API GitHub avec le magasin de certificats du système ; aucune version publiée n'est pas une erreur."
+
+[codes.PL-01]
+titre = "Entrée de playlist"
+definition = "Fichier, tags, durée, erreur de lecture éventuelle et motif d'attente des règles."
+
+[codes.PL-02]
+titre = "Playlist"
+definition = "Liste ordonnée d'entrées avec identifiants uniques."
+
+[codes.PL-03]
+titre = "Opérations de playlist"
+definition = "Insérer à une position, retirer, déplacer, vider et totaliser la durée."
+
+[codes.PL-04]
+titre = "Parcours de dossier"
+definition = "Parcourt un dossier récursivement, dans l'ordre alphabétique."
+
+[codes.PL-05]
+titre = "Développement des chemins"
+definition = "Remplace les dossiers par les fichiers audio qu'ils contiennent."
+
+[codes.PL-06]
+titre = "Création d'entrée"
+definition = "Sonde un fichier ; un fichier illisible devient une entrée signalée en erreur."
+
+[codes.THM-01]
+titre = "Thèmes intégrés"
+definition = "Black-Lab, Dark et Light, compilés dans l'application."
+
+[codes.THM-02]
+titre = "Lecture d'un thème"
+definition = "Convertit un fichier TOML de thème en données pour l'interface."
+
+[codes.THM-03]
+titre = "Liste des thèmes"
+definition = "Thèmes intégrés puis thèmes du dossier de l'utilisateur."
+
+[codes.CTL-01]
+titre = "Interface du contrôleur"
+definition = "Ce dont le contrôleur a besoin côté interface : émettre un événement et connaître le dossier des images. Remplaçable dans les tests."
+
+[codes.CTL-02]
+titre = "Interface Tauri"
+definition = "Implémentation réelle : émet vers la fenêtre, journalise les échecs."
+
+[codes.CTL-03]
+titre = "Démarrage audio"
+definition = "Moteur démarré (ou erreur), nom de la sortie et fréquence."
+
+[codes.CTL-04]
+titre = "Ouverture de l'audio"
+definition = "Démarre le moteur sur la sortie choisie, se replie sur la sortie par défaut et journalise l'échec."
+
+[codes.CTL-05]
+titre = "Travaux de fond"
+definition = "Résultats rendus par les fils de fond : scan, décodage d'un titre ou d'un pad, relevé d'auditeurs."
+
+[codes.CTL-06]
+titre = "Heure en millisecondes"
+definition = "Horodatage Unix en millisecondes."
+
+[codes.CTL-07]
+titre = "Heure en secondes"
+definition = "Horodatage Unix en secondes."
+
+[codes.CTL-08]
+titre = "Lancement du contrôleur"
+definition = "Démarre le fil du contrôleur avec audio et bibliothèque, renvoie le canal de commandes."
+
+[codes.CTL-09]
+titre = "Ouverture de la bibliothèque"
+definition = "Ouvre la base ; en cas d'échec, désactive historique et règles et prévient l'utilisateur."
+
+[codes.CTL-10]
+titre = "Contrôleur"
+definition = "État central : platines, playlist, diffusion, pads, micro, OBS et automation."
+
+[codes.CTL-11]
+titre = "Initialisation"
+definition = "Applique les réglages au moteur, connecte OBS si demandé, charge les pads."
+
+[codes.CTL-12]
+titre = "Boucle principale"
+definition = "Toutes les 15 ms : commandes de l'interface, travaux de fond, événements du moteur, prise antenne, OBS, sorties, statistiques et entretien."
+
+[codes.CTL-13]
+titre = "Réception des travaux"
+definition = "Applique les résultats des fils de fond."
+
+[codes.CTL-14]
+titre = "Événements du moteur"
+definition = "Lit jusqu'à 64 événements par tour et ne garde que le dernier tick."
+
+[codes.CTL-15]
+titre = "Envoi au moteur"
+definition = "Transmet une commande au mixeur si le moteur tourne."
+
+[codes.CTL-16]
+titre = "Émission"
+definition = "Sérialise une vue et l'envoie à l'interface."
+
+[codes.CTL-17]
+titre = "Notification"
+definition = "Affiche un message à l'utilisateur et journalise avertissements et erreurs."
+
+[codes.CTL-18]
+titre = "Aiguillage des commandes"
+definition = "Dirige chaque commande de l'interface vers son traitement, puis publie l'état."
+
+[codes.CTL-19]
+titre = "Rafraîchissement"
+definition = "Republie toutes les vues et l'avertissement de démarrage éventuel."
+
+[codes.CTL-20]
+titre = "Nouveaux réglages"
+definition = "Applique traitement antenne, automation, OBS, voix, pads et sorties modifiés."
+
+[codes.CTL-21]
+titre = "Aiguillage des travaux"
+definition = "Dirige chaque résultat de fond vers son traitement."
+
+[codes.CTL-22]
+titre = "Événements du mixeur"
+definition = "Met à jour platines, vumètres et micro à chaque tick ; gère fin de titre, fondus et fin des sons de pads."
+
+[codes.CTL-23]
+titre = "Platine à l'antenne"
+definition = "Platine désignée par la position du crossfader."
+
+[codes.CTL-24]
+titre = "Platine côté interface"
+definition = "A ou B, tel que l'envoie l'interface."
+
+[codes.CTL-25]
+titre = "Actions OBS de l'interface"
+definition = "Connexion, scène, stream, enregistrement, replay, capture, volume et muet."
+
+[codes.CTL-26]
+titre = "Commandes de l'interface"
+definition = "Tout ce que l'interface peut demander au contrôleur ; les réglages passent par la variante Config."
+
+[codes.CTL-27]
+titre = "Noms des événements"
+definition = "Canaux blast:// écoutés par l'interface : état, playlist, notifications, diffusion, pads, OBS, historique."
+
+[codes.CTL-28]
+titre = "Vue d'une notification"
+definition = "Niveau et message."
+
+[codes.CTL-29]
+titre = "Vue d'une source OBS"
+definition = "Nom, type, muet et volume."
+
+[codes.CTL-30]
+titre = "Vue OBS"
+definition = "État de connexion, scènes, stream, enregistrement et sources audio."
+
+[codes.CTL-31]
+titre = "Vue d'un pad"
+definition = "Nom, couleur, fichier, prêt ou en erreur."
+
+[codes.CTL-32]
+titre = "Vue de la Sound FX"
+definition = "Pads affectés et nombre total."
+
+[codes.CTL-33]
+titre = "Vue du micro"
+definition = "Disponibilité, ouverture, niveau, nom et erreur."
+
+[codes.CTL-34]
+titre = "Vue d'une platine"
+definition = "État, position, durée, titre, artiste et fichier."
+
+[codes.CTL-35]
+titre = "Vue d'état"
+definition = "Platines, crossfader, vumètres, auto-mix, platine à l'antenne, sortie audio, micro, pads en cours, ducking et réduction."
+
+[codes.CTL-36]
+titre = "Vue de playlist"
+definition = "Entrées avec motif d'attente et durée totale."
+
+[codes.CTL-37]
+titre = "Vue d'une sortie"
+definition = "État, cible, auditeurs, pic et heure de passage en direct."
+
+[codes.CTL-38]
+titre = "Vue de diffusion"
+definition = "Diffusion en cours, titre, sorties, auditeurs, pic de session et début."
+
+[codes.CTL-39]
+titre = "Vue d'historique"
+definition = "Derniers passages, statistiques et passage en cours."
+
+[codes.CTL-40]
+titre = "Platine vide"
+definition = "État publié d'une platine sans titre."
+
+[codes.CTL-41]
+titre = "Titre d'une platine"
+definition = "Titre, artiste, fichier, chargement en cours et fin de lecture."
+
+[codes.CTL-42]
+titre = "Platine"
+definition = "Titre et dernier état publié par le mixeur."
+
+[codes.CTL-43]
+titre = "État d'une platine"
+definition = "En lecture, prête, active (chargement, lecture ou en attente), libellé et remise à zéro."
+
+[codes.CTL-44]
+titre = "Chargement d'un titre"
+definition = "Décode un titre en arrière-plan ; seul le dernier chargement demandé est retenu."
+
+[codes.CTL-45]
+titre = "Titre décodé"
+definition = "Charge le titre dans le mixeur, le lance si demandé, déclenche un fondu en attente ou signale l'erreur."
+
+[codes.CTL-46]
+titre = "Fin de titre"
+definition = "Marque la platine comme terminée."
+
+[codes.CTL-47]
+titre = "Retour au début"
+definition = "Remet au début une platine terminée avant de la relancer."
+
+[codes.CTL-48]
+titre = "Fondu"
+definition = "Lance la platine cible et le fondu du crossfader vers elle."
+
+[codes.CTL-49]
+titre = "Fondu ou chargement"
+definition = "Fait le fondu si la platine cible a un titre, sinon charge le suivant de la playlist puis fait le fondu."
+
+[codes.CTL-50]
+titre = "Bouton suivant"
+definition = "Sur une platine en lecture : fondu vers l'autre. Sur une platine arrêtée : charge le titre suivant."
+
+[codes.CTL-51]
+titre = "Retour en playlist"
+definition = "Remet en tête de playlist un titre chargé mais jamais lu qu'on remplace."
+
+[codes.CTL-52]
+titre = "Auto-mix"
+definition = "Garde les deux platines garnies : démarre la première, prépare la suivante."
+
+[codes.CTL-53]
+titre = "Chargement depuis la playlist"
+definition = "Charge une entrée sur une platine, sauf si celle-ci est à l'antenne ou le fichier illisible."
+
+[codes.CTL-54]
+titre = "Lecture"
+definition = "Lance une platine prête."
+
+[codes.CTL-55]
+titre = "Arrêt"
+definition = "Arrête une platine et la remet au début."
+
+[codes.CTL-56]
+titre = "Éjection"
+definition = "Vide une platine qui n'est pas en lecture."
+
+[codes.CTL-57]
+titre = "Déplacement"
+definition = "Place la lecture à une fraction du titre."
+
+[codes.CTL-58]
+titre = "Réglage de l'auto-mix"
+definition = "Transmet l'activation et la durée de fondu au mixeur."
+
+[codes.CTL-59]
+titre = "Vue d'une platine"
+definition = "Convertit trames en secondes pour l'interface."
+
+[codes.CTL-60]
+titre = "Publication de l'état"
+definition = "Envoie la vue d'état à l'interface."
+
+[codes.CTL-61]
+titre = "Fréquence de purge"
+definition = "Purge de l'historique au plus une fois par heure."
+
+[codes.CTL-62]
+titre = "Rafraîchissement des règles"
+definition = "Toutes les 30 s, la playlist est republiée pour mettre à jour les motifs d'attente."
+
+[codes.CTL-63]
+titre = "Taille de l'historique affiché"
+definition = "Nombre de passages envoyés à l'interface."
+
+[codes.CTL-64]
+titre = "Passage en cours"
+definition = "Platine, fichier, ligne d'historique et heure de début."
+
+[codes.CTL-65]
+titre = "État d'automation"
+definition = "Bibliothèque, réglages, passage en cours et horloges d'entretien."
+
+[codes.CTL-66]
+titre = "Choix du titre suivant"
+definition = "Titre conforme, titre forcé faute de mieux, ou playlist vide."
+
+[codes.CTL-67]
+titre = "Sélection du titre suivant"
+definition = "Premier titre lisible conforme aux règles ; sinon le premier titre lisible, avec le motif."
+
+[codes.CTL-68]
+titre = "Motif d'attente"
+definition = "Même artiste déjà sur une platine, ou règle enfreinte selon l'historique."
+
+[codes.CTL-69]
+titre = "Titre suivant"
+definition = "Retire de la playlist le titre choisi et prévient si les règles n'ont pas pu être respectées."
+
+[codes.CTL-70]
+titre = "Suivi des passages"
+definition = "Ouvre un passage quand un titre passe à l'antenne, le clôt avec sa durée quand il en sort."
+
+[codes.CTL-71]
+titre = "Effacement de l'historique"
+definition = "Vide l'historique et détache le passage en cours."
+
+[codes.CTL-72]
+titre = "Nouveaux réglages d'automation"
+definition = "Applique les règles et relance la purge."
+
+[codes.CTL-73]
+titre = "Entretien"
+definition = "Purge horaire et rafraîchissement des motifs d'attente."
+
+[codes.CTL-74]
+titre = "Purge de l'historique"
+definition = "Supprime les passages plus anciens que la durée de conservation."
+
+[codes.CTL-75]
+titre = "Publication de l'historique"
+definition = "Envoie les derniers passages et les statistiques."
+
+[codes.CTL-76]
+titre = "Fréquence des statistiques"
+definition = "Relevé des auditeurs toutes les 10 s."
+
+[codes.CTL-77]
+titre = "État de diffusion"
+definition = "Sorties, fils d'envoi, états, statistiques, titre en cours et prise antenne."
+
+[codes.CTL-78]
+titre = "Calculs de diffusion"
+definition = "Total des auditeurs en direct et vues des sorties."
+
+[codes.CTL-79]
+titre = "Envoi du son"
+definition = "Transmet la prise antenne aux fils d'envoi pendant la diffusion."
+
+[codes.CTL-80]
+titre = "États des sorties"
+definition = "Relève les changements d'état et l'heure de passage en direct."
+
+[codes.CTL-81]
+titre = "Titre à l'antenne"
+definition = "« Artiste - Titre » de la platine à l'antenne."
+
+[codes.CTL-82]
+titre = "Changement de titre"
+definition = "Met à jour le titre envoyé aux serveurs et à OBS."
+
+[codes.CTL-83]
+titre = "Début de diffusion"
+definition = "Démarre chaque sortie active qui a un mot de passe."
+
+[codes.CTL-84]
+titre = "Fin de diffusion"
+definition = "Arrête toutes les sorties."
+
+[codes.CTL-85]
+titre = "Nouvelles sorties"
+definition = "Applique les sorties modifiées ; relance la diffusion en cours, y compris après une erreur."
+
+[codes.CTL-86]
+titre = "Relevé des auditeurs"
+definition = "Interroge les serveurs en direct en arrière-plan."
+
+[codes.CTL-87]
+titre = "Auditeurs reçus"
+definition = "Met à jour compteurs et pics ; les échecs vont au journal."
+
+[codes.CTL-88]
+titre = "Publication de la diffusion"
+definition = "Envoie la vue de diffusion."
+
+[codes.CTL-89]
+titre = "État OBS"
+definition = "Client, réglages et vue."
+
+[codes.CTL-90]
+titre = "Mise à jour de l'état OBS"
+definition = "Transforme les événements OBS en vue et en messages."
+
+[codes.CTL-91]
+titre = "Connexion à OBS"
+definition = "Démarre le client OBS avec le mot de passe du trousseau."
+
+[codes.CTL-92]
+titre = "Déconnexion d'OBS"
+definition = "Arrête le client et remet la vue à zéro."
+
+[codes.CTL-93]
+titre = "Commande OBS"
+definition = "Envoie une commande si OBS est connecté, sinon prévient."
+
+[codes.CTL-94]
+titre = "Titre dans OBS"
+definition = "Écrit le titre en cours dans la source texte choisie."
+
+[codes.CTL-95]
+titre = "Actions OBS"
+definition = "Exécute les actions du panneau AURA · OBS."
+
+[codes.CTL-96]
+titre = "Événements OBS"
+definition = "Applique les événements reçus et publie la vue."
+
+[codes.CTL-97]
+titre = "Nouveaux réglages OBS"
+definition = "Reconnecte si les réglages changent ou après une erreur."
+
+[codes.CTL-98]
+titre = "Publication OBS"
+definition = "Envoie la vue OBS."
+
+[codes.CTL-99]
+titre = "Pad chargé"
+definition = "Nom, couleur, fichier, son décodé ou erreur."
+
+[codes.CTL-100]
+titre = "État de la Sound FX"
+definition = "Pads et masque des pads en cours de lecture."
+
+[codes.CTL-101]
+titre = "Synchronisation des pads"
+definition = "Décode les pads ajoutés ou modifiés, arrête et retire les pads supprimés."
+
+[codes.CTL-102]
+titre = "Pad décodé"
+definition = "Range le son décodé ou l'erreur."
+
+[codes.CTL-103]
+titre = "Pad pressé"
+definition = "Joue le son, l'arrête s'il joue déjà, ou explique pourquoi il n'est pas prêt."
+
+[codes.CTL-104]
+titre = "Publication des pads"
+definition = "Envoie la vue de la Sound FX."
+
+[codes.CTL-105]
+titre = "Scan de fichiers"
+definition = "Développe dossiers et fichiers en entrées, en arrière-plan."
+
+[codes.CTL-106]
+titre = "Fichiers scannés"
+definition = "Enregistre en bibliothèque, charge le premier titre sur la platine visée, ajoute le reste à la playlist."
+
+[codes.CTL-107]
+titre = "Publication de la playlist"
+definition = "Envoie la playlist avec le motif d'attente de chaque titre."
+
+[codes.CTL-108]
+titre = "État du micro"
+definition = "Disponibilité, ouverture, niveau, ducking, nom et erreur."
+
+[codes.CTL-109]
+titre = "Micro demandé"
+definition = "Traduit les réglages en choix de micro pour le moteur."
+
+[codes.CTL-110]
+titre = "Réglages de voix"
+definition = "Transmet gains, égaliseur, ducking, retour et préréglage au mixeur."
+
+[codes.CTL-111]
+titre = "Ouverture du micro"
+definition = "Ouvre ou ferme le micro, ou prévient s'il n'y en a pas."
+
+[codes.UI-01]
+titre = "Accès à Tauri"
+definition = "Objets Tauri, raccourcis $ et $$, icônes du sprite."
+
+[codes.UI-02]
+titre = "État partagé"
+definition = "Dernier état reçu, entrées de playlist et réglages ouverts."
+
+[codes.UI-03]
+titre = "Envoi d'une commande"
+definition = "Envoie une commande au contrôleur ; une erreur s'affiche en notification."
+
+[codes.UI-04]
+titre = "Notification"
+definition = "Affiche un message temporaire, avec boutons d'action éventuels."
+
+[codes.UI-05]
+titre = "Durée"
+definition = "Formate des secondes en mm:ss ou h:mm:ss."
+
+[codes.UI-06]
+titre = "Chronomètre"
+definition = "Formate des millisecondes en hh:mm:ss."
+
+[codes.UI-07]
+titre = "Échelle des vumètres"
+definition = "Convertit une crête en largeur de vumètre sur 48 dB."
+
+[codes.UI-08]
+titre = "Préférences locales"
+definition = "Lecture et écriture protégées dans localStorage."
+
+[codes.UI-09]
+titre = "Lecture de formulaire"
+definition = "Valeurs d'un formulaire selon le type des champs."
+
+[codes.UI-10]
+titre = "Remplissage de formulaire"
+definition = "Remplit un formulaire à partir d'un objet."
+
+[codes.UI-11]
+titre = "Résultat de formulaire"
+definition = "Affiche un message de réussite, d'attente ou d'erreur."
+
+[codes.UI-12]
+titre = "Liste déroulante"
+definition = "Remplit une liste à partir de paires identifiant / libellé."
+
+[codes.UI-13]
+titre = "Double confirmation"
+definition = "Demande un second clic dans les 4 secondes avant une action destructive."
+
+[codes.UI-14]
+titre = "Choix de fichiers"
+definition = "Ouvre le sélecteur de fichiers audio du système."
+
+[codes.UI-15]
+titre = "Horloge"
+definition = "Met à jour l'horloge de la barre du haut."
+
+[codes.UI-16]
+titre = "Abonnements"
+definition = "Relie chaque événement blast:// à son module."
+
+[codes.UI-17]
+titre = "Démarrage de l'interface"
+definition = "Initialise les modules, s'abonne, charge thèmes et voix, active le glisser-déposer puis vérifie les mises à jour."
+
+[codes.UI-18]
+titre = "Application d'un thème"
+definition = "Pose les variables CSS du thème et le mémorise."
+
+[codes.UI-19]
+titre = "Effet Rainbow"
+definition = "Active ou coupe l'effet arc-en-ciel de la platine à l'antenne."
+
+[codes.UI-20]
+titre = "Chargement des thèmes"
+definition = "Remplit la liste et applique le thème mémorisé."
+
+[codes.UI-21]
+titre = "Libellés d'état"
+definition = "Textes affichés dans la pastille d'état des platines."
+
+[codes.UI-22]
+titre = "Affichage d'une platine"
+definition = "Titre, temps, progression, zone de fondu et boutons disponibles."
+
+[codes.UI-23]
+titre = "Vumètres"
+definition = "Vumètres L/R avec retombée, réduction du traitement et témoin CLIP."
+
+[codes.UI-24]
+titre = "Affichage de l'état"
+definition = "Platines, ON AIR, crossfader, auto-mix, vumètres, sortie audio, micro et pads."
+
+[codes.UI-25]
+titre = "Platine libre"
+definition = "Platine à utiliser pour un double-clic dans la playlist."
+
+[codes.UI-26]
+titre = "Affichage de la playlist"
+definition = "Lignes, titres en attente, fichiers illisibles et durée totale."
+
+[codes.UI-27]
+titre = "Onglets playlist"
+definition = "Bascule entre PLAYLIST et HISTORIQUE."
+
+[codes.UI-28]
+titre = "Heure d'un passage"
+definition = "Heure seule aujourd'hui, date et heure sinon."
+
+[codes.UI-29]
+titre = "Affichage de l'historique"
+definition = "Lignes de passages et statistiques."
+
+[codes.UI-30]
+titre = "Export de l'historique"
+definition = "Demande un fichier puis exporte en CSV."
+
+[codes.UI-31]
+titre = "Cible de dépôt"
+definition = "Pad, platine, ligne (avant ou après) ou playlist sous le pointeur."
+
+[codes.UI-32]
+titre = "Surlignage de la cible"
+definition = "Met en évidence la cible de dépôt."
+
+[codes.UI-33]
+titre = "Dépôt d'une entrée"
+definition = "Charge sur une platine, affecte à un pad ou déplace dans la playlist."
+
+[codes.UI-34]
+titre = "Dépôt de fichiers"
+definition = "Fichiers venus de l'explorateur : pad, platine ou playlist à la position visée."
+
+[codes.UI-35]
+titre = "Glisser interne"
+definition = "Glisser-déposer des lignes de playlist au pointeur."
+
+[codes.UI-36]
+titre = "Glisser depuis le système"
+definition = "Écoute les dépôts de fichiers de l'explorateur via Tauri."
+
+[codes.UI-37]
+titre = "Libellés des sorties"
+definition = "Textes des états de sortie."
+
+[codes.UI-38]
+titre = "Libellé du bouton DIFFUSER"
+definition = "EN DIRECT n/m, ERREUR, RECONNEXION ou CONNEXION."
+
+[codes.UI-39]
+titre = "Affichage de la diffusion"
+definition = "Bouton DIFFUSER, auditeurs, pic, infobulle et résumé de la barre d'état."
+
+[codes.UI-40]
+titre = "Durée de diffusion"
+definition = "Chronomètre depuis le passage en direct."
+
+[codes.UI-41]
+titre = "Constantes des réglages"
+definition = "Débits, libellés des serveurs et sortie par défaut."
+
+[codes.UI-42]
+titre = "Liste des sorties"
+definition = "Sorties avec état, auditeurs et mot de passe manquant."
+
+[codes.UI-43]
+titre = "Sélection d'une sortie"
+definition = "Remplit le formulaire de la sortie choisie ou d'une nouvelle."
+
+[codes.UI-44]
+titre = "Sortie saisie"
+definition = "Lit le formulaire en réglages de sortie et mot de passe."
+
+[codes.UI-45]
+titre = "Liste de périphériques"
+definition = "Remplit une liste de sorties ou de micros avec l'entrée par défaut."
+
+[codes.UI-46]
+titre = "Affichage des réglages"
+definition = "Remplit tous les onglets à partir de la vue des réglages."
+
+[codes.UI-47]
+titre = "Enregistrement d'un formulaire"
+definition = "Enregistre, rafraîchit la vue et affiche le résultat."
+
+[codes.UI-48]
+titre = "Test d'une connexion"
+definition = "Affiche l'attente puis le résultat d'un test."
+
+[codes.UI-49]
+titre = "Ouverture des réglages"
+definition = "Charge les réglages et ouvre la fenêtre, éventuellement sur un onglet."
+
+[codes.UI-50]
+titre = "Onglets des réglages"
+definition = "Affiche l'onglet choisi."
+
+[codes.UI-51]
+titre = "Suppression d'une sortie"
+definition = "Demande confirmation puis supprime."
+
+[codes.UI-52]
+titre = "Curseurs de voix"
+definition = "Curseurs de Voice FX, clé de réglage et format d'affichage."
+
+[codes.UI-53]
+titre = "Affichage de Voice FX"
+definition = "Micro disponible, verrou, PARLER et vumètre micro."
+
+[codes.UI-54]
+titre = "Enregistrement différé"
+definition = "Enregistre les réglages de voix 250 ms après le dernier changement."
+
+[codes.UI-55]
+titre = "Affichage des réglages de voix"
+definition = "Positionne curseurs et cases."
+
+[codes.UI-56]
+titre = "Verrou du micro"
+definition = "Ouvre le micro en permanence ou le referme (bouton VERROU, touche M)."
+
+[codes.UI-57]
+titre = "Parler (appui)"
+definition = "Ouvre le micro tant que PARLER ou Espace est maintenu."
+
+[codes.UI-58]
+titre = "Parler (relâche)"
+definition = "Referme le micro au relâchement, sauf s'il est verrouillé."
+
+[codes.UI-59]
+titre = "Chargement de Voice FX"
+definition = "Remplit les préréglages voix et antenne, les curseurs et le volume Sound FX."
+
+[codes.UI-60]
+titre = "Pages de pads"
+definition = "12 pads par page, touches F1 à F12."
+
+[codes.UI-61]
+titre = "Bouton de pad"
+definition = "Pad affecté, vide, en chargement ou en erreur, avec sa touche."
+
+[codes.UI-62]
+titre = "Affichage des pads"
+definition = "Page courante de la Sound FX."
+
+[codes.UI-63]
+titre = "Pads en lecture"
+definition = "Allume les pads qui jouent."
+
+[codes.UI-64]
+titre = "Affectation d'un pad"
+definition = "Enregistre un son sur un pad."
+
+[codes.UI-65]
+titre = "Déclenchement d'un pad"
+definition = "Joue le pad s'il est affecté."
+
+[codes.UI-66]
+titre = "Menu d'un pad"
+definition = "Renommer, changer de son ou vider un pad (clic droit)."
+
+[codes.UI-67]
+titre = "Libellés OBS"
+definition = "Textes des états de connexion à OBS."
+
+[codes.UI-68]
+titre = "Onglets Sound FX / OBS"
+definition = "Bascule entre la Sound FX et le panneau AURA · OBS."
+
+[codes.UI-69]
+titre = "Chronomètres OBS"
+definition = "Durées de stream et d'enregistrement dans la barre du haut."
+
+[codes.UI-70]
+titre = "Commandes OBS"
+definition = "Pastille, boutons stream, enregistrement et pause."
+
+[codes.UI-71]
+titre = "Scènes OBS"
+definition = "Boutons de scène, scène active en évidence."
+
+[codes.UI-72]
+titre = "Sources audio OBS"
+definition = "Choix de la source, volume et muet."
+
+[codes.UI-73]
+titre = "Raccourcis clavier"
+definition = "Espace pour parler, M pour le verrou, F1 à F12 pour les pads, Échap pour fermer."
+
+[codes.UI-74]
+titre = "Commandes de mise à jour"
+definition = "Commande à lancer selon le système."
+
+[codes.UI-75]
+titre = "Annonce d'une version"
+definition = "Notification avec « Voir la version » et « Ignorer cette version »."
+
+[codes.UI-76]
+titre = "Vérification au démarrage"
+definition = "Vérifie si l'option est active et annonce une version plus récente."
+
+[codes.UI-77]
+titre = "Vérification manuelle"
+definition = "Bouton « Vérifier maintenant » de l'onglet À propos."
+
+[codes.UI-78]
+titre = "Onglet À propos"
+definition = "Version, système, commande de mise à jour, journal et dossier de réglages."
+
+[codes.STY-01]
+titre = "Variables, base et utilitaires"
+definition = "Valeurs par défaut des couleurs (remplacées par le thème), polices, champs et icônes."
+
+[codes.STY-02]
+titre = "Boutons"
+definition = "Styles communs des boutons et variantes."
+
+[codes.STY-03]
+titre = "Barre du haut"
+definition = "Logo, ON AIR, DIFFUSER, OBS, horloge, thèmes, réglages et adaptation aux petites largeurs."
+
+[codes.STY-04]
+titre = "Disposition générale"
+definition = "Grille des platines, du mixeur et de la partie basse."
+
+[codes.STY-05]
+titre = "Platines"
+definition = "Cadres, effet Rainbow, temps, barre de progression et zone de fondu."
+
+[codes.STY-06]
+titre = "Mixeur et vumètres"
+definition = "Crossfader, fondu, préréglage antenne, vumètres et témoin CLIP."
+
+[codes.STY-07]
+titre = "Playlist et historique"
+definition = "Onglets, lignes, titres en attente, marqueurs de dépôt et historique."
+
+[codes.STY-08]
+titre = "Glisser-déposer"
+definition = "Étiquette qui suit le pointeur et curseur pendant le glisser."
+
+[codes.STY-09]
+titre = "Boîtes latérales"
+definition = "Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages."
+
+[codes.STY-10]
+titre = "Voice FX"
+definition = "VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur."
+
+[codes.STY-11]
+titre = "Sound FX"
+definition = "Grille de pads, état de lecture et menu de pad."
+
+[codes.STY-12]
+titre = "Panneau OBS"
+definition = "Boutons matériels, scènes et sources audio."
+
+[codes.STY-13]
+titre = "Réglages"
+definition = "Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos."
+
+[codes.STY-14]
+titre = "Notifications"
+definition = "Pile des notifications et notification de mise à jour."
+
+[codes.STY-15]
+titre = "Barre d'état"
+definition = "Sortie audio et résumé de la diffusion."
+
+[codes.STY-16]
+titre = "Masquage"
+definition = "Masque un élément quel que soit son style."
+
+[codes.HTM-01]
+titre = "Icônes"
+definition = "Sprite des icônes SVG communes à Linux et Windows."
+
+[codes.HTM-02]
+titre = "Barre du haut"
+definition = "Logo, ON AIR, DIFFUSER, OBS, horloge, thème et réglages."
+
+[codes.HTM-03]
+titre = "Platine A"
+definition = "Titre, temps, progression et commandes de la platine A."
+
+[codes.HTM-04]
+titre = "Mixeur"
+definition = "Crossfader, fondu, auto-mix, préréglage antenne et vumètres."
+
+[codes.HTM-05]
+titre = "Platine B"
+definition = "Titre, temps, progression et commandes de la platine B."
+
+[codes.HTM-06]
+titre = "Playlist et historique"
+definition = "Barre d'outils, lignes de playlist et historique de diffusion."
+
+[codes.HTM-07]
+titre = "Voice FX"
+definition = "Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur."
+
+[codes.HTM-08]
+titre = "Sound FX et AURA · OBS"
+definition = "Pads et panneau de pilotage d'OBS."
+
+[codes.HTM-09]
+titre = "Menu de pad"
+definition = "Renommer, choisir un son, vider."
+
+[codes.HTM-10]
+titre = "Barre d'état"
+definition = "Sortie audio et résumé de diffusion."
+
+[codes.HTM-11]
+titre = "Réglages"
+definition = "Fenêtre des réglages et ses onglets."
+
+[codes.HTM-12]
+titre = "Réglages : Diffusion"
+definition = "Liste et formulaire des sorties Icecast / Shoutcast."
+
+[codes.HTM-13]
+titre = "Réglages : Aura / OBS"
+definition = "Connexion à obs-websocket et source « Now Playing »."
+
+[codes.HTM-14]
+titre = "Réglages : Automation"
+definition = "Règles de séparation et conservation de l'historique."
+
+[codes.HTM-15]
+titre = "Réglages : Audio"
+definition = "Micro, retour et sortie audio."
+
+[codes.HTM-16]
+titre = "Réglages : À propos"
+definition = "Version, mises à jour et diagnostic."

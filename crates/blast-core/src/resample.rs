@@ -4,6 +4,7 @@ use rubato::{
 
 const CHUNK: usize = 1024;
 
+// [DEC-12]
 pub fn resample_stereo(interleaved: &[f32], from: u32, to: u32) -> Result<Vec<f32>, String> {
     if from == to || interleaved.is_empty() {
         return Ok(interleaved.to_vec());

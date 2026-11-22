@@ -12,6 +12,7 @@ pub use dsp::{
 };
 pub use mixer::{Command, DeckStatus, Event, MicParams, Mixer};
 
+// [CORE-01]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeckId {
     A,
@@ -60,6 +61,7 @@ impl std::fmt::Display for DeckId {
     }
 }
 
+// [CORE-02]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeckState {
     Empty,
@@ -69,6 +71,7 @@ pub enum DeckState {
     Finished,
 }
 
+// [CORE-03]
 pub fn crossfade_gains(position: f32) -> (f32, f32) {
     let p = position.clamp(0.0, 1.0) * std::f32::consts::FRAC_PI_2;
     (p.cos(), p.sin())

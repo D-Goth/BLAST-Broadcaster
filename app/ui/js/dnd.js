@@ -3,6 +3,7 @@ import { assignPad } from "./pads.js";
 
 let drag = null;
 
+// [UI-31]
 function targetAt(x, y) {
   const el = document.elementFromPoint(x, y);
   if (!el) return null;
@@ -25,6 +26,7 @@ function clearTargets() {
   $$(".drop-before, .drop-after").forEach((e) => e.classList.remove("drop-before", "drop-after"));
 }
 
+// [UI-32]
 function showTarget(t) {
   clearTargets();
   if (!t) return;
@@ -32,6 +34,7 @@ function showTarget(t) {
   if (t.kind === "row") t.el.classList.add(t.after ? "drop-after" : "drop-before");
 }
 
+// [UI-33]
 function dropEntry(t, id) {
   if (!t) return;
   if (t.kind === "deck") send({ type: "load_entry", id, deck: t.deck });
@@ -41,6 +44,7 @@ function dropEntry(t, id) {
   } else if (t.kind === "row" || t.kind === "playlist") send({ type: "move", id, to: t.index });
 }
 
+// [UI-34]
 function dropFiles(t, paths) {
   if (!paths.length) return;
   if (t && t.kind === "pad") assignPad(t.index, paths[0], "");
@@ -48,6 +52,7 @@ function dropFiles(t, paths) {
   else send({ type: "add_paths", paths, index: t && t.kind === "row" ? t.index : null });
 }
 
+// [UI-35]
 function initInternal() {
   const ghost = $("#ghost");
   $("#rows").addEventListener("pointerdown", (e) => {
@@ -80,6 +85,7 @@ function initInternal() {
   });
 }
 
+// [UI-36]
 async function initOs() {
   const wv = T.webview && T.webview.getCurrentWebview ? T.webview.getCurrentWebview() : null;
   if (!wv || !wv.onDragDropEvent) return;

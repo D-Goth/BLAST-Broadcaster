@@ -7,6 +7,7 @@ const typing = (e) => {
   return t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA");
 };
 
+// [UI-73]
 export function init() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closePadMenu();

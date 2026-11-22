@@ -4,6 +4,7 @@ import { renderState } from "./decks.js";
 let themes = [];
 export const view = { rainbow: false };
 
+// [UI-18]
 function applyTheme(id) {
   const theme = themes.find((t) => t.id === id) || themes[0];
   if (!theme) return;
@@ -20,6 +21,7 @@ function applyTheme(id) {
   if (store.get("blast.rainbow") === null) setRainbow(!!fx.deck_rainbow, false);
 }
 
+// [UI-19]
 function setRainbow(on, persist = true) {
   view.rainbow = on;
   $("#rainbow-toggle").classList.toggle("on", on);
@@ -27,6 +29,7 @@ function setRainbow(on, persist = true) {
   renderState();
 }
 
+// [UI-20]
 export async function loadThemes() {
   try {
     themes = await invoke("themes");

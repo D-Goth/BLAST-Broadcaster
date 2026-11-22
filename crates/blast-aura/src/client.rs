@@ -16,7 +16,9 @@ use tungstenite::{Message, WebSocket};
 
 use crate::{auth_response, AuraError, AuraSettings};
 
+// [AURA-08]
 const EVENTS_ALL: u32 = 2047;
+// [AURA-09]
 const AUDIO_KINDS: &[&str] = &[
     "pulse_input_capture",
     "pulse_output_capture",
@@ -32,6 +34,7 @@ const AUDIO_KINDS: &[&str] = &[
     "sck_audio_capture",
 ];
 
+// [AURA-10]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ObsCommand {
     SetScene(String),
@@ -46,12 +49,14 @@ pub enum ObsCommand {
     Refresh,
 }
 
+// [AURA-11]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ObsInput {
     pub name: String,
     pub kind: String,
 }
 
+// [AURA-12]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ObsEvent {
     Connecting,
@@ -90,6 +95,7 @@ pub enum ObsEvent {
     Error(String),
 }
 
+// [AURA-13]
 pub struct AuraClient {
     commands: Sender<ObsCommand>,
     events: Receiver<ObsEvent>,
@@ -127,12 +133,14 @@ impl Drop for AuraClient {
     }
 }
 
+// [AURA-14]
 enum End {
     Stopped,
     Lost(String),
     Fatal(String),
 }
 
+// [AURA-15]
 fn run(
     settings: AuraSettings,
     password: Option<String>,
@@ -176,10 +184,12 @@ fn run(
     });
 }
 
+// [AURA-16]
 fn would_block(e: &tungstenite::Error) -> bool {
     matches!(e, tungstenite::Error::Io(io) if matches!(io.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut))
 }
 
+// [AURA-17]
 struct Session<'a> {
     ws: WebSocket<TcpStream>,
     events: &'a Sender<ObsEvent>,
@@ -189,6 +199,7 @@ struct Session<'a> {
     pending_input: HashMap<String, String>,
 }
 
+// [AURA-18]
 impl Session<'_> {
     fn request(
         &mut self,
@@ -413,6 +424,7 @@ impl Session<'_> {
     }
 }
 
+// [AURA-19]
 fn handshake(
     settings: &AuraSettings,
     password: Option<&str>,
@@ -472,6 +484,7 @@ fn handshake(
     Ok((ws, obs_version, websocket_version))
 }
 
+// [AURA-20]
 fn session(
     settings: &AuraSettings,
     password: Option<&str>,

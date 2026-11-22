@@ -5,6 +5,7 @@ use blast_core::{voice_preset, Command, MicParams};
 use super::Controller;
 use crate::config::VoiceSettings;
 
+// [CTL-108]
 pub struct MicState {
     pub available: bool,
     pub open: bool,
@@ -28,6 +29,7 @@ impl MicState {
     }
 }
 
+// [CTL-109]
 pub fn mic_input(v: &VoiceSettings) -> MicInput {
     if !v.enabled {
         return MicInput::Off;
@@ -39,6 +41,7 @@ pub fn mic_input(v: &VoiceSettings) -> MicInput {
 }
 
 impl Controller {
+    // [CTL-110]
     pub(super) fn apply_voice(&self, v: &VoiceSettings) {
         self.send(Command::SetMicParams(MicParams {
             gain_db: v.mic_gain_db,
@@ -56,6 +59,7 @@ impl Controller {
         self.send(Command::SetVoiceParams(voice_preset(&v.preset)));
     }
 
+    // [CTL-111]
     pub(super) fn mic_open(&mut self, open: bool) {
         if self.mic.available {
             self.mic.open = open;

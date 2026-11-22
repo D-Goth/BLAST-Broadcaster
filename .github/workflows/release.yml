@@ -1,0 +1,26 @@
+name: Publication
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version du tag identique à celle du workspace
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          if [ "$tag" != "$version" ]; then
+            echo "Le tag v$tag ne correspond pas à la version $version de Cargo.toml"
+            exit 1
+          fi
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: BLAST Broadcaster ${{ github.ref_name }}
+          generate_release_notes: true

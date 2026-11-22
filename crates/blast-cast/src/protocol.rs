@@ -6,10 +6,14 @@ use base64::Engine as _;
 
 use crate::{OutputConfig, ServerKind};
 
+// [PROT-01]
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+// [PROT-02]
 const IO_TIMEOUT: Duration = Duration::from_secs(10);
+// [PROT-03]
 const USER_AGENT: &str = concat!("BLAST-Broadcaster/", env!("CARGO_PKG_VERSION"));
 
+// [PROT-04]
 #[derive(Debug)]
 pub enum CastError {
     Connect(String),
@@ -47,10 +51,12 @@ impl From<std::io::Error> for CastError {
     }
 }
 
+// [PROT-05]
 fn clean(s: &str) -> String {
     s.chars().filter(|c| *c != '\r' && *c != '\n').collect()
 }
 
+// [PROT-06]
 pub fn percent_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len() * 3);
     for b in s.bytes() {
@@ -63,6 +69,7 @@ pub fn percent_encode(s: &str) -> String {
     out
 }
 
+// [PROT-07]
 fn connect(host: &str, port: u16) -> Result<TcpStream, CastError> {
     let addrs: Vec<_> = (host.trim(), port)
         .to_socket_addrs()
@@ -86,6 +93,7 @@ fn connect(host: &str, port: u16) -> Result<TcpStream, CastError> {
     ))
 }
 
+// [PROT-08]
 fn read_until(stream: &mut TcpStream, end: &[u8], limit: usize) -> Result<Vec<u8>, CastError> {
     let mut buf = Vec::new();
     let mut byte = [0u8; 1];
@@ -104,6 +112,7 @@ fn read_until(stream: &mut TcpStream, end: &[u8], limit: usize) -> Result<Vec<u8
     Ok(buf)
 }
 
+// [PROT-09]
 fn http_status(head: &[u8]) -> (u16, String) {
     let text = String::from_utf8_lossy(head);
     let line = text.lines().next().unwrap_or("").trim().to_string();
@@ -115,10 +124,12 @@ fn http_status(head: &[u8]) -> (u16, String) {
     (code, line)
 }
 
+// [PROT-10]
 fn basic_auth(user: &str, password: &str) -> String {
     base64::engine::general_purpose::STANDARD.encode(format!("{user}:{password}"))
 }
 
+// [PROT-11]
 fn audio_info(cfg: &OutputConfig, sample_rate: u32) -> String {
     format!(
         "ice-samplerate={sample_rate};ice-bitrate={};ice-channels={}",
@@ -127,6 +138,7 @@ fn audio_info(cfg: &OutputConfig, sample_rate: u32) -> String {
     )
 }
 
+// [PROT-12]
 pub fn open_source(
     cfg: &OutputConfig,
     password: &str,
@@ -138,6 +150,7 @@ pub fn open_source(
     }
 }
 
+// [PROT-13]
 fn open_icecast(
     cfg: &OutputConfig,
     password: &str,
@@ -194,6 +207,7 @@ fn open_icecast(
     }
 }
 
+// [PROT-14]
 fn open_shoutcast(cfg: &OutputConfig, password: &str) -> Result<TcpStream, CastError> {
     let mut s = connect(&cfg.host, cfg.port.saturating_add(1))?;
     let pass = match cfg.kind {
@@ -222,6 +236,7 @@ fn open_shoutcast(cfg: &OutputConfig, password: &str) -> Result<TcpStream, CastE
     Ok(s)
 }
 
+// [PROT-15]
 pub fn update_metadata(cfg: &OutputConfig, password: &str, song: &str) -> Result<(), CastError> {
     let song = percent_encode(song);
     let (path, auth) = match cfg.kind {
@@ -275,12 +290,14 @@ pub fn update_metadata(cfg: &OutputConfig, password: &str, song: &str) -> Result
     }
 }
 
+// [PROT-16]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Listeners {
     pub current: u32,
     pub peak: u32,
 }
 
+// [PROT-17]
 fn http_get(cfg: &OutputConfig, path: &str, auth: Option<String>) -> Result<String, CastError> {
     let mut s = connect(&cfg.host, cfg.port)?;
     let mut req = format!(
@@ -313,6 +330,7 @@ fn http_get(cfg: &OutputConfig, path: &str, auth: Option<String>) -> Result<Stri
         .unwrap_or_default())
 }
 
+// [PROT-18]
 fn json_number(text: &str, key: &str) -> Option<u32> {
     let pat = format!("\"{key}\"");
     let at = text.find(&pat)? + pat.len();
@@ -321,6 +339,7 @@ fn json_number(text: &str, key: &str) -> Option<u32> {
     digits.parse().ok()
 }
 
+// [PROT-19]
 pub fn parse_icecast_status(body: &str, mount: &str) -> Option<Listeners> {
     for chunk in body.split("\"listenurl\"").skip(1) {
         let url_end = chunk.find(',').unwrap_or(chunk.len());
@@ -349,6 +368,7 @@ pub fn parse_icecast_status(body: &str, mount: &str) -> Option<Listeners> {
     None
 }
 
+// [PROT-20]
 pub fn parse_shoutcast_v1(body: &str) -> Option<Listeners> {
     let inner = body.split("<body>").nth(1)?.split("</body>").next()?;
     let parts: Vec<&str> = inner.split(',').collect();
@@ -358,6 +378,7 @@ pub fn parse_shoutcast_v1(body: &str) -> Option<Listeners> {
     })
 }
 
+// [PROT-21]
 pub fn parse_shoutcast_v2(body: &str) -> Option<Listeners> {
     Some(Listeners {
         current: json_number(body, "currentlisteners")?,
@@ -365,6 +386,7 @@ pub fn parse_shoutcast_v2(body: &str) -> Option<Listeners> {
     })
 }
 
+// [PROT-22]
 pub fn fetch_listeners(cfg: &OutputConfig) -> Result<Listeners, CastError> {
     let parsed = match cfg.kind {
         ServerKind::Icecast => {
@@ -381,6 +403,7 @@ pub fn fetch_listeners(cfg: &OutputConfig) -> Result<Listeners, CastError> {
     parsed.ok_or_else(|| CastError::Rejected("statistiques introuvables pour ce flux".into()))
 }
 
+// [PROT-23]
 pub fn test_output(
     cfg: &OutputConfig,
     password: &str,

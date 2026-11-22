@@ -1,25 +1,31 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+// [SEC-01]
 const SERVICE: &str = "fr.black-lab.blast";
 
+// [SEC-02]
 pub enum Stored {
     Keyring,
     Memory(String),
 }
 
+// [SEC-03]
 #[derive(Default)]
 pub struct Secrets {
     memory: Mutex<HashMap<String, String>>,
     last_error: Mutex<Option<String>>,
 }
 
+// [SEC-04]
 pub fn output_key(id: &str) -> String {
     format!("output:{id}")
 }
 
+// [SEC-05]
 pub const AURA_KEY: &str = "aura";
 
+// [SEC-06]
 impl Secrets {
     pub fn get(&self, key: &str) -> Option<String> {
         if let Some(v) = self.memory.lock().ok()?.get(key) {

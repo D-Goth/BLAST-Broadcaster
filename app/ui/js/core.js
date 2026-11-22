@@ -1,3 +1,4 @@
+// [UI-01]
 export const T = window.__TAURI__;
 export const invoke = T.core.invoke;
 export const listen = T.event.listen;
@@ -8,12 +9,14 @@ export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 export const ico = (name) => `<svg class="ico"><use href="#i-${name}"/></svg>`;
 
+// [UI-02]
 export const S = {
   state: null,
   entries: [],
   settings: null,
 };
 
+// [UI-03]
 export function send(cmd) {
   return invoke("blast", { cmd }).catch((e) => toast("error", String(e)));
 }
@@ -25,6 +28,7 @@ export function call(name, args) {
   });
 }
 
+// [UI-04]
 export function toast(level, message, actions = []) {
   const el = document.createElement("div");
   el.className = `toast ${level}`;
@@ -47,6 +51,7 @@ export function toast(level, message, actions = []) {
   return el;
 }
 
+// [UI-05]
 export function fmt(secs) {
   if (!isFinite(secs) || secs < 0) secs = 0;
   const s = Math.floor(secs);
@@ -56,17 +61,20 @@ export function fmt(secs) {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
+// [UI-06]
 export function hms(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
   return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
+// [UI-07]
 export function dbWidth(peak) {
   if (peak <= 0.00001) return 0;
   const db = 20 * Math.log10(peak);
   return Math.max(0, Math.min(1, (db + 48) / 48));
 }
 
+// [UI-08]
 export const store = {
   get(k) {
     try { return localStorage.getItem(k); } catch (_) { return null; }
@@ -76,6 +84,7 @@ export const store = {
   },
 };
 
+// [UI-09]
 export function formValues(form) {
   const v = {};
   for (const el of form.elements) {
@@ -87,6 +96,7 @@ export function formValues(form) {
   return v;
 }
 
+// [UI-10]
 export function fillForm(form, data) {
   for (const el of form.elements) {
     if (!el.name || !(el.name in data)) continue;
@@ -95,12 +105,14 @@ export function fillForm(form, data) {
   }
 }
 
+// [UI-11]
 export function setResult(id, kind, text) {
   const el = $(id);
   el.className = `form-result ${kind}`;
   el.textContent = text;
 }
 
+// [UI-12]
 export function fillSelect(sel, items, value) {
   sel.innerHTML = "";
   for (const [id, label] of items) {
@@ -112,6 +124,7 @@ export function fillSelect(sel, items, value) {
   sel.value = value;
 }
 
+// [UI-13]
 export function confirmClick(btn, label, confirmLabel, run) {
   if (btn.dataset.confirm !== "1") {
     btn.dataset.confirm = "1";
@@ -127,6 +140,7 @@ export function confirmClick(btn, label, confirmLabel, run) {
   run();
 }
 
+// [UI-14]
 export async function pickAudio(multiple, title) {
   const picked = await T.dialog.open({ multiple, directory: false, title, filters: [{ name: "Audio", extensions: AUDIO_EXT }] });
   return picked == null ? [] : [].concat(picked);

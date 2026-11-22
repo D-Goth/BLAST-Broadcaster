@@ -3,9 +3,12 @@ use std::sync::Arc;
 use crate::dsp::{db_to_gain, Biquad, MasterChain, MasterParams, VoiceFx, VoiceParams};
 use crate::{crossfade_gains, DeckId, DeckState, Track};
 
+// [MIX-01]
 pub const MAX_VOICES: usize = 16;
+// [MIX-02]
 const MIC_MAX_BACKLOG_MS: usize = 80;
 
+// [MIX-03]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MicParams {
     pub gain_db: f32,
@@ -27,6 +30,7 @@ impl Default for MicParams {
     }
 }
 
+// [MIX-04]
 #[derive(Debug, Clone)]
 pub enum Command {
     Load(DeckId, Arc<Track>),
@@ -53,6 +57,7 @@ pub enum Command {
     SetVoiceParams(VoiceParams),
 }
 
+// [MIX-05]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DeckStatus {
     pub state: DeckState,
@@ -60,6 +65,7 @@ pub struct DeckStatus {
     pub frames: usize,
 }
 
+// [MIX-06]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     Ended(DeckId),
@@ -83,12 +89,14 @@ pub enum Event {
     },
 }
 
+// [MIX-07]
 struct Voice {
     pad: u16,
     track: Arc<Track>,
     pos: usize,
 }
 
+// [MIX-08]
 struct MicChain {
     hp: Biquad,
     low: Biquad,
@@ -96,6 +104,7 @@ struct MicChain {
     high: Biquad,
 }
 
+// [MIX-09]
 #[derive(Debug, Default)]
 struct Slot {
     track: Option<Arc<Track>>,
@@ -129,6 +138,7 @@ impl Slot {
     }
 }
 
+// [MIX-10]
 #[derive(Debug, Clone, Copy)]
 struct Fade {
     from: f32,
@@ -138,6 +148,7 @@ struct Fade {
     outgoing: Option<usize>,
 }
 
+// [MIX-11]
 pub struct Mixer {
     sample_rate: u32,
     decks: [Slot; 2],
@@ -244,6 +255,7 @@ impl Mixer {
         self.decks[deck.index()].status()
     }
 
+    // [MIX-12]
     pub fn apply(&mut self, cmd: Command) -> Option<Arc<Track>> {
         match cmd {
             Command::Load(id, track) => {
@@ -490,10 +502,12 @@ impl Mixer {
         (l * self.sfx_gain, r * self.sfx_gain)
     }
 
+    // [MIX-13]
     pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], emit: F) {
         self.render_split(None, out, emit);
     }
 
+    // [MIX-14]
     pub fn render_split<F: FnMut(Event)>(
         &mut self,
         mut local: Option<&mut [f32]>,
@@ -585,6 +599,7 @@ impl Mixer {
     }
 }
 
+// [MIX-15]
 impl MicChain {
     fn build(p: &MicParams, rate: f32) -> Self {
         Self {

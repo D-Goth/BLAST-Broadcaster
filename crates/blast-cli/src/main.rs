@@ -14,11 +14,13 @@ use clap::{Parser, Subcommand};
     version,
     about = "BLAST Broadcaster — outil de test du moteur audio (M1)"
 )]
+// [CLI-01]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
 }
 
+// [CLI-02]
 #[derive(Subcommand)]
 enum Cmd {
     #[command(about = "Liste les sorties audio disponibles")]
@@ -63,6 +65,7 @@ enum Cmd {
     },
 }
 
+// [CLI-03]
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.cmd {
@@ -90,13 +93,16 @@ fn main() -> ExitCode {
     }
 }
 
+// [CLI-04]
 type AnyResult = Result<(), Box<dyn std::error::Error>>;
 
+// [CLI-05]
 fn clock(frames: usize, rate: u32) -> String {
     let secs = frames as u64 / rate.max(1) as u64;
     format!("{:02}:{:02}", secs / 60, secs % 60)
 }
 
+// [CLI-06]
 fn devices() -> AnyResult {
     let default = engine::default_output_device();
     for name in engine::list_output_devices()? {
@@ -110,6 +116,7 @@ fn devices() -> AnyResult {
     Ok(())
 }
 
+// [CLI-07]
 fn info(files: &[PathBuf]) -> AnyResult {
     for path in files {
         match decode_file(path, 48_000) {
@@ -126,6 +133,7 @@ fn info(files: &[PathBuf]) -> AnyResult {
     Ok(())
 }
 
+// [CLI-08]
 struct Sequencer {
     files: Vec<PathBuf>,
     next: usize,
@@ -134,6 +142,7 @@ struct Sequencer {
     names: [String; 2],
 }
 
+// [CLI-09]
 impl Sequencer {
     fn new(files: &[PathBuf], rate: u32) -> Self {
         Self {
@@ -193,6 +202,7 @@ impl Sequencer {
     }
 }
 
+// [CLI-10]
 fn deck_line(id: DeckId, s: &DeckStatus, rate: u32, name: &str) -> String {
     let icon = match s.state {
         DeckState::Playing => "▶",
@@ -210,6 +220,7 @@ fn deck_line(id: DeckId, s: &DeckStatus, rate: u32, name: &str) -> String {
     )
 }
 
+// [CLI-11]
 fn fader(pos: f32) -> String {
     let width = 11;
     let cursor = (pos.clamp(0.0, 1.0) * (width - 1) as f32).round() as usize;
@@ -218,12 +229,14 @@ fn fader(pos: f32) -> String {
         .collect()
 }
 
+// [CLI-12]
 fn meter(peak: f32) -> String {
     let width = 10;
     let filled = (peak.clamp(0.0, 1.0) * width as f32).round() as usize;
     format!("{}{}", "█".repeat(filled), " ".repeat(width - filled))
 }
 
+// [CLI-13]
 fn play(files: &[PathBuf], fade: f32, device: Option<&str>) -> AnyResult {
     let engine = Engine::start(device)?;
     let rate = engine.sample_rate();
@@ -279,6 +292,7 @@ fn play(files: &[PathBuf], fade: f32, device: Option<&str>) -> AnyResult {
     Ok(())
 }
 
+// [CLI-14]
 fn render(files: &[PathBuf], output: &Path, fade: f32, rate: u32, pcm16: bool) -> AnyResult {
     let mut mixer = Mixer::new(rate);
     let mut seq = Sequencer::new(files, rate);

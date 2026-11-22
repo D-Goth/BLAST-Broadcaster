@@ -10,10 +10,14 @@ use crate::config::AutomationSettings;
 use crate::journal;
 use crate::playlist::Entry;
 
+// [CTL-61]
 const PURGE_EVERY: Duration = Duration::from_secs(3600);
+// [CTL-62]
 const RULES_REFRESH_EVERY: Duration = Duration::from_secs(30);
+// [CTL-63]
 const HISTORY_ROWS: u32 = 300;
 
+// [CTL-64]
 pub struct CurrentPlay {
     pub deck: usize,
     pub path: PathBuf,
@@ -21,6 +25,7 @@ pub struct CurrentPlay {
     pub started: Instant,
 }
 
+// [CTL-65]
 pub struct AutoState {
     pub library: Option<Library>,
     pub settings: AutomationSettings,
@@ -45,12 +50,14 @@ impl AutoState {
     }
 }
 
+// [CTL-66]
 pub enum NextPick {
     Clean(u64),
     Forced { id: u64, title: String, why: String },
     Empty,
 }
 
+// [CTL-67]
 pub fn pick_next<'a>(
     entries: impl IntoIterator<Item = &'a Entry>,
     mut violation: impl FnMut(&Entry) -> Option<String>,
@@ -71,6 +78,7 @@ pub fn pick_next<'a>(
 }
 
 impl Controller {
+    // [CTL-68]
     pub(super) fn violation_for(&self, e: &Entry, now: i64) -> Option<String> {
         if e.error.is_some() {
             return None;
@@ -101,6 +109,7 @@ impl Controller {
         }
     }
 
+    // [CTL-69]
     pub(super) fn take_next_auto(&mut self) -> Option<Entry> {
         let now = now_secs();
         let pick = pick_next(self.playlist.entries(), |e| self.violation_for(e, now));
@@ -118,6 +127,7 @@ impl Controller {
         self.playlist.remove(id)
     }
 
+    // [CTL-70]
     pub(super) fn track_history(&mut self) {
         let side = self.on_air_side();
         let d = &self.decks[side];
@@ -169,6 +179,7 @@ impl Controller {
         }
     }
 
+    // [CTL-71]
     pub(super) fn history_clear(&mut self) {
         if let Some(lib) = &self.auto.library {
             if let Err(e) = lib.clear_history() {
@@ -182,6 +193,7 @@ impl Controller {
         self.emit_playlist();
     }
 
+    // [CTL-72]
     pub(super) fn apply_automation(&mut self, settings: AutomationSettings) {
         if settings != self.auto.settings {
             self.auto.settings = settings;
@@ -190,6 +202,7 @@ impl Controller {
         }
     }
 
+    // [CTL-73]
     pub(super) fn housekeeping(&mut self) {
         let purge_due = self
             .auto
@@ -205,6 +218,7 @@ impl Controller {
         }
     }
 
+    // [CTL-74]
     fn purge_history(&mut self) {
         let days = self.auto.settings.history_days;
         let Some(lib) = self.auto.library.as_ref().filter(|_| days > 0) else {
@@ -223,6 +237,7 @@ impl Controller {
         }
     }
 
+    // [CTL-75]
     pub(super) fn emit_history(&self) {
         let (rows, stats) = match &self.auto.library {
             Some(lib) => (
