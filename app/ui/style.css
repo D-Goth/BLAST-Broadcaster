@@ -213,12 +213,19 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
 .deck[data-deck="B"] { --deck-color: var(--deck-b); }
 .deck.playing { border-color: var(--deck-color); }
 .deck.on-air { box-shadow: 0 0 22px color-mix(in srgb, var(--deck-color) 35%, transparent); }
-.deck.rainbow.playing {
-  border-color: transparent;
-  background:
-    linear-gradient(var(--panel), var(--panel)) padding-box,
-    conic-gradient(from var(--angle), #ff0040, #ff8a00, #ffe600, #2ee66b, #00c8ff, #7a5cff, #ff00c8, #ff0040) border-box;
+.deck.rainbow.playing { border-color: transparent; }
+.deck.rainbow.playing::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--angle), #ff0040, #ff8a00, #ffe600, #2ee66b, #00c8ff, #7a5cff, #ff00c8, #ff0040);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   animation: spin var(--rainbow-speed, 3s) linear infinite;
+  pointer-events: none;
 }
 @keyframes spin { to { --angle: 360deg; } }
 .deck-head { display: flex; align-items: center; gap: 10px; }
@@ -683,6 +690,8 @@ html.glass .toast {
 html.glass .topbar { border-bottom-color: var(--glass-edge); }
 html.glass .deck, html.glass .mixer, html.glass .playlist, html.glass .fx { border-color: var(--glass-edge); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 var(--glass-edge); }
 html.glass .modal { background: rgba(0, 0, 0, 0.35); }
+html.glass .topbar, html.glass .deck, html.glass .mixer, html.glass .playlist, html.glass .fx, html.glass .statusbar { text-shadow: 0 1px 2px var(--glass-shadow); }
+html.glass .deck-label, html.glass .chip, html.glass .kind-tag { text-shadow: 0 1px 3px var(--glass-shadow), 0 0 1px var(--glass-shadow); }
 
 /* [STY-16] */
 .hidden { display: none !important; }
