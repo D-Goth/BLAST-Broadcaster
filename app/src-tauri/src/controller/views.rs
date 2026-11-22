@@ -8,6 +8,7 @@ use blast_library::{HistoryRow, LibraryStats};
 use super::commands::Deck;
 use crate::playlist::Entry;
 
+// [CTL-27]
 pub const EV_STATE: &str = "blast://state";
 pub const EV_PLAYLIST: &str = "blast://playlist";
 pub const EV_NOTICE: &str = "blast://notice";
@@ -16,12 +17,14 @@ pub const EV_PADS: &str = "blast://pads";
 pub const EV_OBS: &str = "blast://obs";
 pub const EV_HISTORY: &str = "blast://history";
 
+// [CTL-28]
 #[derive(Serialize, Clone)]
 pub struct Notice {
     pub level: &'static str,
     pub message: String,
 }
 
+// [CTL-29]
 #[derive(Serialize, Clone)]
 pub struct ObsInputView {
     pub name: String,
@@ -30,6 +33,7 @@ pub struct ObsInputView {
     pub volume: f32,
 }
 
+// [CTL-30]
 #[derive(Serialize, Clone, Default)]
 pub struct ObsView {
     pub status: &'static str,
@@ -56,6 +60,7 @@ impl ObsView {
     }
 }
 
+// [CTL-31]
 #[derive(Serialize, Clone)]
 pub struct PadView {
     pub index: u16,
@@ -66,12 +71,14 @@ pub struct PadView {
     pub error: Option<String>,
 }
 
+// [CTL-32]
 #[derive(Serialize, Clone)]
 pub struct PadsView {
     pub pads: Vec<PadView>,
     pub count: u16,
 }
 
+// [CTL-33]
 #[derive(Serialize, Clone)]
 pub struct MicView {
     pub available: bool,
@@ -81,6 +88,7 @@ pub struct MicView {
     pub error: Option<String>,
 }
 
+// [CTL-34]
 #[derive(Serialize, Clone)]
 pub struct DeckView {
     pub state: &'static str,
@@ -91,6 +99,7 @@ pub struct DeckView {
     pub path: Option<PathBuf>,
 }
 
+// [CTL-35]
 #[derive(Serialize, Clone)]
 pub struct StateView {
     pub decks: [DeckView; 2],
@@ -108,12 +117,14 @@ pub struct StateView {
     pub reduction: f32,
 }
 
+// [CTL-36]
 #[derive(Serialize, Clone)]
 pub struct PlaylistView<'a> {
     pub entries: &'a [Entry],
     pub total: f64,
 }
 
+// [CTL-37]
 #[derive(Serialize, Clone)]
 pub struct CastOutputView {
     pub id: String,
@@ -127,6 +138,7 @@ pub struct CastOutputView {
     pub live_since: Option<u64>,
 }
 
+// [CTL-38]
 #[derive(Serialize, Clone)]
 pub struct CastView {
     pub casting: bool,
@@ -137,6 +149,7 @@ pub struct CastView {
     pub since: Option<u64>,
 }
 
+// [CTL-39]
 #[derive(Serialize, Clone)]
 pub struct HistoryView {
     pub rows: Vec<HistoryRow>,

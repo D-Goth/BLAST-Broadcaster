@@ -59,25 +59,54 @@ le master est simplement écrêté à ±1 (le limiteur arrive en M6), et symphon
 ## Application de bureau (M3a)
 
 ```
- app/ui (HTML/CSS/JS)  ── invoke("blast", {cmd}) ──▶  main.rs ──▶ file de commandes
+ app/ui (HTML/CSS/JS)  ── invoke("blast", {cmd}) ──▶  api.rs ──▶ file de commandes
         ▲                                                         │
         │ événements blast://state (10/s), blast://playlist,      ▼
-        │ blast://notice                                   controller.rs (thread dédié)
-        └──────────────────────────────────────────────── │  possède Engine, Playlist
+        │ blast://notice, cast, pads, obs, history         controller/ (thread dédié)
+        └──────────────────────────────────────────────── │  possède Engine, Playlist, Caster,
+                                                           │  AuraClient, Library
                                                            ├─ threads de décodage
-                                                           └─ threads de scan (dossiers, tags)
+                                                           ├─ threads de scan (dossiers, tags)
+                                                           └─ threads de statistiques
 ```
 
 | Fichier | Rôle |
 |---|---|
-| `src-tauri/src/main.rs` | Démarrage Tauri, commandes `blast`, `themes`, `themes_dir`, fichiers passés en argument |
-| `src-tauri/src/controller.rs` | Thread qui possède le moteur : traduit les commandes de l'interface, gère l'auto-mix, publie l'état |
+| `src-tauri/src/main.rs` | Démarrage : journal, réglages, contrôleur, fichiers passés en argument |
+| `src-tauri/src/api.rs` | Commandes Tauri appelées par l'interface (réglages, tests de connexion, export, mises à jour) |
+| `src-tauri/src/controller/` | Thread qui possède le moteur, découpé par domaine (voir ci-dessous) |
 | `src-tauri/src/playlist.rs` | Playlist (insertion, déplacement, retrait), parcours récursif des dossiers, lecture rapide des tags |
+| `src-tauri/src/config.rs` | Réglages `config.toml` (jamais de mot de passe), écriture atomique |
+| `src-tauri/src/secrets.rs` | Mots de passe dans le trousseau du système, repli en mémoire |
+| `src-tauri/src/journal.rs` | Journal `blast.log` (rotation à 1 Mo) |
+| `src-tauri/src/update.rs` | Vérification des versions publiées sur GitHub |
 | `src-tauri/src/themes.rs` | Thèmes intégrés (`themes/*.toml` compilés dans le binaire) et thèmes utilisateur |
-| `ui/app.js` | Rendu, glisser-déposer interne (pointeur) et depuis le système (événements Tauri), sélecteurs de fichiers |
+| `ui/js/` | Modules ES : `core` (outils communs), `main` (démarrage et abonnements), `decks`, `playlist`, `dnd`, `cast`, `settings`, `voice`, `pads`, `obs`, `shortcuts`, `theme`, `update` |
+
+**Contrôleur** (`controller/`) : `mod.rs` tient la boucle principale (toutes les 15 ms) et l'aiguillage ;
+chaque domaine a son module et son état : `decks.rs` (platines, fondus, auto-mix), `playlist_ops.rs`,
+`automation.rs` (règles de séparation, historique, purge), `cast.rs` (sorties, auditeurs),
+`obs.rs`, `pads.rs`, `voice.rs`, et `views.rs` pour les structures envoyées à l'interface.
+Le contrôleur n'appelle pas Tauri directement : il passe par le trait `Ui` ([CTL-01]), remplacé dans
+`controller/tests.rs` par une interface qui enregistre les événements. Les tests y pilotent le contrôleur
+de bout en bout (fichiers WAV générés, base SQLite en mémoire, moteur absent).
+
+**Journal** : `blast.log` dans le dossier de données (`~/.local/share/fr.black-lab.blast/logs` sous Linux,
+`%LOCALAPPDATA%\fr.black-lab.blast\logs` sous Windows). Avertissements et erreurs affichés à l'utilisateur
+y sont recopiés, ainsi que les erreurs qui n'ont pas besoin de l'interrompre (statistiques, bibliothèque).
+Aucun mot de passe n'y est écrit.
+
+**Mises à jour** : au démarrage (désactivable), `check_update` interroge
+`api.github.com/repos/D-Goth/BLAST-Broadcaster/releases/latest` avec le magasin de certificats du système
+(fonctionne derrière un proxy d'entreprise). Une version plus récente et non ignorée est annoncée par une
+notification ; rien n'est téléchargé. Le numéro de version vient du workspace (`Cargo.toml`), seule source.
+
+**Nomenclature** : voir [NOMENCLATURE.md](NOMENCLATURE.md). Les définitions sont dans `nomenclature.toml`,
+le document est généré et vérifié par `scripts/nomenclature.py`.
 
 **Commandes de l'interface** (`UiCommand`, JSON `{"type": …}`) : `refresh`, `add_paths`, `load_paths`, `remove`, `move`,
-`clear`, `load_entry`, `play`, `pause`, `stop`, `eject`, `seek`, `crossfader`, `crossfade`, `auto_mix`, `fade_seconds`.
+`clear`, `load_entry`, `play`, `pause`, `stop`, `eject`, `seek`, `crossfader`, `crossfade`, `auto_mix`, `fade_seconds`,
+`cast_start`, `cast_stop`, `next`, `mic_open`, `pad_play`, `pad_stop_all`, `obs`, `history_clear` ([CTL-26]).
 
 **Auto-mix côté application** : dès qu'une platine est libre (vide ou terminée) et que l'autre est occupée,
 le contrôleur y charge le titre suivant de la playlist. Si les deux sont libres, il charge et lance la platine du côté du crossfader.
@@ -213,6 +242,8 @@ FFmpeg n'est envisageable qu'en compilation LGPL, sans `--enable-gpl`.
 LAME est compilé dans le binaire : c'est compatible avec la LGPL tant que le code source complet de BLAST
 reste disponible, ce qui permet à chacun de recompiler avec une autre version de LAME.
 L'encodage AAC (fdk-aac) a une licence de redistribution particulière : à traiter au jalon M9.
+La vérification des mises à jour utilise ureq, rustls, ring et rustls-platform-verifier (MIT, Apache 2.0, ISC) ;
+l'ouverture des liens et dossiers utilise open (MIT).
 
 ## Thèmes
 

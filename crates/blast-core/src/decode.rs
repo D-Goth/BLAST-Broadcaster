@@ -11,6 +11,7 @@ use symphonia::core::probe::Hint;
 
 use crate::resample;
 
+// [DEC-01]
 #[derive(Debug, Clone)]
 pub struct Track {
     pub source: PathBuf,
@@ -43,6 +44,7 @@ impl Track {
     }
 }
 
+// [DEC-02]
 #[derive(Debug)]
 pub enum DecodeError {
     Io(std::io::Error),
@@ -90,6 +92,7 @@ struct Tags {
     year: Option<i32>,
 }
 
+// [DEC-03]
 fn parse_year(v: &str) -> Option<i32> {
     let digits: String = v.chars().filter(|c| c.is_ascii_digit()).take(4).collect();
     if digits.len() == 4 {
@@ -99,6 +102,7 @@ fn parse_year(v: &str) -> Option<i32> {
     }
 }
 
+// [DEC-04]
 fn read_tags(rev: &MetadataRevision, t: &mut Tags) {
     for tag in rev.tags() {
         let v = tag.value.to_string();
@@ -122,11 +126,13 @@ fn read_tags(rev: &MetadataRevision, t: &mut Tags) {
     }
 }
 
+// [DEC-05]
 pub const AUDIO_EXTENSIONS: &[&str] = &[
     "mp3", "mp2", "m4a", "mp4", "aac", "alac", "flac", "ogg", "oga", "wav", "aif", "aiff", "aifc",
     "caf", "mka", "mkv", "webm",
 ];
 
+// [DEC-06]
 pub fn is_audio_path(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
@@ -134,6 +140,7 @@ pub fn is_audio_path(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+// [DEC-07]
 #[derive(Debug, Clone)]
 pub struct TrackInfo {
     pub path: PathBuf,
@@ -157,6 +164,7 @@ impl TrackInfo {
     }
 }
 
+// [DEC-08]
 fn open(path: &Path) -> Result<symphonia::core::probe::ProbeResult, DecodeError> {
     let file = File::open(path)?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
@@ -172,6 +180,7 @@ fn open(path: &Path) -> Result<symphonia::core::probe::ProbeResult, DecodeError>
     )?)
 }
 
+// [DEC-09]
 fn collect_tags(probed: &mut symphonia::core::probe::ProbeResult) -> Tags {
     let mut t = Tags::default();
     if let Some(meta) = probed.metadata.get() {
@@ -185,6 +194,7 @@ fn collect_tags(probed: &mut symphonia::core::probe::ProbeResult) -> Tags {
     t
 }
 
+// [DEC-10]
 pub fn probe_file(path: &Path) -> Result<TrackInfo, DecodeError> {
     let mut probed = open(path)?;
     let tags = collect_tags(&mut probed);
@@ -212,6 +222,7 @@ pub fn probe_file(path: &Path) -> Result<TrackInfo, DecodeError> {
     })
 }
 
+// [DEC-11]
 pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> {
     let mut probed = open(path)?;
     let Tags { title, artist, .. } = collect_tags(&mut probed);

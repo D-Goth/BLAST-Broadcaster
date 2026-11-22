@@ -3,8 +3,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
+// [JRN-01]
 const MAX_BYTES: u64 = 1024 * 1024;
 
+// [JRN-02]
 struct Journal {
     file: Mutex<File>,
     path: PathBuf,
@@ -12,6 +14,7 @@ struct Journal {
 
 static JOURNAL: OnceLock<Journal> = OnceLock::new();
 
+// [JRN-03]
 pub fn init(path: &Path) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -35,10 +38,12 @@ pub fn init(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+// [JRN-04]
 pub fn path() -> Option<PathBuf> {
     JOURNAL.get().map(|j| j.path.clone())
 }
 
+// [JRN-05]
 pub fn log(level: &str, message: &str) {
     let line = format!(
         "{} [{}] {}\n",
@@ -54,14 +59,17 @@ pub fn log(level: &str, message: &str) {
     }
 }
 
+// [JRN-06]
 pub fn info(message: impl AsRef<str>) {
     log("info", message.as_ref());
 }
 
+// [JRN-07]
 pub fn warn(message: impl AsRef<str>) {
     log("warn", message.as_ref());
 }
 
+// [JRN-08]
 pub fn error(message: impl AsRef<str>) {
     log("error", message.as_ref());
 }

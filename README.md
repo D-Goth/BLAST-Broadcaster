@@ -146,6 +146,17 @@ d'entrée même micro fermé, pour régler son gain avant de prendre l'antenne.
 Un titre chargé mais pas encore joué, remplacé par un autre, retourne en tête de playlist.
 Les fichiers illisibles restent dans la playlist, marqués ⚠, et sont sautés par l'auto-mix.
 
+## Mettre à jour
+
+BLAST vérifie au démarrage si une nouvelle version est publiée sur GitHub et te prévient
+(désactivable dans **Réglages → À propos**, où se trouve aussi le bouton « Vérifier maintenant »).
+Rien n'est téléchargé automatiquement. Pour mettre à jour, dans le dossier du projet :
+
+- Linux : `git pull && ./scripts/install-linux.sh`
+- Windows (invite de commandes) : `git pull` puis `scripts\install-windows.bat`
+
+En cas de souci, l'onglet **À propos** ouvre le dossier du journal `blast.log` (aucun mot de passe n'y figure).
+
 ## Développer
 
 ```bash
@@ -153,6 +164,16 @@ cargo build --release
 cargo test
 ./target/release/blast-broadcaster ~/Musique
 ```
+
+Le code ne contient pas de commentaires : chaque élément porte un code de référence (`// [MIX-12]`)
+défini dans [docs/NOMENCLATURE.md](docs/NOMENCLATURE.md). Après une modification, régénérer ce document :
+
+```bash
+python3 scripts/nomenclature.py          # régénère docs/NOMENCLATURE.md
+python3 scripts/nomenclature.py --check  # ce que vérifie la CI
+```
+
+La CI GitHub (Linux et Windows) vérifie le formatage, clippy sans avertissement, les tests et la nomenclature.
 
 ## Outil de test en ligne de commande
 

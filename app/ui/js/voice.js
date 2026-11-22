@@ -1,5 +1,6 @@
 import { $, S, send, ico, dbWidth, invoke, toast, fillSelect } from "./core.js";
 
+// [UI-52]
 const SIGNED = (v) => `${v > 0 ? "+" : ""}${v} dB`;
 const SLIDERS = [
   ["#mic-gain", "mic_gain_db", SIGNED],
@@ -16,6 +17,7 @@ const mic = { latched: false, held: false };
 
 const setMic = (open) => send({ type: "mic_open", open });
 
+// [UI-53]
 export function renderVoice() {
   if (!S.state || !S.state.mic) return;
   const m = S.state.mic;
@@ -28,6 +30,7 @@ export function renderVoice() {
   $("#meter-mic").style.width = `${(dbWidth(m.peak) * 100).toFixed(1)}%`;
 }
 
+// [UI-54]
 function saveSoon() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
@@ -41,6 +44,7 @@ function edit(change) {
   saveSoon();
 }
 
+// [UI-55]
 function applyVoice(v) {
   voice = { ...v };
   for (const [sel, key, label] of SLIDERS) {
@@ -52,23 +56,27 @@ function applyVoice(v) {
   $("#duck-toggle").classList.toggle("on", !!voice.duck);
 }
 
+// [UI-56]
 export function toggleLock() {
   mic.latched = !(mic.latched && S.state && S.state.mic.open);
   setMic(mic.latched);
 }
 
+// [UI-57]
 export function pttDown() {
   if (mic.held) return;
   mic.held = true;
   setMic(true);
 }
 
+// [UI-58]
 export function pttUp() {
   if (!mic.held) return;
   mic.held = false;
   if (!mic.latched) setMic(false);
 }
 
+// [UI-59]
 export async function loadVoiceSettings() {
   try {
     const view = await invoke("get_settings");

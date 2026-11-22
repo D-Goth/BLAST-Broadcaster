@@ -1,11 +1,13 @@
 import { $, S, send, ico, hms } from "./core.js";
 import { openSettings, renderOutList } from "./settings.js";
 
+// [UI-37]
 export const STATUS_LABEL = { off: "Arrêtée", connecting: "Connexion…", live: "En direct", retrying: "Reconnexion", error: "Erreur" };
 export let cast = { casting: false, song: "", outputs: [] };
 
 export const statusOf = (o) => (o && o.status && o.status.state) || "off";
 
+// [UI-38]
 function castLabel(states, live, total) {
   if (live > 0) return `EN DIRECT ${live}/${total}`;
   if (states.includes("error")) return "ERREUR";
@@ -26,6 +28,7 @@ function outputLine(o) {
   return `${o.name} (${o.target}) : ${STATUS_LABEL[statusOf(o)]}${count}${detail}`;
 }
 
+// [UI-39]
 export function setCast(c) {
   cast = c;
   const btn = $("#cast-btn");
@@ -52,6 +55,7 @@ export function setCast(c) {
   if (S.settings) renderOutList();
 }
 
+// [UI-40]
 function renderCastTimer() {
   const t = $("#cast-time");
   const on = cast.casting && cast.since;

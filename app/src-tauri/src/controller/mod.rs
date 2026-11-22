@@ -40,11 +40,13 @@ use pads::PadState;
 use views::{Notice, EV_NOTICE};
 use voice::MicState;
 
+// [CTL-01]
 pub trait Ui: Send + 'static {
     fn emit(&self, event: &'static str, payload: serde_json::Value);
     fn pictures_dir(&self) -> PathBuf;
 }
 
+// [CTL-02]
 struct TauriUi(AppHandle);
 
 impl Ui for TauriUi {
@@ -62,6 +64,7 @@ impl Ui for TauriUi {
     }
 }
 
+// [CTL-03]
 pub struct Audio {
     engine: Option<Engine>,
     error: Option<String>,
@@ -69,6 +72,7 @@ pub struct Audio {
     sample_rate: u32,
 }
 
+// [CTL-04]
 impl Audio {
     pub fn start(config: &AppConfig) -> Self {
         let wanted = config.audio.device.clone();
@@ -111,6 +115,7 @@ impl Audio {
     }
 }
 
+// [CTL-05]
 enum Work {
     Scanned {
         entries: Vec<Entry>,
@@ -134,6 +139,7 @@ enum Work {
     },
 }
 
+// [CTL-06]
 pub fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -141,10 +147,12 @@ pub fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
+// [CTL-07]
 pub fn now_secs() -> i64 {
     (now_ms() / 1000) as i64
 }
 
+// [CTL-08]
 pub fn spawn(
     app: AppHandle,
     secrets: Arc<Secrets>,
@@ -173,6 +181,7 @@ pub fn spawn(
     Ok(tx)
 }
 
+// [CTL-09]
 fn open_library(db_path: &Path, warning: Option<String>) -> (Option<Library>, Option<String>) {
     match Library::open(db_path) {
         Ok(l) => (Some(l), warning),
@@ -189,6 +198,7 @@ fn open_library(db_path: &Path, warning: Option<String>) -> (Option<Library>, Op
     }
 }
 
+// [CTL-10]
 struct Controller {
     ui: Box<dyn Ui>,
     rx: Receiver<UiCommand>,
@@ -218,6 +228,7 @@ struct Controller {
 }
 
 impl Controller {
+    // [CTL-11]
     fn new(
         ui: Box<dyn Ui>,
         rx: Receiver<UiCommand>,
@@ -266,6 +277,7 @@ impl Controller {
         c
     }
 
+    // [CTL-12]
     fn run(mut self) {
         loop {
             match self.rx.recv_timeout(Duration::from_millis(15)) {
@@ -289,12 +301,14 @@ impl Controller {
         self.cast.caster.stop_all();
     }
 
+    // [CTL-13]
     fn drain_work(&mut self) {
         while let Ok(w) = self.work_rx.try_recv() {
             self.on_work(w);
         }
     }
 
+    // [CTL-14]
     fn pump_engine(&mut self) {
         let mut events = Vec::new();
         if let Some(engine) = &self.engine {
@@ -314,12 +328,14 @@ impl Controller {
         }
     }
 
+    // [CTL-15]
     fn send(&self, cmd: Command) {
         if let Some(e) = &self.engine {
             e.send(cmd);
         }
     }
 
+    // [CTL-16]
     fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
         match serde_json::to_value(payload) {
             Ok(v) => self.ui.emit(event, v),
@@ -327,6 +343,7 @@ impl Controller {
         }
     }
 
+    // [CTL-17]
     fn notice(&self, level: &'static str, message: impl Into<String>) {
         let message = message.into();
         if level != "info" {
@@ -335,6 +352,7 @@ impl Controller {
         self.emit(EV_NOTICE, &Notice { level, message });
     }
 
+    // [CTL-18]
     fn handle(&mut self, cmd: UiCommand) {
         match cmd {
             UiCommand::Refresh => self.refresh(),
@@ -385,6 +403,7 @@ impl Controller {
         self.emit_state();
     }
 
+    // [CTL-19]
     fn refresh(&mut self) {
         self.emit_playlist();
         self.emit_cast();
@@ -396,6 +415,7 @@ impl Controller {
         }
     }
 
+    // [CTL-20]
     fn apply_config(&mut self, cfg: AppConfig) {
         if cfg.audio.master_preset != self.master_preset {
             self.master_preset = cfg.audio.master_preset.clone();
@@ -408,6 +428,7 @@ impl Controller {
         self.apply_outputs(cfg.outputs);
     }
 
+    // [CTL-21]
     fn on_work(&mut self, w: Work) {
         match w {
             Work::Scanned {
@@ -430,6 +451,7 @@ impl Controller {
         }
     }
 
+    // [CTL-22]
     fn on_event(&mut self, e: Event) {
         match e {
             Event::Tick {
@@ -473,6 +495,7 @@ impl Controller {
         }
     }
 
+    // [CTL-23]
     fn on_air_side(&self) -> usize {
         if self.crossfader < 0.5 {
             0

@@ -2,12 +2,14 @@ use std::path::Path;
 
 use serde_json::Value;
 
+// [THM-01]
 const BUILTIN: &[(&str, &str)] = &[
     ("black-lab", include_str!("../../../themes/black-lab.toml")),
     ("dark", include_str!("../../../themes/dark.toml")),
     ("light", include_str!("../../../themes/light.toml")),
 ];
 
+// [THM-02]
 fn parse(id: &str, src: &str, builtin: bool) -> Option<Value> {
     let mut v: Value = toml::from_str(src).ok()?;
     let obj = v.as_object_mut()?;
@@ -16,6 +18,7 @@ fn parse(id: &str, src: &str, builtin: bool) -> Option<Value> {
     Some(v)
 }
 
+// [THM-03]
 pub fn list(user_dir: Option<&Path>) -> Vec<Value> {
     let mut out: Vec<Value> = BUILTIN
         .iter()

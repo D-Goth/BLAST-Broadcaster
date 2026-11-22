@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 
 pub use rusqlite::Error as DbError;
 
+// [LIB-01]
 const SCHEMA_VERSION: i64 = 1;
 
+// [LIB-02]
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
@@ -43,6 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_hist_artist ON historique_diffusion(artist COLLAT
 CREATE INDEX IF NOT EXISTS idx_hist_path ON historique_diffusion(path, started_at);
 ";
 
+// [LIB-03]
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct TrackMeta {
     pub path: String,
@@ -54,6 +57,7 @@ pub struct TrackMeta {
     pub duration: Option<f64>,
 }
 
+// [LIB-04]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SeparationRules {
@@ -72,6 +76,7 @@ impl Default for SeparationRules {
     }
 }
 
+// [LIB-05]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "rule", rename_all = "snake_case")]
 pub enum Violation {
@@ -92,6 +97,7 @@ impl Violation {
     }
 }
 
+// [LIB-06]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct HistoryRow {
     pub id: i64,
@@ -104,17 +110,20 @@ pub struct HistoryRow {
     pub listeners: Option<u32>,
 }
 
+// [LIB-07]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct LibraryStats {
     pub tracks: i64,
     pub plays: i64,
 }
 
+// [LIB-08]
 pub struct Library {
     conn: Connection,
 }
 
 impl Library {
+    // [LIB-09]
     pub fn open(path: &Path) -> Result<Self, DbError> {
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
@@ -140,6 +149,7 @@ impl Library {
         Ok(Self { conn })
     }
 
+    // [LIB-10]
     pub fn upsert_tracks(&mut self, tracks: &[TrackMeta], now: i64) -> Result<usize, DbError> {
         let tx = self.conn.transaction()?;
         {
@@ -160,6 +170,7 @@ impl Library {
         Ok(tracks.len())
     }
 
+    // [LIB-11]
     pub fn record_play(
         &self,
         path: &str,
@@ -192,6 +203,7 @@ impl Library {
         Ok(id)
     }
 
+    // [LIB-12]
     pub fn finish_play(&self, id: i64, duration_played: f64) -> Result<(), DbError> {
         self.conn.execute(
             "UPDATE historique_diffusion SET duration_played = ?2 WHERE id = ?1",
@@ -200,6 +212,7 @@ impl Library {
         Ok(())
     }
 
+    // [LIB-13]
     pub fn check(
         &self,
         path: &str,
@@ -246,10 +259,12 @@ impl Library {
         Ok(None)
     }
 
+    // [LIB-14]
     pub fn recent(&self, limit: u32) -> Result<Vec<HistoryRow>, DbError> {
         self.history_between(0, i64::MAX, limit)
     }
 
+    // [LIB-15]
     pub fn history_between(
         &self,
         from: i64,
@@ -277,6 +292,7 @@ impl Library {
         rows.collect()
     }
 
+    // [LIB-16]
     pub fn purge_older_than(&self, cutoff: i64) -> Result<usize, DbError> {
         self.conn.execute(
             "DELETE FROM historique_diffusion WHERE started_at < ?1",
@@ -284,10 +300,12 @@ impl Library {
         )
     }
 
+    // [LIB-17]
     pub fn clear_history(&self) -> Result<usize, DbError> {
         self.conn.execute("DELETE FROM historique_diffusion", [])
     }
 
+    // [LIB-18]
     pub fn stats(&self) -> Result<LibraryStats, DbError> {
         Ok(LibraryStats {
             tracks: self
@@ -302,6 +320,7 @@ impl Library {
     }
 }
 
+// [LIB-19]
 fn csv_field(s: &str) -> String {
     if s.contains([';', '"', '\n', '\r']) {
         format!("\"{}\"", s.replace('"', "\"\""))
@@ -310,6 +329,7 @@ fn csv_field(s: &str) -> String {
     }
 }
 
+// [LIB-20]
 pub fn history_csv(rows: &[HistoryRow], format_time: impl Fn(i64) -> String) -> String {
     let mut out =
         String::from("\u{feff}date;artiste;titre;duree_diffusee_s;antenne;auditeurs;fichier\r\n");

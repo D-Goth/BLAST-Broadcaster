@@ -4,6 +4,7 @@ use blast_aura::AuraSettings;
 use blast_cast::OutputConfig;
 use serde::{Deserialize, Serialize};
 
+// [CFG-01]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AudioSettings {
@@ -20,6 +21,7 @@ impl Default for AudioSettings {
     }
 }
 
+// [CFG-02]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct VoiceSettings {
@@ -56,6 +58,7 @@ impl Default for VoiceSettings {
     }
 }
 
+// [CFG-03]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PadConfig {
@@ -65,6 +68,7 @@ pub struct PadConfig {
     pub color: String,
 }
 
+// [CFG-04]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SoundboardSettings {
@@ -72,8 +76,10 @@ pub struct SoundboardSettings {
     pub pads: Vec<PadConfig>,
 }
 
+// [CFG-05]
 pub const PAD_COUNT: u16 = 36;
 
+// [CFG-06]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AutomationSettings {
@@ -90,6 +96,7 @@ impl Default for AutomationSettings {
     }
 }
 
+// [CFG-07]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UpdateSettings {
@@ -106,6 +113,7 @@ impl Default for UpdateSettings {
     }
 }
 
+// [CFG-08]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
@@ -118,6 +126,7 @@ pub struct AppConfig {
     pub updates: UpdateSettings,
 }
 
+// [CFG-09]
 pub fn load(path: &Path) -> (AppConfig, Option<String>) {
     let Ok(text) = std::fs::read_to_string(path) else {
         return (AppConfig::default(), None);
@@ -138,6 +147,7 @@ pub fn load(path: &Path) -> (AppConfig, Option<String>) {
     }
 }
 
+// [CFG-10]
 pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;

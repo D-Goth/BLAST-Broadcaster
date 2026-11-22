@@ -3,6 +3,7 @@ import { view } from "./theme.js";
 import { renderVoice } from "./voice.js";
 import { renderPadStates } from "./pads.js";
 
+// [UI-21]
 const STATE_LABEL = {
   empty: "VIDE",
   loading: "CHARGEMENT",
@@ -16,6 +17,7 @@ const decks = {};
 const meterHold = { l: 0, r: 0, red: 0, clipUntil: 0 };
 let crossfaderHeld = false;
 
+// [UI-22]
 function renderDeck(id, d) {
   const el = decks[id];
   const st = S.state;
@@ -45,6 +47,7 @@ function renderDeck(id, d) {
   $('[data-action="next"]', el).disabled = d.state === "loading";
 }
 
+// [UI-23]
 function renderMeters(st) {
   const now = performance.now();
   meterHold.l = Math.max(dbWidth(st.peak[0]), meterHold.l * 0.85);
@@ -58,6 +61,7 @@ function renderMeters(st) {
   $("#clip").classList.toggle("on", now < meterHold.clipUntil);
 }
 
+// [UI-24]
 export function renderState() {
   const st = S.state;
   if (!st) return;
@@ -79,6 +83,7 @@ export function renderState() {
   renderPadStates();
 }
 
+// [UI-25]
 export function freeDeck() {
   const st = S.state;
   if (!st) return "A";

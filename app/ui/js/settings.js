@@ -2,6 +2,7 @@ import { $, $$, S, invoke, toast, formValues, fillForm, setResult } from "./core
 import { cast, statusOf, STATUS_LABEL } from "./cast.js";
 import { renderAbout } from "./update.js";
 
+// [UI-41]
 const BITRATES = [32, 40, 48, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
 const KIND_LABEL = { icecast: "Icecast", shoutcast_v1: "Shoutcast v1", shoutcast_v2: "Shoutcast v2" };
 const NEW_OUTPUT = {
@@ -11,6 +12,7 @@ const NEW_OUTPUT = {
 };
 let selectedOut = null;
 
+// [UI-42]
 export function renderOutList() {
   const box = $("#out-items");
   box.innerHTML = "";
@@ -38,6 +40,7 @@ function applyKindFields() {
   $$("#out-form [data-for]").forEach((el) => el.classList.toggle("hidden", el.dataset.for !== kind));
 }
 
+// [UI-43]
 function selectOutput(id) {
   selectedOut = id;
   const form = $("#out-form");
@@ -51,6 +54,7 @@ function selectOutput(id) {
   renderOutList();
 }
 
+// [UI-44]
 function currentOutput() {
   const v = formValues($("#out-form"));
   const id = selectedOut && selectedOut !== "new" ? selectedOut : "";
@@ -62,6 +66,7 @@ function currentOutput() {
   return { out, password: v.password || null };
 }
 
+// [UI-45]
 function fillDevices(sel, list, def, defLabel, value) {
   sel.innerHTML = "";
   const d = document.createElement("option");
@@ -84,6 +89,7 @@ function micStatus() {
   return m.error ? `Micro indisponible : ${m.error}` : "Aucun micro détecté.";
 }
 
+// [UI-46]
 function applySettings(view, keepSelection = true) {
   S.settings = view;
   $("#store-info").textContent = `Mots de passe : ${view.secret_store}`;
@@ -108,6 +114,7 @@ function applySettings(view, keepSelection = true) {
   $("#mic-status").textContent = micStatus();
 }
 
+// [UI-47]
 async function saveForm(resultId, run) {
   try {
     const view = await run();
@@ -118,6 +125,7 @@ async function saveForm(resultId, run) {
   }
 }
 
+// [UI-48]
 async function testForm(resultId, busy, run) {
   setResult(resultId, "busy", busy);
   try {
@@ -144,6 +152,7 @@ function automationValues() {
   };
 }
 
+// [UI-49]
 export async function openSettings(tab) {
   try {
     applySettings(await invoke("get_settings"), false);
@@ -158,12 +167,14 @@ export async function openSettings(tab) {
 export const settingsOpen = () => !$("#settings").classList.contains("hidden");
 const closeSettings = () => $("#settings").classList.add("hidden");
 
+// [UI-50]
 function showTab(tab) {
   $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
   $$(".tab-page").forEach((p) => p.classList.toggle("hidden", p.dataset.page !== tab));
   if (tab === "about") renderAbout();
 }
 
+// [UI-51]
 async function deleteOutput() {
   if (!selectedOut || selectedOut === "new") return;
   const btn = $("#out-delete");

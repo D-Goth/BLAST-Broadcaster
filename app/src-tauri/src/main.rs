@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::Manager;
 
+// [APP-01]
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let paths = app.path();
     let log_path = paths
@@ -64,6 +65,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+// [APP-02]
 fn main() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

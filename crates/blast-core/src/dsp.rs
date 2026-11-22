@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 
+// [DSP-01]
 #[derive(Debug, Clone, Copy)]
 pub struct Biquad {
     b0: f32,
@@ -17,6 +18,7 @@ impl Default for Biquad {
     }
 }
 
+// [DSP-02]
 impl Biquad {
     pub fn identity() -> Self {
         Self {
@@ -143,14 +145,17 @@ impl Biquad {
     }
 }
 
+// [DSP-03]
 pub fn db_to_gain(db: f32) -> f32 {
     10f32.powf(db / 20.0)
 }
 
+// [DSP-04]
 pub fn gain_to_db(g: f32) -> f32 {
     20.0 * g.max(1e-9).log10()
 }
 
+// [DSP-05]
 fn coef(ms: f32, rate: f32) -> f32 {
     if ms <= 0.0 {
         0.0
@@ -159,6 +164,7 @@ fn coef(ms: f32, rate: f32) -> f32 {
     }
 }
 
+// [DSP-06]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CompParams {
     pub threshold_db: f32,
@@ -169,6 +175,7 @@ pub struct CompParams {
     pub makeup_db: f32,
 }
 
+// [DSP-07]
 #[derive(Debug, Clone, Copy)]
 pub struct Compressor {
     p: CompParams,
@@ -223,6 +230,7 @@ impl Compressor {
     }
 }
 
+// [DSP-08]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AgcParams {
     pub target_db: f32,
@@ -231,6 +239,7 @@ pub struct AgcParams {
     pub gate_db: f32,
 }
 
+// [DSP-09]
 #[derive(Debug, Clone, Copy)]
 pub struct Agc {
     p: AgcParams,
@@ -272,8 +281,10 @@ impl Agc {
     }
 }
 
+// [DSP-10]
 pub const LIMITER_LOOKAHEAD_MS: f32 = 3.0;
 
+// [DSP-11]
 pub struct Limiter {
     ceiling: f32,
     len: usize,
@@ -351,6 +362,7 @@ impl Limiter {
     }
 }
 
+// [DSP-12]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MasterParams {
     pub agc: Option<AgcParams>,
@@ -359,6 +371,7 @@ pub struct MasterParams {
     pub release_ms: f32,
 }
 
+// [DSP-13]
 pub const MASTER_PRESETS: &[(&str, &str)] = &[
     ("aucun", "Aucun traitement"),
     ("doux", "Doux"),
@@ -366,6 +379,7 @@ pub const MASTER_PRESETS: &[(&str, &str)] = &[
     ("puissant", "Puissant"),
 ];
 
+// [DSP-14]
 pub fn master_preset(id: &str) -> MasterParams {
     match id {
         "aucun" => MasterParams {
@@ -426,6 +440,7 @@ pub fn master_preset(id: &str) -> MasterParams {
     }
 }
 
+// [DSP-15]
 pub struct MasterChain {
     rate: f32,
     params: MasterParams,
@@ -504,6 +519,7 @@ impl MasterChain {
     }
 }
 
+// [DSP-16]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VoiceParams {
     pub gate_db: Option<f32>,
@@ -541,6 +557,7 @@ impl Default for VoiceParams {
     }
 }
 
+// [DSP-17]
 pub const VOICE_PRESETS: &[(&str, &str)] = &[
     ("aucun", "Aucun effet"),
     ("naturel", "Naturel"),
@@ -552,6 +569,7 @@ pub const VOICE_PRESETS: &[(&str, &str)] = &[
     ("megaphone", "Mégaphone"),
 ];
 
+// [DSP-18]
 fn comp(
     threshold_db: f32,
     ratio: f32,
@@ -569,6 +587,7 @@ fn comp(
     })
 }
 
+// [DSP-19]
 pub fn voice_preset(id: &str) -> VoiceParams {
     let d = VoiceParams::default();
     match id {
@@ -642,6 +661,7 @@ pub fn voice_preset(id: &str) -> VoiceParams {
     }
 }
 
+// [DSP-20]
 pub struct VoiceFx {
     rate: f32,
     p: VoiceParams,

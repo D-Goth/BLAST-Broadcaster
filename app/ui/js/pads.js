@@ -1,5 +1,6 @@
 import { $, $$, S, send, invoke, toast, pickAudio } from "./core.js";
 
+// [UI-60]
 export const PADS_PER_PAGE = 12;
 let pads = { pads: [], count: 36 };
 let page = 0;
@@ -13,6 +14,7 @@ function padColor(i) {
   return palette[Math.floor(i / 4) % palette.length];
 }
 
+// [UI-61]
 function padButton(index, k) {
   const p = padAt(index);
   const el = document.createElement("button");
@@ -29,6 +31,7 @@ function padButton(index, k) {
   return el;
 }
 
+// [UI-62]
 function renderPads() {
   const pages = Math.max(1, Math.ceil(pads.count / PADS_PER_PAGE));
   page = Math.min(page, pages - 1);
@@ -48,6 +51,7 @@ export function setPads(p) {
   renderPads();
 }
 
+// [UI-63]
 export function renderPadStates() {
   const mask = S.state ? BigInt(S.state.sfx || 0) : 0n;
   $$("#pads .pad").forEach((el) => {
@@ -57,6 +61,7 @@ export function renderPadStates() {
 
 const pickSound = async () => (await pickAudio(false, "Choisir un son"))[0] || null;
 
+// [UI-64]
 export async function assignPad(index, path, name) {
   try {
     await invoke("save_pad", { pad: { index, name: name || "", path, color: "" } });
@@ -65,6 +70,7 @@ export async function assignPad(index, path, name) {
   }
 }
 
+// [UI-65]
 export function playPad(index) {
   const known = !!padAt(index);
   if (known) send({ type: "pad_play", index });
@@ -76,6 +82,7 @@ export function closePadMenu() {
   menuPad = null;
 }
 
+// [UI-66]
 function openPadMenu(e, index) {
   menuPad = index;
   const p = padAt(index);

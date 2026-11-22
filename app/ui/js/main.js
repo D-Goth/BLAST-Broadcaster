@@ -11,10 +11,12 @@ import * as obs from "./obs.js";
 import * as shortcuts from "./shortcuts.js";
 import * as update from "./update.js";
 
+// [UI-15]
 function tickClock() {
   $("#clock").textContent = new Date().toLocaleTimeString("fr-FR", { hour12: false });
 }
 
+// [UI-16]
 async function subscribe() {
   await listen("blast://state", (e) => {
     S.state = e.payload;
@@ -31,6 +33,7 @@ async function subscribe() {
   await listen("blast://cast", (e) => cast.setCast(e.payload));
 }
 
+// [UI-17]
 async function start() {
   for (const m of [theme, decks, playlist, cast, settings, voice, pads, obs, shortcuts, update]) m.init();
   $("#themes-folder").addEventListener("click", async () => {

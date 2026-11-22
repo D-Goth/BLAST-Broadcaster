@@ -1,5 +1,6 @@
 import { $, invoke, toast, setResult } from "./core.js";
 
+// [UI-74]
 const UPGRADE = {
   linux: "git pull && ./scripts/install-linux.sh",
   windows: "git pull puis scripts\\install-windows.bat",
@@ -15,6 +16,7 @@ function describe(u) {
   return `BLAST est à jour (${u.current}).`;
 }
 
+// [UI-75]
 function announce(u) {
   const hint = UPGRADE[info && info.platform] || UPGRADE.linux;
   toast("update", `BLAST ${u.latest} est disponible — dans le dossier du projet : ${hint}`, [
@@ -23,6 +25,7 @@ function announce(u) {
   ]);
 }
 
+// [UI-76]
 export async function checkOnStart() {
   try {
     info = await invoke("app_info");
@@ -32,6 +35,7 @@ export async function checkOnStart() {
   } catch (_) {}
 }
 
+// [UI-77]
 async function checkNow() {
   setResult("#about-result", "busy", "Interrogation de GitHub…");
   try {
@@ -44,6 +48,7 @@ async function checkNow() {
   }
 }
 
+// [UI-78]
 export async function renderAbout() {
   try {
     info = await invoke("app_info");

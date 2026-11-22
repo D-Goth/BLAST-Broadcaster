@@ -3,6 +3,7 @@ import { freeDeck } from "./decks.js";
 
 let history = { rows: [], stats: null, current: null };
 
+// [UI-26]
 export function renderPlaylist(total) {
   const rows = $("#rows");
   rows.innerHTML = "";
@@ -40,18 +41,21 @@ export function renderPlaylist(total) {
   $("#empty").classList.toggle("hidden", n > 0 || $("#rows").hidden);
 }
 
+// [UI-27]
 function showPlaylistTab(tab) {
   $$("[data-ptab]").forEach((t) => t.classList.toggle("active", t.dataset.ptab === tab));
   $$("#playlist [data-ppage]").forEach((el) => (el.hidden = el.dataset.ppage !== tab));
   if (tab === "playlist") $("#empty").classList.toggle("hidden", S.entries.length > 0);
 }
 
+// [UI-28]
 function clockTime(secs) {
   const d = new Date(secs * 1000);
   const hm = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   return d.toDateString() === new Date().toDateString() ? hm : `${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} ${hm}`;
 }
 
+// [UI-29]
 export function setHistory(h) {
   history = h;
   const box = $("#hrows");
@@ -81,6 +85,7 @@ export function setHistory(h) {
   $("#history-info").textContent = s ? `${s.plays} diffusion${s.plays > 1 ? "s" : ""} · ${s.tracks} titre${s.tracks > 1 ? "s" : ""} en bibliothèque` : "";
 }
 
+// [UI-30]
 async function exportHistory() {
   const d = new Date();
   const day = [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n) => String(n).padStart(2, "0")).join("-");

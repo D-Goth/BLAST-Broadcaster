@@ -1,5 +1,6 @@
 import { $, $$, send, store, hms } from "./core.js";
 
+// [UI-67]
 const OBS_STATUS = { off: "Déconnecté", connecting: "Connexion…", connected: "Connecté", retrying: "Reconnexion…", error: "Erreur" };
 let obs = { status: "off", scenes: [], inputs: [] };
 let input = null;
@@ -7,12 +8,14 @@ let volHeld = false;
 
 const isIdle = () => obs.status === "off" || obs.status === "error";
 
+// [UI-68]
 export function showFx(page) {
   $$(".fx-tab[data-fx]").forEach((t) => t.classList.toggle("active", t.dataset.fx === page));
   $$("#soundfx [data-fxpage]").forEach((el) => (el.hidden = el.dataset.fxpage !== page));
   store.set("blast.fxtab", page);
 }
 
+// [UI-69]
 function renderTimers() {
   const now = Date.now();
   const live = $("#obs-live");
@@ -27,6 +30,7 @@ function renderTimers() {
   $("use", rec).setAttribute("href", obs.record_paused ? "#i-pause" : "#i-rec");
 }
 
+// [UI-70]
 function renderControls(connected) {
   const st = obs.status;
   $("#obs-pill").className = `obs-pill ${st}`;
@@ -46,6 +50,7 @@ function renderControls(connected) {
   $("#obs-pause small").textContent = obs.record_paused ? "REPRENDRE" : "PAUSE REC";
 }
 
+// [UI-71]
 function renderScenes(connected) {
   const box = $("#obs-scenes");
   box.innerHTML = "";
@@ -66,6 +71,7 @@ function renderScenes(connected) {
   }
 }
 
+// [UI-72]
 function renderInputs(connected) {
   const sel = $("#obs-input");
   const names = obs.inputs.map((i) => i.name);

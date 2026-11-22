@@ -6,6 +6,7 @@ use blast_core::DeckId;
 
 use crate::config::AppConfig;
 
+// [CTL-24]
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 pub enum Deck {
     A,
@@ -40,6 +41,7 @@ impl Deck {
     }
 }
 
+// [CTL-25]
 #[derive(Debug, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ObsAction {
@@ -55,6 +57,7 @@ pub enum ObsAction {
     Mute { input: String },
 }
 
+// [CTL-26]
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum UiCommand {

@@ -10,8 +10,10 @@ pub use protocol::{
 
 use serde::{Deserialize, Serialize};
 
+// [CAST-01]
 pub const BITRATES: &[u32] = &[32, 40, 48, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
 
+// [CAST-02]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Codec {
     Mp3,
@@ -25,6 +27,7 @@ impl Codec {
     }
 }
 
+// [CAST-03]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ServerKind {
@@ -44,6 +47,7 @@ impl ServerKind {
     }
 }
 
+// [CAST-04]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct OutputConfig {
@@ -88,6 +92,7 @@ impl Default for OutputConfig {
     }
 }
 
+// [CAST-05]
 impl OutputConfig {
     pub fn mount_path(&self) -> String {
         let m = self.mount.trim();

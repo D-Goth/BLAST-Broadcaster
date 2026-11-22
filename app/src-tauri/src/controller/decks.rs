@@ -9,12 +9,14 @@ use super::views::{DeckView, MicView, StateView, EV_STATE};
 use super::{Controller, Work};
 use crate::playlist::{self, Entry};
 
+// [CTL-40]
 pub const EMPTY_STATUS: DeckStatus = DeckStatus {
     state: DeckState::Empty,
     position: 0,
     frames: 0,
 };
 
+// [CTL-41]
 #[derive(Debug, Default, Clone)]
 pub struct DeckMeta {
     pub title: String,
@@ -24,6 +26,7 @@ pub struct DeckMeta {
     pub finished: bool,
 }
 
+// [CTL-42]
 #[derive(Debug, Clone)]
 pub struct DeckSide {
     pub meta: DeckMeta,
@@ -39,6 +42,7 @@ impl Default for DeckSide {
     }
 }
 
+// [CTL-43]
 impl DeckSide {
     pub fn is_playing(&self) -> bool {
         self.status.state == DeckState::Playing && !self.meta.finished
@@ -79,6 +83,7 @@ impl Controller {
         self.decks[i].is_playing()
     }
 
+    // [CTL-44]
     pub(super) fn request_load(&mut self, deck: Deck, entry: Entry, play: bool) {
         self.next_job += 1;
         let job = self.next_job;
@@ -102,6 +107,7 @@ impl Controller {
         });
     }
 
+    // [CTL-45]
     pub(super) fn on_decoded(
         &mut self,
         deck: Deck,
@@ -156,6 +162,7 @@ impl Controller {
         self.emit_state();
     }
 
+    // [CTL-46]
     pub(super) fn on_ended(&mut self, i: usize) {
         let side = &mut self.decks[i];
         side.meta.finished = true;
@@ -163,6 +170,7 @@ impl Controller {
         side.status.position = side.status.frames;
     }
 
+    // [CTL-47]
     fn rewind_if_finished(&mut self, deck: Deck) {
         let side = &mut self.decks[deck.index()];
         if side.meta.finished {
@@ -171,6 +179,7 @@ impl Controller {
         }
     }
 
+    // [CTL-48]
     pub(super) fn crossfade_to(&mut self, to: Deck) {
         if !self.decks[to.index()].is_ready() {
             return;
@@ -183,6 +192,7 @@ impl Controller {
         });
     }
 
+    // [CTL-49]
     pub(super) fn fade_or_fetch(&mut self, to: Deck) {
         let side = &self.decks[to.index()];
         if side.meta.loading.is_some() {
@@ -198,6 +208,7 @@ impl Controller {
         }
     }
 
+    // [CTL-50]
     pub(super) fn next(&mut self, deck: Deck) {
         let i = deck.index();
         if self.is_playing(i) {
@@ -213,6 +224,7 @@ impl Controller {
         }
     }
 
+    // [CTL-51]
     pub(super) fn return_cued(&mut self, deck: Deck) {
         let side = &self.decks[deck.index()];
         if side.meta.loading.is_some() || side.meta.finished || side.status.position != 0 {
@@ -224,6 +236,7 @@ impl Controller {
         }
     }
 
+    // [CTL-52]
     pub(super) fn fill_automix(&mut self) {
         if !self.automix {
             return;
@@ -250,6 +263,7 @@ impl Controller {
         }
     }
 
+    // [CTL-53]
     pub(super) fn load_entry(&mut self, id: u64, deck: Deck) {
         if self.is_playing(deck.index()) {
             self.notice(
@@ -273,6 +287,7 @@ impl Controller {
         }
     }
 
+    // [CTL-54]
     pub(super) fn play(&mut self, deck: Deck) {
         if self.decks[deck.index()].is_ready() {
             self.rewind_if_finished(deck);
@@ -280,11 +295,13 @@ impl Controller {
         }
     }
 
+    // [CTL-55]
     pub(super) fn stop(&mut self, deck: Deck) {
         self.send(Command::Stop(deck.id()));
         self.decks[deck.index()].meta.finished = false;
     }
 
+    // [CTL-56]
     pub(super) fn eject(&mut self, deck: Deck) {
         if !self.is_playing(deck.index()) {
             self.send(Command::Eject(deck.id()));
@@ -293,6 +310,7 @@ impl Controller {
         }
     }
 
+    // [CTL-57]
     pub(super) fn seek(&mut self, deck: Deck, fraction: f32) {
         let side = &mut self.decks[deck.index()];
         let frames = side.status.frames;
@@ -307,6 +325,7 @@ impl Controller {
         ));
     }
 
+    // [CTL-58]
     pub(super) fn send_automix(&self) {
         self.send(Command::SetAutoMix {
             enabled: self.automix,
@@ -314,6 +333,7 @@ impl Controller {
         });
     }
 
+    // [CTL-59]
     fn deck_view(&self, i: usize) -> DeckView {
         let side = &self.decks[i];
         let rate = self.sample_rate as f64;
@@ -327,6 +347,7 @@ impl Controller {
         }
     }
 
+    // [CTL-60]
     pub(super) fn emit_state(&self) {
         let side = self.on_air_side();
         let view = StateView {
