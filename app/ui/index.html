@@ -148,15 +148,22 @@
         </div>
         <span id="playlist-info" class="muted" data-ppage="playlist">0 titre</span>
         <span id="history-info" class="muted" data-ppage="history" hidden></span>
+        <!-- [HTM-18] -->
+        <div class="hfilters" data-ppage="history" hidden>
+          <button class="chip-btn active" data-hfilter="all">Tout</button>
+          <button class="chip-btn" data-hfilter="morceau">Morceaux</button>
+          <button class="chip-btn" data-hfilter="jingle">Jingles</button>
+          <button class="chip-btn" data-hfilter="pub">Pubs</button>
+        </div>
         <div class="spacer"></div>
         <button id="add-files" class="btn small" data-ppage="playlist">+ Fichiers</button>
         <button id="add-folder" class="btn small" data-ppage="playlist">+ Dossier</button>
         <button id="clear" class="btn ghost small" data-ppage="playlist">Vider</button>
-        <button id="history-export" class="btn small" data-ppage="history" hidden>Exporter CSV</button>
+        <button id="history-export" class="btn small" data-ppage="history" hidden>Exporter…</button>
         <button id="history-clear" class="btn ghost small danger" data-ppage="history" hidden>Effacer</button>
       </div>
       <div class="history-head hrow-grid" data-ppage="history" hidden>
-        <span>Heure</span><span>Titre</span><span>Artiste</span><span class="right">Diffusé</span><span class="right">Antenne</span><span class="right">Auditeurs</span>
+        <span>Heure</span><span>Type</span><span>Titre</span><span>Artiste</span><span class="right">Diffusé</span><span class="right">Antenne</span><span class="right">Auditeurs</span>
       </div>
       <div id="hrows" class="rows" data-ppage="history" hidden></div>
       <div class="playlist-head row-grid" data-ppage="playlist">
@@ -205,8 +212,19 @@
       <section class="fx soundfx" id="soundfx">
         <div class="fx-tabs">
           <button class="fx-tab active" data-fx="pads">SOUND FX</button>
+          <button class="fx-tab" data-fx="jingles">JINGLES</button>
           <button class="fx-tab" data-fx="obs">AURA &middot; OBS</button>
         </div>
+        <!-- [HTM-17] -->
+        <div class="fx-head" data-fxpage="jingles" hidden>
+          <button class="btn ghost small" id="jingle-dir" title="Choisir le dossier des jingles">Dossier…</button>
+          <button class="btn ghost small pager" id="jingle-rescan" title="Relire le dossier">&#8635;</button>
+          <span id="jingle-info" class="muted fx-sub"></span>
+          <span class="spacer"></span>
+          <input type="range" id="jingle-vol" min="-30" max="6" step="0.5" title="Volume des jingles">
+          <button class="btn small danger" id="jingle-stop" title="Couper les jingles">STOP</button>
+        </div>
+        <div class="pads jingles" id="jingles" data-fxpage="jingles" hidden></div>
         <div class="fx-page" data-fxpage="obs" hidden>
           <div class="obs-status">
             <span class="dot" id="obs-dot"></span>
@@ -250,6 +268,23 @@
     <button class="btn small wide" id="pad-pick">Choisir un son…</button>
     <button class="btn small wide" id="pad-rename">Renommer</button>
     <button class="btn ghost small wide danger" id="pad-clear">Vider le pad</button>
+  </div>
+
+  <!-- [HTM-19] -->
+  <div id="export-menu" class="pad-menu export-menu hidden">
+    <div class="menu-title">Exporter l'historique (CSV)</div>
+    <label>Catégorie
+      <select id="export-kind">
+        <option value="all">Tout</option>
+        <option value="morceau">Morceaux</option>
+        <option value="jingle">Jingles</option>
+        <option value="pub">Pubs</option>
+      </select>
+    </label>
+    <label>Du<input type="date" id="export-from"></label>
+    <label>Au (inclus)<input type="date" id="export-to"></label>
+    <button class="btn accent small" id="export-go">Exporter la période</button>
+    <button class="btn ghost small" id="export-all">Tout l'historique conservé</button>
   </div>
 
   <!-- [HTM-10] -->
@@ -357,11 +392,26 @@
             <label>Même artiste : pas avant (minutes)<input type="number" name="artist_minutes" min="0" max="1440" step="5"></label>
             <label>Même titre : pas avant (minutes)<input type="number" name="title_minutes" min="0" max="10080" step="5"></label>
             <label>Conserver l'historique (jours, 0 = toujours)<input type="number" name="history_days" min="0" max="3650"></label>
+            <label>Passages gardés en mémoire (par catégorie)<input type="number" name="memory_size" min="1" max="5000" step="50"></label>
           </div>
           <p class="muted" id="library-info"></p>
           <div class="form-actions">
             <span class="spacer"></span>
             <span class="form-result" id="automation-result"></span>
+            <button type="submit" class="btn accent small">Enregistrer</button>
+          </div>
+        </form>
+        <div class="form-section">Catégories</div>
+        <!-- [HTM-20] -->
+        <form class="form" id="categories-form">
+          <p class="muted">Un fichier rangé dans un dossier dont le nom contient l'un de ces mots (au singulier ou au pluriel, majuscules et accents ignorés) est classé jingle ou pub ; tout le reste est un morceau. Jingles et pubs ne sont pas soumis aux règles de séparation et ne changent pas le titre annoncé aux auditeurs. Plusieurs mots : séparés par des virgules.</p>
+          <div class="grid2">
+            <label>Dossiers de jingles<input name="jingle_keywords" placeholder="JINGLE"></label>
+            <label>Dossiers de pubs<input name="pub_keywords" placeholder="PUB, PUBLICITE"></label>
+          </div>
+          <div class="form-actions">
+            <span class="spacer"></span>
+            <span class="form-result" id="categories-result"></span>
             <button type="submit" class="btn accent small">Enregistrer</button>
           </div>
         </form>

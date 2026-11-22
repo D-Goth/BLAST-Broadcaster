@@ -10,6 +10,7 @@ import * as pads from "./pads.js";
 import * as obs from "./obs.js";
 import * as shortcuts from "./shortcuts.js";
 import * as update from "./update.js";
+import * as jingles from "./jingles.js";
 
 // [UI-15]
 function tickClock() {
@@ -30,12 +31,13 @@ async function subscribe() {
   await listen("blast://obs", (e) => obs.setObs(e.payload));
   await listen("blast://history", (e) => playlist.setHistory(e.payload));
   await listen("blast://pads", (e) => pads.setPads(e.payload));
+  await listen("blast://jingles", (e) => jingles.setJingles(e.payload));
   await listen("blast://cast", (e) => cast.setCast(e.payload));
 }
 
 // [UI-17]
 async function start() {
-  for (const m of [theme, decks, playlist, cast, settings, voice, pads, obs, shortcuts, update]) m.init();
+  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update]) m.init();
   $("#themes-folder").addEventListener("click", async () => {
     try {
       const dir = await invoke("themes_dir");
@@ -48,7 +50,13 @@ async function start() {
   tickClock();
   await subscribe();
   await theme.loadThemes();
-  await voice.loadVoiceSettings();
+  try {
+    const view = await invoke("get_settings");
+    voice.applySettings(view);
+    jingles.applySettings(view);
+  } catch (e) {
+    toast("error", String(e));
+  }
   await dnd.init();
   await invoke("blast", { cmd: { type: "refresh" } }).catch((e) => toast("error", String(e)));
   update.checkOnStart();

@@ -25,25 +25,25 @@ ne pas le modifier à la main.
 | [`CORE`](#core) | Types communs du moteur audio (blast-core) | 3 |
 | [`DEC`](#dec) | Décodage, tags et rééchantillonnage (blast-core) | 12 |
 | [`DSP`](#dsp) | Traitement du signal : filtres, dynamique, chaîne antenne, effets de voix (blast-core) | 20 |
-| [`MIX`](#mix) | Mixeur temps réel (blast-core) | 15 |
+| [`MIX`](#mix) | Mixeur temps réel (blast-core) | 16 |
 | [`ENG`](#eng) | Moteur audio et périphériques (blast-core) | 19 |
 | [`CAST`](#cast) | Sorties de diffusion, encodage MP3 et fils d'envoi (blast-cast) | 18 |
 | [`PROT`](#prot) | Protocoles Icecast / Shoutcast et statistiques (blast-cast) | 23 |
 | [`AURA`](#aura) | Pilotage d'OBS par obs-websocket (blast-aura) | 21 |
-| [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 20 |
+| [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 39 |
 | [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 4 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
-| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 30 |
-| [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 10 |
+| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 32 |
+| [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 12 |
 | [`SEC`](#sec) | Mots de passe dans le trousseau du système | 6 |
 | [`JRN`](#jrn) | Journal de diagnostic (blast.log) | 8 |
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
-| [`PL`](#pl) | Playlist côté application | 6 |
+| [`PL`](#pl) | Playlist côté application | 9 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 111 |
-| [`UI`](#ui) | Interface : modules JavaScript | 78 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 124 |
+| [`UI`](#ui) | Interface : modules JavaScript | 84 |
 | [`STY`](#sty) | Interface : feuille de style | 16 |
-| [`HTM`](#htm) | Interface : structure de la page | 16 |
+| [`HTM`](#htm) | Interface : structure de la page | 20 |
 
 ## CORE
 
@@ -709,7 +709,7 @@ pub const MAX_VOICES: usize = 16;
 
 Au-delà de 80 ms de son micro en attente, le surplus est jeté pour garder une latence faible.
 
-`crates/blast-core/src/mixer.rs` ligne 8
+`crates/blast-core/src/mixer.rs` ligne 10
 
 ```rust
 const MIC_MAX_BACKLOG_MS: usize = 80;
@@ -719,7 +719,7 @@ const MIC_MAX_BACKLOG_MS: usize = 80;
 
 Gain, égaliseur trois bandes et passe-haut.
 
-`crates/blast-core/src/mixer.rs` ligne 11
+`crates/blast-core/src/mixer.rs` ligne 13
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -736,7 +736,7 @@ pub struct MicParams {
 
 Messages envoyés au fil audio : platines, crossfader, auto-mix, pads, micro, ducking et traitements.
 
-`crates/blast-core/src/mixer.rs` ligne 33
+`crates/blast-core/src/mixer.rs` ligne 35
 
 ```rust
 #[derive(Debug, Clone)]
@@ -758,7 +758,7 @@ pub enum Command {
 
 État, position et durée en trames, renvoyés à chaque tick.
 
-`crates/blast-core/src/mixer.rs` ligne 60
+`crates/blast-core/src/mixer.rs` ligne 64
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -773,7 +773,7 @@ pub struct DeckStatus {
 
 Fin de titre, transition automatique, fin de fondu, fin d'un son de pad et tick de mesure.
 
-`crates/blast-core/src/mixer.rs` ligne 68
+`crates/blast-core/src/mixer.rs` ligne 72
 
 ```rust
 #[derive(Debug, Clone, PartialEq)]
@@ -795,7 +795,7 @@ pub enum Event {
 
 Son de pad en cours de lecture et sa position.
 
-`crates/blast-core/src/mixer.rs` ligne 92
+`crates/blast-core/src/mixer.rs` ligne 96
 
 ```rust
 struct Voice {
@@ -809,7 +809,7 @@ struct Voice {
 
 File d'entrée, filtres, gain et effets du micro avant le mélange.
 
-`crates/blast-core/src/mixer.rs` ligne 99
+`crates/blast-core/src/mixer.rs` ligne 103
 
 ```rust
 struct MicChain {
@@ -824,7 +824,7 @@ struct MicChain {
 
 Titre chargé, position, état et gain d'une platine dans le fil audio.
 
-`crates/blast-core/src/mixer.rs` ligne 107
+`crates/blast-core/src/mixer.rs` ligne 111
 
 ```rust
 #[derive(Debug, Default)]
@@ -840,7 +840,7 @@ struct Slot {
 
 Positions de départ et d'arrivée du crossfader et durée du fondu.
 
-`crates/blast-core/src/mixer.rs` ligne 141
+`crates/blast-core/src/mixer.rs` ligne 145
 
 ```rust
 #[derive(Debug, Clone, Copy)]
@@ -857,7 +857,7 @@ struct Fade {
 
 Mélange les deux platines, les sons de pads et le micro, sans aucune allocation dans le fil audio.
 
-`crates/blast-core/src/mixer.rs` ligne 151
+`crates/blast-core/src/mixer.rs` ligne 155
 
 ```rust
 pub struct Mixer {
@@ -879,7 +879,7 @@ pub struct Mixer {
 
 Exécute une commande de l'interface ; les titres remplacés partent dans une corbeille vidée hors du fil audio.
 
-`crates/blast-core/src/mixer.rs` ligne 258
+`crates/blast-core/src/mixer.rs` ligne 276
 
 ```rust
 pub fn apply(&mut self, cmd: Command) -> Option<Arc<Track>> {
@@ -901,7 +901,7 @@ pub fn apply(&mut self, cmd: Command) -> Option<Arc<Track>> {
 
 Produit un bloc de mélange sans séparer antenne et écoute locale.
 
-`crates/blast-core/src/mixer.rs` ligne 505
+`crates/blast-core/src/mixer.rs` ligne 526
 
 ```rust
 pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], emit: F) {
@@ -913,7 +913,7 @@ pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], emit: F) {
 
 Produit le mélange antenne (avec micro) et le mélange local (micro seulement si le retour est activé), applique ducking, auto-mix et traitement antenne.
 
-`crates/blast-core/src/mixer.rs` ligne 510
+`crates/blast-core/src/mixer.rs` ligne 531
 
 ```rust
 pub fn render_split<F: FnMut(Event)>(
@@ -935,7 +935,7 @@ pub fn render_split<F: FnMut(Event)>(
 
 Lit le micro dans sa file, limite le retard, filtre et applique les effets de voix.
 
-`crates/blast-core/src/mixer.rs` ligne 602
+`crates/blast-core/src/mixer.rs` ligne 623
 
 ```rust
 impl MicChain {
@@ -948,6 +948,16 @@ impl MicChain {
         }
     }
 }
+```
+
+### [MIX-16] Voix des jingles
+
+Les voix numérotées à partir de 1000 sont des jingles : volume propre, arrêt séparé des pads.
+
+`crates/blast-core/src/mixer.rs` ligne 8
+
+```rust
+pub const CART_BASE: u16 = 1000;
 ```
 
 
@@ -2370,19 +2380,19 @@ Bibliothèque SQLite, historique et règles de séparation (blast-library)
 
 ### [LIB-01] Version du schéma
 
-Numéro de version de la base, enregistré dans la table meta.
+Numéro de version de la base (2 : type des passages et des titres), enregistré dans la table meta.
 
-`crates/blast-library/src/lib.rs` ligne 8
+`crates/blast-library/src/sqlite.rs` ligne 9
 
 ```rust
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 ```
 
 ### [LIB-02] Schéma SQLite
 
 Tables tracks, historique_diffusion et meta, avec leurs index.
 
-`crates/blast-library/src/lib.rs` ligne 11
+`crates/blast-library/src/sqlite.rs` ligne 12
 
 ```rust
 const SCHEMA: &str = "
@@ -2394,9 +2404,9 @@ CREATE TABLE IF NOT EXISTS meta (
 
 ### [LIB-03] Titre en bibliothèque
 
-Chemin, titre, artiste, album, genre, année et durée enregistrés.
+Chemin, titre, artiste, album, genre, année, durée et type enregistrés.
 
-`crates/blast-library/src/lib.rs` ligne 48
+`crates/blast-library/src/lib.rs` ligne 53
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -2408,6 +2418,7 @@ pub struct TrackMeta {
     pub genre: String,
     pub year: Option<i32>,
     pub duration: Option<f64>,
+    pub kind: Kind,
 }
 ```
 
@@ -2415,7 +2426,7 @@ pub struct TrackMeta {
 
 Activation et délais minimaux entre deux passages d'un même artiste ou d'un même titre.
 
-`crates/blast-library/src/lib.rs` ligne 60
+`crates/blast-library/src/lib.rs` ligne 78
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -2431,7 +2442,7 @@ pub struct SeparationRules {
 
 Artiste ou titre passé trop récemment, avec le délai restant ; décrite en français pour la playlist.
 
-`crates/blast-library/src/lib.rs` ligne 79
+`crates/blast-library/src/lib.rs` ligne 97
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -2444,9 +2455,9 @@ pub enum Violation {
 
 ### [LIB-06] Ligne d'historique
 
-Un passage : début, titre, artiste, durée écoutée, diffusion en direct et auditeurs.
+Un passage : début, type, titre, artiste, durée diffusée, diffusion en direct et auditeurs.
 
-`crates/blast-library/src/lib.rs` ligne 100
+`crates/blast-library/src/lib.rs` ligne 118
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -2455,6 +2466,7 @@ pub struct HistoryRow {
     pub path: String,
     pub title: String,
     pub artist: String,
+    pub kind: Kind,
     pub started_at: i64,
     pub duration_played: Option<f64>,
     pub on_air: bool,
@@ -2466,7 +2478,7 @@ pub struct HistoryRow {
 
 Nombre de titres connus et de passages enregistrés.
 
-`crates/blast-library/src/lib.rs` ligne 113
+`crates/blast-library/src/lib.rs` ligne 132
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -2476,15 +2488,16 @@ pub struct LibraryStats {
 }
 ```
 
-### [LIB-08] Bibliothèque
+### [LIB-08] Base SQLite
 
-Base SQLite en mode WAL : titres connus et historique de diffusion.
+Implémentation SQLite de l'interface de stockage, en mode WAL : titres connus et historique de diffusion.
 
-`crates/blast-library/src/lib.rs` ligne 120
+`crates/blast-library/src/sqlite.rs` ligne 61
 
 ```rust
-pub struct Library {
+pub struct SqliteStore {
     conn: Connection,
+    label: String,
 }
 ```
 
@@ -2492,17 +2505,19 @@ pub struct Library {
 
 Ouvre ou crée la base et applique le schéma.
 
-`crates/blast-library/src/lib.rs` ligne 126
+`crates/blast-library/src/sqlite.rs` ligne 68
 
 ```rust
-pub fn open(path: &Path) -> Result<Self, DbError> {
+pub fn open(path: &Path) -> Result<Self, StoreError> {
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    let conn = Connection::open(path)?;
-    conn.pragma_update(None, "journal_mode", "WAL")?;
-    conn.busy_timeout(std::time::Duration::from_secs(3))?;
-    Self::init(conn)
+    let conn = Connection::open(path).map_err(err)?;
+    conn.pragma_update(None, "journal_mode", "WAL")
+        .map_err(err)?;
+    conn.busy_timeout(std::time::Duration::from_secs(3))
+        .map_err(err)?;
+    Self::init(conn, format!("SQLite ({})", path.display()))
 }
 ```
 
@@ -2510,21 +2525,21 @@ pub fn open(path: &Path) -> Result<Self, DbError> {
 
 Ajoute ou met à jour les titres scannés.
 
-`crates/blast-library/src/lib.rs` ligne 152
+`crates/blast-library/src/sqlite.rs` ligne 173
 
 ```rust
-pub fn upsert_tracks(&mut self, tracks: &[TrackMeta], now: i64) -> Result<usize, DbError> {
-    let tx = self.conn.transaction()?;
+fn upsert_tracks(&mut self, tracks: &[TrackMeta], now: i64) -> Result<usize, StoreError> {
+    let tx = self.conn.transaction().map_err(err)?;
     {
-        let mut st = tx.prepare_cached(
-            "INSERT INTO tracks(path, title, artist, album, genre, year, duration, added_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-             ON CONFLICT(path) DO UPDATE SET
-                title = excluded.title, artist = excluded.artist, album = excluded.album,
-                genre = excluded.genre, year = excluded.year, duration = excluded.duration",
-        )?;
-        for t in tracks {
-            st.execute(params![
+        let mut st = tx
+            .prepare_cached(
+                "INSERT INTO tracks(path, title, artist, album, genre, year, duration, kind, added_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                 ON CONFLICT(path) DO UPDATE SET
+                    title = excluded.title, artist = excluded.artist, album = excluded.album,
+                    genre = excluded.genre, year = excluded.year, duration = excluded.duration,
+                    kind = excluded.kind",
+            )
 …
 ```
 
@@ -2532,21 +2547,21 @@ pub fn upsert_tracks(&mut self, tracks: &[TrackMeta], now: i64) -> Result<usize,
 
 Inscrit un passage dans historique_diffusion et renvoie son identifiant.
 
-`crates/blast-library/src/lib.rs` ligne 173
+`crates/blast-library/src/sqlite.rs` ligne 206
 
 ```rust
-pub fn record_play(
-    &self,
-    path: &str,
-    title: &str,
-    artist: &str,
-    at: i64,
-    on_air: bool,
-    listeners: Option<u32>,
-) -> Result<i64, DbError> {
+fn record_play(&mut self, p: &NewPlay) -> Result<i64, StoreError> {
     let track_id: Option<i64> = self
         .conn
         .query_row(
+            "SELECT id FROM tracks WHERE path = ?1",
+            params![p.path],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(err)?;
+    self.conn
+        .execute(
 …
 ```
 
@@ -2554,71 +2569,65 @@ pub fn record_play(
 
 Enregistre la durée réellement écoutée.
 
-`crates/blast-library/src/lib.rs` ligne 206
+`crates/blast-library/src/sqlite.rs` ligne 245
 
 ```rust
-pub fn finish_play(&self, id: i64, duration_played: f64) -> Result<(), DbError> {
-    self.conn.execute(
-        "UPDATE historique_diffusion SET duration_played = ?2 WHERE id = ?1",
-        params![id, duration_played],
-    )?;
+fn finish_play(&mut self, id: i64, duration_played: f64) -> Result<(), StoreError> {
+    self.conn
+        .execute(
+            "UPDATE historique_diffusion SET duration_played = ?2 WHERE id = ?1",
+            params![id, duration_played],
+        )
+        .map_err(err)?;
     Ok(())
 }
 ```
 
-### [LIB-13] Contrôle des règles
+### [LIB-13] Recherche des derniers passages en SQL
 
-Vérifie par requêtes SQL si un titre ou son artiste est passé trop récemment.
+Dernier passage d'un titre ou d'un artiste depuis une date, morceaux seulement, par requêtes indexées.
 
-`crates/blast-library/src/lib.rs` ligne 215
+`crates/blast-library/src/sqlite.rs` ligne 136
 
 ```rust
-pub fn check(
-    &self,
-    path: &str,
-    title: &str,
-    artist: &str,
-    now: i64,
-    rules: &SeparationRules,
-) -> Result<Option<Violation>, DbError> {
-    if !rules.enabled {
-        return Ok(None);
-    }
-    if rules.title_minutes > 0 {
+impl PlayLookup for SqliteStore {
+    fn last_title_play(
+        &self,
+        path: &str,
+        title: &str,
+        artist: &str,
+        since: i64,
+    ) -> Result<Option<i64>, StoreError> {
+        self.conn
+            .query_row(
+                "SELECT MAX(started_at) FROM historique_diffusion
+                 WHERE started_at >= ?1 AND kind = 'morceau'
 …
 ```
 
-### [LIB-14] Derniers passages
+### [LIB-14] Derniers passages *(retiré)*
 
-Renvoie les passages les plus récents.
-
-`crates/blast-library/src/lib.rs` ligne 262
-
-```rust
-pub fn recent(&self, limit: u32) -> Result<Vec<HistoryRow>, DbError> {
-    self.history_between(0, i64::MAX, limit)
-}
-```
+Renvoyait les derniers passages ; remplacé par les tampons mémoire [LIB-36].
 
 ### [LIB-15] Passages sur une période
 
-Renvoie les passages entre deux instants.
+Renvoie les passages entre deux instants, éventuellement d'une seule catégorie.
 
-`crates/blast-library/src/lib.rs` ligne 267
+`crates/blast-library/src/sqlite.rs` ligne 256
 
 ```rust
-pub fn history_between(
+fn history_between(
     &self,
     from: i64,
     to: i64,
+    kind: Option<Kind>,
     limit: u32,
-) -> Result<Vec<HistoryRow>, DbError> {
-    let mut st = self.conn.prepare_cached(
-        "SELECT id, path, title, artist, started_at, duration_played, on_air, listeners
-         FROM historique_diffusion
-         WHERE started_at >= ?1 AND started_at < ?2
-         ORDER BY started_at DESC, id DESC LIMIT ?3",
-    )?;
+) -> Result<Vec<HistoryRow>, StoreError> {
+    let mut st = self
+        .conn
+        .prepare_cached(
+            "SELECT id, path, title, artist, kind, started_at, duration_played, on_air, listeners
+             FROM historique_diffusion
 …
 ```
 
@@ -2626,14 +2635,16 @@ pub fn history_between(
 
 Supprime les passages plus anciens qu'une date.
 
-`crates/blast-library/src/lib.rs` ligne 295
+`crates/blast-library/src/sqlite.rs` ligne 279
 
 ```rust
-pub fn purge_older_than(&self, cutoff: i64) -> Result<usize, DbError> {
-    self.conn.execute(
-        "DELETE FROM historique_diffusion WHERE started_at < ?1",
-        params![cutoff],
-    )
+fn purge_older_than(&mut self, cutoff: i64) -> Result<usize, StoreError> {
+    self.conn
+        .execute(
+            "DELETE FROM historique_diffusion WHERE started_at < ?1",
+            params![cutoff],
+        )
+        .map_err(err)
 }
 ```
 
@@ -2641,11 +2652,13 @@ pub fn purge_older_than(&self, cutoff: i64) -> Result<usize, DbError> {
 
 Vide tout l'historique.
 
-`crates/blast-library/src/lib.rs` ligne 303
+`crates/blast-library/src/sqlite.rs` ligne 289
 
 ```rust
-pub fn clear_history(&self) -> Result<usize, DbError> {
-    self.conn.execute("DELETE FROM historique_diffusion", [])
+fn clear_history(&mut self) -> Result<usize, StoreError> {
+    self.conn
+        .execute("DELETE FROM historique_diffusion", [])
+        .map_err(err)
 }
 ```
 
@@ -2653,19 +2666,14 @@ pub fn clear_history(&self) -> Result<usize, DbError> {
 
 Compte les titres et les passages.
 
-`crates/blast-library/src/lib.rs` ligne 308
+`crates/blast-library/src/sqlite.rs` ligne 296
 
 ```rust
-pub fn stats(&self) -> Result<LibraryStats, DbError> {
+fn stats(&self) -> Result<LibraryStats, StoreError> {
+    let count = |sql: &str| self.conn.query_row(sql, [], |r| r.get(0)).map_err(err);
     Ok(LibraryStats {
-        tracks: self
-            .conn
-            .query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0))?,
-        plays: self
-            .conn
-            .query_row("SELECT COUNT(*) FROM historique_diffusion", [], |r| {
-                r.get(0)
-            })?,
+        tracks: count("SELECT COUNT(*) FROM tracks")?,
+        plays: count("SELECT COUNT(*) FROM historique_diffusion")?,
     })
 }
 ```
@@ -2674,7 +2682,7 @@ pub fn stats(&self) -> Result<LibraryStats, DbError> {
 
 Met un champ entre guillemets si nécessaire.
 
-`crates/blast-library/src/lib.rs` ligne 323
+`crates/blast-library/src/lib.rs` ligne 209
 
 ```rust
 fn csv_field(s: &str) -> String {
@@ -2688,24 +2696,373 @@ fn csv_field(s: &str) -> String {
 
 ### [LIB-20] Export CSV
 
-Produit l'historique au format CSV avec des dates lisibles.
+Produit l'historique au format CSV avec le type et des dates lisibles.
 
-`crates/blast-library/src/lib.rs` ligne 332
+`crates/blast-library/src/lib.rs` ligne 218
 
 ```rust
 pub fn history_csv(rows: &[HistoryRow], format_time: impl Fn(i64) -> String) -> String {
-    let mut out =
-        String::from("\u{feff}date;artiste;titre;duree_diffusee_s;antenne;auditeurs;fichier\r\n");
+    let mut out = String::from(
+        "\u{feff}date;type;artiste;titre;duree_diffusee_s;antenne;auditeurs;fichier\r\n",
+    );
     for r in rows.iter().rev() {
         out.push_str(&format!(
-            "{};{};{};{};{};{};{}\r\n",
+            "{};{};{};{};{};{};{};{}\r\n",
             format_time(r.started_at),
+            r.kind.as_str(),
             csv_field(&r.artist),
             csv_field(&r.title),
             r.duration_played
-                .map(|d| format!("{d:.0}"))
-                .unwrap_or_default(),
 …
+```
+
+### [LIB-21] Type de passage
+
+Morceau, jingle ou pub ; morceau par défaut.
+
+`crates/blast-library/src/lib.rs` ligne 11
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Kind {
+    #[default]
+    Morceau,
+    Jingle,
+    Pub,
+}
+```
+
+### [LIB-22] Erreur de stockage
+
+Erreur d'une base, quelle qu'elle soit, décrite en texte.
+
+`crates/blast-library/src/lib.rs` ligne 41
+
+```rust
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoreError(pub String);
+```
+
+### [LIB-23] Nouveau passage
+
+Ce qu'on enregistre au début d'un passage : fichier, titre, artiste, type, heure, diffusion en direct et auditeurs.
+
+`crates/blast-library/src/lib.rs` ligne 66
+
+```rust
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewPlay {
+    pub path: String,
+    pub title: String,
+    pub artist: String,
+    pub kind: Kind,
+    pub started_at: i64,
+    pub on_air: bool,
+    pub listeners: Option<u32>,
+}
+```
+
+### [LIB-24] Recherche des derniers passages
+
+Ce que les règles de séparation demandent à une source : dernier passage d'un titre, dernier passage d'un artiste.
+
+`crates/blast-library/src/lib.rs` ligne 139
+
+```rust
+pub trait PlayLookup {
+    fn last_title_play(
+        &self,
+        path: &str,
+        title: &str,
+        artist: &str,
+        since: i64,
+    ) -> Result<Option<i64>, StoreError>;
+
+    fn last_artist_play(&self, artist: &str, since: i64) -> Result<Option<i64>, StoreError>;
+}
+```
+
+### [LIB-25] Interface de stockage
+
+Opérations attendues d'une base d'historique ; SQLite aujourd'hui, MariaDB ou MySQL pourront s'y brancher.
+
+`crates/blast-library/src/lib.rs` ligne 152
+
+```rust
+pub trait HistoryStore: PlayLookup + Send {
+    fn backend(&self) -> String;
+    fn upsert_tracks(&mut self, tracks: &[TrackMeta], now: i64) -> Result<usize, StoreError>;
+    fn record_play(&mut self, play: &NewPlay) -> Result<i64, StoreError>;
+    fn finish_play(&mut self, id: i64, duration_played: f64) -> Result<(), StoreError>;
+    fn history_between(
+        &self,
+        from: i64,
+        to: i64,
+        kind: Option<Kind>,
+        limit: u32,
+    ) -> Result<Vec<HistoryRow>, StoreError>;
+…
+```
+
+### [LIB-26] Application des règles
+
+Vérifie titre puis artiste sur n'importe quelle source (tampons mémoire ou base).
+
+`crates/blast-library/src/lib.rs` ligne 170
+
+```rust
+pub fn check_rules<L: PlayLookup + ?Sized>(
+    source: &L,
+    path: &str,
+    title: &str,
+    artist: &str,
+    now: i64,
+    rules: &SeparationRules,
+) -> Result<Option<Violation>, StoreError> {
+    if !rules.enabled {
+        return Ok(None);
+    }
+    let ago = |t: i64| ((now - t).max(0) / 60) as u32;
+…
+```
+
+### [LIB-27] Index de la version 2
+
+Index par type et par date de l'historique, et par type des titres.
+
+`crates/blast-library/src/sqlite.rs` ligne 51
+
+```rust
+const INDEXES_V2: &str = "
+CREATE INDEX IF NOT EXISTS idx_hist_kind ON historique_diffusion(kind, started_at);
+```
+
+### [LIB-28] Migration
+
+Ajoute la colonne type aux bases de version 1, sans perte de données.
+
+`crates/blast-library/src/sqlite.rs` ligne 104
+
+```rust
+fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
+    for table in ["tracks", "historique_diffusion"] {
+        let has_kind: bool = conn
+            .prepare(&format!(
+                "SELECT 1 FROM pragma_table_info('{table}') WHERE name = 'kind'"
+            ))?
+            .exists([])?;
+        if !has_kind {
+            conn.execute_batch(&format!(
+                "ALTER TABLE {table} ADD COLUMN kind TEXT NOT NULL DEFAULT 'morceau'"
+            ))?;
+        }
+…
+```
+
+### [LIB-29] Tampon circulaire
+
+Passages les plus récents en premier ; sait s'il contient tout l'historique ou seulement sa fin.
+
+`crates/blast-library/src/cache.rs` ligne 5
+
+```rust
+#[derive(Debug, Clone)]
+struct Ring {
+    rows: VecDeque<HistoryRow>,
+    complete: bool,
+}
+```
+
+### [LIB-30] Tampons mémoire
+
+Tampon global et un tampon par catégorie, de même taille.
+
+`crates/blast-library/src/cache.rs` ligne 33
+
+```rust
+#[derive(Debug, Clone)]
+pub struct HistoryCache {
+    cap: usize,
+    all: Ring,
+    by_kind: [Ring; 3],
+}
+```
+
+### [LIB-31] Pré-remplissage
+
+Charge un tampon depuis la base au démarrage.
+
+`crates/blast-library/src/cache.rs` ligne 55
+
+```rust
+pub fn prefill(&mut self, kind: Option<Kind>, newest_first: Vec<HistoryRow>) {
+    let ring = match kind {
+        None => &mut self.all,
+        Some(k) => &mut self.by_kind[k.index()],
+    };
+    ring.complete = newest_first.len() < self.cap;
+    ring.rows = newest_first.into_iter().take(self.cap).collect();
+}
+```
+
+### [LIB-32] Ajout d'un passage
+
+Met à jour le tampon global et celui de la catégorie.
+
+`crates/blast-library/src/cache.rs` ligne 65
+
+```rust
+pub fn push(&mut self, row: HistoryRow) {
+    let k = row.kind.index();
+    self.by_kind[k].push(row.clone(), self.cap);
+    self.all.push(row, self.cap);
+}
+```
+
+### [LIB-33] Durée d'un passage
+
+Complète la durée diffusée dans tous les tampons.
+
+`crates/blast-library/src/cache.rs` ligne 72
+
+```rust
+pub fn finish(&mut self, id: i64, duration_played: f64) {
+    for ring in std::iter::once(&mut self.all).chain(self.by_kind.iter_mut()) {
+        if let Some(r) = ring.rows.iter_mut().find(|r| r.id == id) {
+            r.duration_played = Some(duration_played);
+        }
+    }
+}
+```
+
+### [LIB-34] Couverture
+
+Indique si les tampons contiennent tout ce qui s'est passé depuis une date.
+
+`crates/blast-library/src/cache.rs` ligne 88
+
+```rust
+pub fn covers(&self, kind: Kind, since: i64) -> bool {
+    self.by_kind[kind.index()].covers(since)
+}
+```
+
+### [LIB-35] Recherche en mémoire
+
+Dernier passage d'un titre ou d'un artiste dans le tampon des morceaux, sans requête.
+
+`crates/blast-library/src/cache.rs` ligne 111
+
+```rust
+impl PlayLookup for HistoryCache {
+    fn last_title_play(
+        &self,
+        path: &str,
+        title: &str,
+        artist: &str,
+        since: i64,
+    ) -> Result<Option<i64>, StoreError> {
+        Ok(self
+            .songs(since)
+            .find(|r| {
+                r.path == path
+…
+```
+
+### [LIB-36] Historique
+
+Base et tampons mémoire réunis derrière un point d'entrée unique.
+
+`crates/blast-library/src/history.rs` ligne 9
+
+```rust
+pub struct History {
+    store: Box<dyn HistoryStore>,
+    cache: HistoryCache,
+    offline_id: i64,
+    store_lookups: Cell<u64>,
+}
+```
+
+### [LIB-37] Ouverture de l'historique
+
+Ouvre l'historique sur une base et pré-remplit les tampons ; la taille se change à chaud.
+
+`crates/blast-library/src/history.rs` ligne 18
+
+```rust
+pub fn new(store: Box<dyn HistoryStore>, capacity: usize) -> Result<Self, StoreError> {
+    let mut h = Self {
+        store,
+        cache: HistoryCache::new(capacity),
+        offline_id: 0,
+        store_lookups: Cell::new(0),
+    };
+    h.reload()?;
+    Ok(h)
+}
+```
+
+### [LIB-38] Enregistrement d'un passage
+
+Écrit en base et dans les tampons ; si la base échoue, le passage reste en mémoire avec un identifiant provisoire.
+
+`crates/blast-library/src/history.rs` ligne 60
+
+```rust
+pub fn record(&mut self, play: NewPlay) -> (i64, Option<StoreError>) {
+    let (id, error) = match self.store.record_play(&play) {
+        Ok(id) => (id, None),
+        Err(e) => {
+            self.offline_id -= 1;
+            (self.offline_id, Some(e))
+        }
+    };
+    self.cache.push(HistoryRow {
+        id,
+        path: play.path,
+        title: play.title,
+…
+```
+
+### [LIB-39] Règles de séparation
+
+En mémoire quand les tampons couvrent la fenêtre des règles, sinon en base (règles de plusieurs jours).
+
+`crates/blast-library/src/history.rs` ligne 92
+
+```rust
+pub fn check(
+    &self,
+    path: &str,
+    title: &str,
+    artist: &str,
+    now: i64,
+    rules: &SeparationRules,
+) -> Result<Option<Violation>, StoreError> {
+    if self.cache.covers(Kind::Morceau, now - rules_window(rules)) {
+        check_rules(&self.cache, path, title, artist, now, rules)
+    } else {
+        self.store_lookups.set(self.store_lookups.get() + 1);
+…
+```
+
+### [LIB-40] Historique pour l'export
+
+Lit dans la base tout l'historique d'une période et d'une catégorie, sans limite.
+
+`crates/blast-library/src/history.rs` ligne 117
+
+```rust
+pub fn between(
+    &self,
+    from: i64,
+    to: i64,
+    kind: Option<Kind>,
+) -> Result<Vec<HistoryRow>, StoreError> {
+    self.store.history_between(from, to, kind, u32::MAX)
+}
 ```
 
 
@@ -3095,7 +3452,7 @@ fn main() {
 
 Canal vers le contrôleur, réglages en mémoire, chemins et trousseau.
 
-`app/src-tauri/src/api.rs` ligne 18
+`app/src-tauri/src/api.rs` ligne 19
 
 ```rust
 pub struct App {
@@ -3111,7 +3468,7 @@ pub struct App {
 
 Réglages d'une sortie et présence d'un mot de passe enregistré.
 
-`app/src-tauri/src/api.rs` ligne 27
+`app/src-tauri/src/api.rs` ligne 28
 
 ```rust
 #[derive(Serialize)]
@@ -3126,7 +3483,7 @@ pub struct OutputView {
 
 Tout ce qu'affiche la fenêtre Réglages : sorties, OBS, audio, voix, pads, automation et périphériques.
 
-`app/src-tauri/src/api.rs` ligne 35
+`app/src-tauri/src/api.rs` ligne 36
 
 ```rust
 #[derive(Serialize)]
@@ -3136,11 +3493,11 @@ pub struct SettingsView {
     aura_has_password: bool,
     audio: AudioSettings,
     automation: AutomationSettings,
+    categories: CategorySettings,
+    jingles: JingleSettings,
     library: Option<blast_library::LibraryStats>,
     db_path: String,
     voice: VoiceSettings,
-    soundboard: SoundboardSettings,
-    devices: Vec<String>,
 …
 ```
 
@@ -3148,7 +3505,7 @@ pub struct SettingsView {
 
 Construit la vue des réglages, enregistre une modification puis la transmet au contrôleur, range un mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 58
+`app/src-tauri/src/api.rs` ligne 61
 
 ```rust
 impl App {
@@ -3170,7 +3527,7 @@ impl App {
 
 Transmet une commande de l'interface au contrôleur.
 
-`app/src-tauri/src/api.rs` ligne 112
+`app/src-tauri/src/api.rs` ligne 117
 
 ```rust
 #[tauri::command]
@@ -3183,7 +3540,7 @@ pub fn blast(state: tauri::State<'_, App>, cmd: UiCommand) -> Result<(), String>
 
 Liste les thèmes intégrés et ceux de l'utilisateur.
 
-`app/src-tauri/src/api.rs` ligne 118
+`app/src-tauri/src/api.rs` ligne 123
 
 ```rust
 #[tauri::command]
@@ -3197,7 +3554,7 @@ pub fn themes(app: tauri::AppHandle) -> Vec<serde_json::Value> {
 
 Crée et renvoie le dossier des thèmes de l'utilisateur.
 
-`app/src-tauri/src/api.rs` ligne 125
+`app/src-tauri/src/api.rs` ligne 130
 
 ```rust
 #[tauri::command]
@@ -3212,7 +3569,7 @@ pub fn themes_dir(app: tauri::AppHandle) -> Option<String> {
 
 Renvoie la vue des réglages.
 
-`app/src-tauri/src/api.rs` ligne 133
+`app/src-tauri/src/api.rs` ligne 138
 
 ```rust
 #[tauri::command]
@@ -3225,7 +3582,7 @@ pub fn get_settings(state: tauri::State<'_, App>) -> SettingsView {
 
 Valide et enregistre une sortie, range son mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 139
+`app/src-tauri/src/api.rs` ligne 144
 
 ```rust
 #[tauri::command]
@@ -3247,7 +3604,7 @@ pub fn save_output(
 
 Supprime une sortie et son mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 165
+`app/src-tauri/src/api.rs` ligne 170
 
 ```rust
 #[tauri::command]
@@ -3262,7 +3619,7 @@ pub fn delete_output(state: tauri::State<'_, App>, id: String) -> Result<Setting
 
 Teste une sortie sans l'enregistrer.
 
-`app/src-tauri/src/api.rs` ligne 173
+`app/src-tauri/src/api.rs` ligne 178
 
 ```rust
 #[tauri::command]
@@ -3284,7 +3641,7 @@ pub async fn test_output(
 
 Enregistre les réglages OBS et leur mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 192
+`app/src-tauri/src/api.rs` ligne 197
 
 ```rust
 #[tauri::command]
@@ -3306,7 +3663,7 @@ pub fn save_aura(
 
 Teste la connexion à OBS.
 
-`app/src-tauri/src/api.rs` ligne 207
+`app/src-tauri/src/api.rs` ligne 212
 
 ```rust
 #[tauri::command]
@@ -3328,7 +3685,7 @@ pub async fn test_aura(
 
 Enregistre la sortie audio, prise en compte au redémarrage.
 
-`app/src-tauri/src/api.rs` ligne 237
+`app/src-tauri/src/api.rs` ligne 242
 
 ```rust
 #[tauri::command]
@@ -3348,7 +3705,7 @@ pub fn save_audio(
 
 Enregistre les réglages de Voice FX en conservant le choix du micro.
 
-`app/src-tauri/src/api.rs` ligne 250
+`app/src-tauri/src/api.rs` ligne 255
 
 ```rust
 #[tauri::command]
@@ -3370,7 +3727,7 @@ pub fn save_voice(state: tauri::State<'_, App>, voice: VoiceSettings) -> Result<
 
 Enregistre le micro et son activation, pris en compte au redémarrage.
 
-`app/src-tauri/src/api.rs` ligne 267
+`app/src-tauri/src/api.rs` ligne 272
 
 ```rust
 #[tauri::command]
@@ -3392,7 +3749,7 @@ pub fn save_input(
 
 Affecte un son à un pad.
 
-`app/src-tauri/src/api.rs` ligne 284
+`app/src-tauri/src/api.rs` ligne 289
 
 ```rust
 #[tauri::command]
@@ -3414,7 +3771,7 @@ pub fn save_pad(state: tauri::State<'_, App>, pad: PadConfig) -> Result<(), Stri
 
 Vide un pad.
 
-`app/src-tauri/src/api.rs` ligne 308
+`app/src-tauri/src/api.rs` ligne 313
 
 ```rust
 #[tauri::command]
@@ -3427,7 +3784,7 @@ pub fn clear_pad(state: tauri::State<'_, App>, index: u16) -> Result<(), String>
 
 Enregistre le volume de la Sound FX.
 
-`app/src-tauri/src/api.rs` ligne 314
+`app/src-tauri/src/api.rs` ligne 319
 
 ```rust
 #[tauri::command]
@@ -3440,7 +3797,7 @@ pub fn save_sfx_volume(state: tauri::State<'_, App>, volume_db: f32) -> Result<(
 
 Choisit le préréglage du traitement antenne.
 
-`app/src-tauri/src/api.rs` ligne 320
+`app/src-tauri/src/api.rs` ligne 325
 
 ```rust
 #[tauri::command]
@@ -3459,7 +3816,7 @@ pub fn save_master_preset(state: tauri::State<'_, App>, preset: String) -> Resul
 
 Enregistre les règles de séparation et la durée de conservation.
 
-`app/src-tauri/src/api.rs` ligne 332
+`app/src-tauri/src/api.rs` ligne 337
 
 ```rust
 #[tauri::command]
@@ -3467,30 +3824,35 @@ pub fn save_automation(
     state: tauri::State<'_, App>,
     automation: AutomationSettings,
 ) -> Result<SettingsView, String> {
+    if automation.memory_size == 0 || automation.memory_size > 5000 {
+        return Err(
+            "La mémoire de l'historique doit être comprise entre 1 et 5000 passages.".into(),
+        );
+    }
     state.commit(move |cfg| cfg.automation = automation)?;
     Ok(state.view(None))
-}
+…
 ```
 
 ### [APP-24] Commande export_history
 
-Exporte l'historique en CSV.
+Exporte en CSV l'historique complet de la base, filtré par catégorie et par période.
 
-`app/src-tauri/src/api.rs` ligne 342
+`app/src-tauri/src/api.rs` ligne 394
 
 ```rust
 #[tauri::command]
-pub fn export_history(state: tauri::State<'_, App>, path: String) -> Result<usize, String> {
-    let lib = blast_library::Library::open(&state.db_path).map_err(|e| e.to_string())?;
-    let rows = lib.recent(u32::MAX).map_err(|e| e.to_string())?;
-    let csv = blast_library::history_csv(&rows, |t| {
-        chrono::DateTime::from_timestamp(t, 0)
-            .map(|d| {
-                d.with_timezone(&chrono::Local)
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string()
-            })
-            .unwrap_or_default()
+pub fn export_history(
+    state: tauri::State<'_, App>,
+    path: String,
+    kind: Option<String>,
+    from: Option<i64>,
+    to: Option<i64>,
+) -> Result<usize, String> {
+    let kind = match kind.as_deref() {
+        None | Some("") | Some("all") => None,
+        Some(k) => Some(Kind::parse(k).ok_or_else(|| format!("Catégorie inconnue : {k}"))?),
+    };
 …
 ```
 
@@ -3498,7 +3860,7 @@ pub fn export_history(state: tauri::State<'_, App>, path: String) -> Result<usiz
 
 Version, dépôt, journal, dossier de réglages et préférences de mise à jour.
 
-`app/src-tauri/src/api.rs` ligne 364
+`app/src-tauri/src/api.rs` ligne 428
 
 ```rust
 #[derive(Serialize)]
@@ -3517,7 +3879,7 @@ pub struct AppInfo {
 
 Renvoie les informations de l'onglet À propos.
 
-`app/src-tauri/src/api.rs` ligne 376
+`app/src-tauri/src/api.rs` ligne 440
 
 ```rust
 #[tauri::command]
@@ -3539,7 +3901,7 @@ pub fn app_info(state: tauri::State<'_, App>) -> AppInfo {
 
 Interroge GitHub ; au démarrage, ne signale que les versions plus récentes et non ignorées.
 
-`app/src-tauri/src/api.rs` ligne 395
+`app/src-tauri/src/api.rs` ligne 459
 
 ```rust
 #[tauri::command]
@@ -3561,7 +3923,7 @@ pub async fn check_update(
 
 Enregistre la vérification au démarrage et la version ignorée.
 
-`app/src-tauri/src/api.rs` ligne 430
+`app/src-tauri/src/api.rs` ligne 494
 
 ```rust
 #[tauri::command]
@@ -3583,7 +3945,7 @@ pub fn save_updates(
 
 Ouvre dans le navigateur un lien du dépôt GitHub, et seulement celui-ci.
 
-`app/src-tauri/src/api.rs` ligne 447
+`app/src-tauri/src/api.rs` ligne 511
 
 ```rust
 #[tauri::command]
@@ -3600,7 +3962,7 @@ pub fn open_link(url: String) -> Result<(), String> {
 
 Ouvre le dossier du journal ou des réglages.
 
-`app/src-tauri/src/api.rs` ligne 457
+`app/src-tauri/src/api.rs` ligne 521
 
 ```rust
 #[tauri::command]
@@ -3614,6 +3976,50 @@ pub fn open_folder(state: tauri::State<'_, App>, which: String) -> Result<(), St
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     open::that_detached(&dir).map_err(|e| e.to_string())
 }
+```
+
+### [APP-31] Commande save_categories
+
+Enregistre les mots-clés de dossier des jingles et des pubs ; la playlist est reclassée aussitôt.
+
+`app/src-tauri/src/api.rs` ligne 352
+
+```rust
+#[tauri::command]
+pub fn save_categories(
+    state: tauri::State<'_, App>,
+    categories: CategorySettings,
+) -> Result<SettingsView, String> {
+    let clean = |list: Vec<String>| -> Vec<String> {
+        list.into_iter()
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty())
+            .collect()
+    };
+    let categories = CategorySettings {
+…
+```
+
+### [APP-32] Commande save_jingles
+
+Enregistre le dossier des jingles (vérifié) et leur volume.
+
+`app/src-tauri/src/api.rs` ligne 372
+
+```rust
+#[tauri::command]
+pub fn save_jingles(
+    state: tauri::State<'_, App>,
+    dirs: Option<Vec<PathBuf>>,
+    volume_db: Option<f32>,
+) -> Result<(), String> {
+    if let Some(d) = &dirs {
+        if let Some(missing) = d.iter().find(|p| !p.is_dir()) {
+            return Err(format!("Dossier introuvable : {}", missing.display()));
+        }
+    }
+    state.commit(move |cfg| {
+…
 ```
 
 
@@ -3702,7 +4108,7 @@ pub const PAD_COUNT: u16 = 36;
 
 ### [CFG-06] Réglages d'automation
 
-Règles de séparation et durée de conservation de l'historique.
+Règles de séparation, durée de conservation de l'historique et nombre de passages gardés en mémoire par catégorie (200 par défaut).
 
 `app/src-tauri/src/config.rs` ligne 82
 
@@ -3712,6 +4118,7 @@ Règles de séparation et durée de conservation de l'historique.
 pub struct AutomationSettings {
     pub rules: blast_library::SeparationRules,
     pub history_days: u32,
+    pub memory_size: u32,
 }
 ```
 
@@ -3719,7 +4126,7 @@ pub struct AutomationSettings {
 
 Vérification au démarrage et version ignorée.
 
-`app/src-tauri/src/config.rs` ligne 99
+`app/src-tauri/src/config.rs` ligne 135
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -3734,7 +4141,7 @@ pub struct UpdateSettings {
 
 Contenu de config.toml ; aucun mot de passe n'y figure.
 
-`app/src-tauri/src/config.rs` ligne 116
+`app/src-tauri/src/config.rs` ligne 152
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -3747,14 +4154,16 @@ pub struct AppConfig {
     pub aura: AuraSettings,
     pub outputs: Vec<OutputConfig>,
     pub updates: UpdateSettings,
-}
+    pub categories: CategorySettings,
+    pub jingles: JingleSettings,
+…
 ```
 
 ### [CFG-09] Chargement
 
 Lit config.toml ; un fichier illisible est mis de côté et remplacé par les valeurs par défaut.
 
-`app/src-tauri/src/config.rs` ligne 129
+`app/src-tauri/src/config.rs` ligne 167
 
 ```rust
 pub fn load(path: &Path) -> (AppConfig, Option<String>) {
@@ -3776,7 +4185,7 @@ pub fn load(path: &Path) -> (AppConfig, Option<String>) {
 
 Écrit config.toml via un fichier temporaire renommé, pour ne jamais laisser de fichier à moitié écrit.
 
-`app/src-tauri/src/config.rs` ligne 150
+`app/src-tauri/src/config.rs` ligne 188
 
 ```rust
 pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
@@ -3787,6 +4196,36 @@ pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
     let tmp = path.with_extension("toml.tmp");
     std::fs::write(&tmp, text).map_err(|e| e.to_string())?;
     std::fs::rename(&tmp, path).map_err(|e| e.to_string())
+}
+```
+
+### [CFG-11] Réglages des catégories
+
+Mots-clés de dossier qui classent un fichier en jingle ou en pub.
+
+`app/src-tauri/src/config.rs` ligne 101
+
+```rust
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CategorySettings {
+    pub jingle_keywords: Vec<String>,
+    pub pub_keywords: Vec<String>,
+}
+```
+
+### [CFG-12] Réglages des jingles
+
+Dossier de la box à jingles et volume des jingles.
+
+`app/src-tauri/src/config.rs` ligne 118
+
+```rust
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JingleSettings {
+    pub dirs: Vec<PathBuf>,
+    pub volume_db: f32,
 }
 ```
 
@@ -4179,7 +4618,7 @@ Playlist côté application
 
 Fichier, tags, durée, erreur de lecture éventuelle et motif d'attente des règles.
 
-`app/src-tauri/src/playlist.rs` ligne 6
+`app/src-tauri/src/playlist.rs` ligne 9
 
 ```rust
 #[derive(Debug, Clone, Default, Serialize)]
@@ -4201,7 +4640,7 @@ pub struct Entry {
 
 Liste ordonnée d'entrées avec identifiants uniques.
 
-`app/src-tauri/src/playlist.rs` ligne 35
+`app/src-tauri/src/playlist.rs` ligne 40
 
 ```rust
 #[derive(Debug, Default)]
@@ -4215,7 +4654,7 @@ pub struct Playlist {
 
 Insérer à une position, retirer, déplacer, vider et totaliser la durée.
 
-`app/src-tauri/src/playlist.rs` ligne 42
+`app/src-tauri/src/playlist.rs` ligne 47
 
 ```rust
 impl Playlist {
@@ -4237,7 +4676,7 @@ impl Playlist {
 
 Parcourt un dossier récursivement, dans l'ordre alphabétique.
 
-`app/src-tauri/src/playlist.rs` ligne 87
+`app/src-tauri/src/playlist.rs` ligne 102
 
 ```rust
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -4259,7 +4698,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 
 Remplace les dossiers par les fichiers audio qu'ils contiennent.
 
-`app/src-tauri/src/playlist.rs` ligne 103
+`app/src-tauri/src/playlist.rs` ligne 118
 
 ```rust
 pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
@@ -4279,10 +4718,11 @@ pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
 
 Sonde un fichier ; un fichier illisible devient une entrée signalée en erreur.
 
-`app/src-tauri/src/playlist.rs` ligne 116
+`app/src-tauri/src/playlist.rs` ligne 180
 
 ```rust
-pub fn make_entry(path: &Path) -> Entry {
+pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
+    let kind = classify(path, cats);
     match probe_file(path) {
         Ok(info) => Entry {
             id: 0,
@@ -4293,7 +4733,72 @@ pub fn make_entry(path: &Path) -> Entry {
             genre: info.genre.unwrap_or_default(),
             year: info.year,
             duration: info.duration_secs,
-            error: None,
+…
+```
+
+### [PL-07] Normalisation d'un mot
+
+Minuscules et accents retirés, pour comparer les noms de dossiers.
+
+`app/src-tauri/src/playlist.rs` ligne 131
+
+```rust
+fn fold(word: &str) -> String {
+    word.chars()
+        .map(|c| match c {
+            'à' | 'â' | 'ä' | 'À' | 'Â' | 'Ä' => 'a',
+            'é' | 'è' | 'ê' | 'ë' | 'É' | 'È' | 'Ê' | 'Ë' => 'e',
+            'î' | 'ï' | 'Î' | 'Ï' => 'i',
+            'ô' | 'ö' | 'Ô' | 'Ö' => 'o',
+            'ù' | 'û' | 'ü' | 'Ù' | 'Û' | 'Ü' => 'u',
+            'ç' | 'Ç' => 'c',
+            c => c.to_ascii_lowercase(),
+        })
+        .collect()
+…
+```
+
+### [PL-08] Mot-clé dans un dossier
+
+Le nom de dossier contient-il un des mots-clés, au singulier ou au pluriel ?
+
+`app/src-tauri/src/playlist.rs` ligne 146
+
+```rust
+fn folder_matches(folder: &str, keywords: &[String]) -> bool {
+    let words: Vec<String> = folder
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(fold)
+        .collect();
+    keywords.iter().map(|k| fold(k.trim())).any(|k| {
+        !k.is_empty()
+            && words
+                .iter()
+                .any(|w| *w == k || w.strip_suffix('s') == Some(k.as_str()))
+    })
+…
+```
+
+### [PL-09] Classement d'un fichier
+
+Jingle, pub ou morceau d'après le dossier le plus proche qui porte un mot-clé.
+
+`app/src-tauri/src/playlist.rs` ligne 161
+
+```rust
+pub fn classify(path: &Path, cats: &CategorySettings) -> Kind {
+    let folders: Vec<String> = path
+        .parent()
+        .into_iter()
+        .flat_map(|p| p.components())
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    for folder in folders.iter().rev() {
+        if folder_matches(folder, &cats.jingle_keywords) {
+            return Kind::Jingle;
+        }
+        if folder_matches(folder, &cats.pub_keywords) {
 …
 ```
 
@@ -4363,7 +4868,7 @@ Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliot
 
 Ce dont le contrôleur a besoin côté interface : émettre un événement et connaître le dossier des images. Remplaçable dans les tests.
 
-`app/src-tauri/src/controller/mod.rs` ligne 43
+`app/src-tauri/src/controller/mod.rs` ligne 45
 
 ```rust
 pub trait Ui: Send + 'static {
@@ -4376,7 +4881,7 @@ pub trait Ui: Send + 'static {
 
 Implémentation réelle : émet vers la fenêtre, journalise les échecs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 49
+`app/src-tauri/src/controller/mod.rs` ligne 51
 
 ```rust
 struct TauriUi(AppHandle);
@@ -4386,7 +4891,7 @@ struct TauriUi(AppHandle);
 
 Moteur démarré (ou erreur), nom de la sortie et fréquence.
 
-`app/src-tauri/src/controller/mod.rs` ligne 67
+`app/src-tauri/src/controller/mod.rs` ligne 69
 
 ```rust
 pub struct Audio {
@@ -4401,7 +4906,7 @@ pub struct Audio {
 
 Démarre le moteur sur la sortie choisie, se replie sur la sortie par défaut et journalise l'échec.
 
-`app/src-tauri/src/controller/mod.rs` ligne 75
+`app/src-tauri/src/controller/mod.rs` ligne 77
 
 ```rust
 impl Audio {
@@ -4423,7 +4928,7 @@ impl Audio {
 
 Résultats rendus par les fils de fond : scan, décodage d'un titre ou d'un pad, relevé d'auditeurs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 118
+`app/src-tauri/src/controller/mod.rs` ligne 120
 
 ```rust
 enum Work {
@@ -4445,7 +4950,7 @@ enum Work {
 
 Horodatage Unix en millisecondes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 142
+`app/src-tauri/src/controller/mod.rs` ligne 153
 
 ```rust
 pub fn now_ms() -> u64 {
@@ -4460,7 +4965,7 @@ pub fn now_ms() -> u64 {
 
 Horodatage Unix en secondes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 150
+`app/src-tauri/src/controller/mod.rs` ligne 161
 
 ```rust
 pub fn now_secs() -> i64 {
@@ -4472,7 +4977,7 @@ pub fn now_secs() -> i64 {
 
 Démarre le fil du contrôleur avec audio et bibliothèque, renvoie le canal de commandes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 155
+`app/src-tauri/src/controller/mod.rs` ligne 166
 
 ```rust
 pub fn spawn(
@@ -4494,21 +4999,21 @@ pub fn spawn(
 
 Ouvre la base ; en cas d'échec, désactive historique et règles et prévient l'utilisateur.
 
-`app/src-tauri/src/controller/mod.rs` ligne 184
+`app/src-tauri/src/controller/mod.rs` ligne 195
 
 ```rust
-fn open_library(db_path: &Path, warning: Option<String>) -> (Option<Library>, Option<String>) {
-    match Library::open(db_path) {
-        Ok(l) => (Some(l), warning),
+fn open_library(
+    db_path: &Path,
+    memory_size: u32,
+    warning: Option<String>,
+) -> (Option<History>, Option<String>) {
+    let opened = SqliteStore::open(db_path)
+        .and_then(|store| History::new(Box::new(store), memory_size as usize));
+    match opened {
+        Ok(h) => (Some(h), warning),
         Err(e) => {
             journal::error(format!("base {} : {e}", db_path.display()));
             (
-                None,
-                Some(format!(
-                    "Base de données indisponible ({e}) : historique et règles de séparation désactivés. {}",
-                    warning.unwrap_or_default()
-                )),
-            )
 …
 ```
 
@@ -4516,7 +5021,7 @@ fn open_library(db_path: &Path, warning: Option<String>) -> (Option<Library>, Op
 
 État central : platines, playlist, diffusion, pads, micro, OBS et automation.
 
-`app/src-tauri/src/controller/mod.rs` ligne 201
+`app/src-tauri/src/controller/mod.rs` ligne 218
 
 ```rust
 struct Controller {
@@ -4538,7 +5043,7 @@ struct Controller {
 
 Applique les réglages au moteur, connecte OBS si demandé, charge les pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 231
+`app/src-tauri/src/controller/mod.rs` ligne 250
 
 ```rust
 fn new(
@@ -4548,7 +5053,7 @@ fn new(
     config: AppConfig,
     startup_warning: Option<String>,
     audio: Audio,
-    library: Option<Library>,
+    library: Option<History>,
 ) -> Self {
     let (work_tx, work_rx) = unbounded();
     let mic = MicState::from_engine(audio.engine.as_ref());
@@ -4560,7 +5065,7 @@ fn new(
 
 Toutes les 15 ms : commandes de l'interface, travaux de fond, événements du moteur, prise antenne, OBS, sorties, statistiques et entretien.
 
-`app/src-tauri/src/controller/mod.rs` ligne 280
+`app/src-tauri/src/controller/mod.rs` ligne 302
 
 ```rust
 fn run(mut self) {
@@ -4582,7 +5087,7 @@ fn run(mut self) {
 
 Applique les résultats des fils de fond.
 
-`app/src-tauri/src/controller/mod.rs` ligne 304
+`app/src-tauri/src/controller/mod.rs` ligne 326
 
 ```rust
 fn drain_work(&mut self) {
@@ -4596,7 +5101,7 @@ fn drain_work(&mut self) {
 
 Lit jusqu'à 64 événements par tour et ne garde que le dernier tick.
 
-`app/src-tauri/src/controller/mod.rs` ligne 311
+`app/src-tauri/src/controller/mod.rs` ligne 333
 
 ```rust
 fn pump_engine(&mut self) {
@@ -4618,7 +5123,7 @@ fn pump_engine(&mut self) {
 
 Transmet une commande au mixeur si le moteur tourne.
 
-`app/src-tauri/src/controller/mod.rs` ligne 331
+`app/src-tauri/src/controller/mod.rs` ligne 353
 
 ```rust
 fn send(&self, cmd: Command) {
@@ -4632,7 +5137,7 @@ fn send(&self, cmd: Command) {
 
 Sérialise une vue et l'envoie à l'interface.
 
-`app/src-tauri/src/controller/mod.rs` ligne 338
+`app/src-tauri/src/controller/mod.rs` ligne 360
 
 ```rust
 fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
@@ -4647,7 +5152,7 @@ fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
 
 Affiche un message à l'utilisateur et journalise avertissements et erreurs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 346
+`app/src-tauri/src/controller/mod.rs` ligne 368
 
 ```rust
 fn notice(&self, level: &'static str, message: impl Into<String>) {
@@ -4663,7 +5168,7 @@ fn notice(&self, level: &'static str, message: impl Into<String>) {
 
 Dirige chaque commande de l'interface vers son traitement, puis publie l'état.
 
-`app/src-tauri/src/controller/mod.rs` ligne 355
+`app/src-tauri/src/controller/mod.rs` ligne 377
 
 ```rust
 fn handle(&mut self, cmd: UiCommand) {
@@ -4675,9 +5180,9 @@ fn handle(&mut self, cmd: UiCommand) {
         UiCommand::MicOpen { open } => self.mic_open(open),
         UiCommand::PadPlay { index } => self.pad_play(index),
         UiCommand::PadStopAll => self.send(Command::StopAllSfx),
-        UiCommand::Obs(action) => self.handle_obs(action),
-        UiCommand::HistoryClear => self.history_clear(),
-        UiCommand::Config(cfg) => self.apply_config(*cfg),
+        UiCommand::JinglePlay { index } => self.jingle_play(index),
+        UiCommand::JingleStopAll => self.jingle_stop_all(),
+        UiCommand::JingleRescan => self.rescan_jingles(),
 …
 ```
 
@@ -4685,13 +5190,14 @@ fn handle(&mut self, cmd: UiCommand) {
 
 Republie toutes les vues et l'avertissement de démarrage éventuel.
 
-`app/src-tauri/src/controller/mod.rs` ligne 406
+`app/src-tauri/src/controller/mod.rs` ligne 431
 
 ```rust
 fn refresh(&mut self) {
     self.emit_playlist();
     self.emit_cast();
     self.emit_pads();
+    self.emit_jingles();
     self.emit_obs();
     self.emit_history();
     if let Some(w) = self.startup_warning.take() {
@@ -4704,7 +5210,7 @@ fn refresh(&mut self) {
 
 Applique traitement antenne, automation, OBS, voix, pads et sorties modifiés.
 
-`app/src-tauri/src/controller/mod.rs` ligne 418
+`app/src-tauri/src/controller/mod.rs` ligne 444
 
 ```rust
 fn apply_config(&mut self, cfg: AppConfig) {
@@ -4716,15 +5222,17 @@ fn apply_config(&mut self, cfg: AppConfig) {
     self.apply_aura(cfg.aura.clone());
     self.apply_voice(&cfg.voice);
     self.sync_pads(&cfg.soundboard);
-    self.apply_outputs(cfg.outputs);
-}
+    self.sync_jingles(&cfg.jingles);
+    if cfg.categories != self.categories {
+        self.categories = cfg.categories;
+…
 ```
 
 ### [CTL-21] Aiguillage des travaux
 
 Dirige chaque résultat de fond vers son traitement.
 
-`app/src-tauri/src/controller/mod.rs` ligne 431
+`app/src-tauri/src/controller/mod.rs` ligne 464
 
 ```rust
 fn on_work(&mut self, w: Work) {
@@ -4746,7 +5254,7 @@ fn on_work(&mut self, w: Work) {
 
 Met à jour platines, vumètres et micro à chaque tick ; gère fin de titre, fondus et fin des sons de pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 454
+`app/src-tauri/src/controller/mod.rs` ligne 496
 
 ```rust
 fn on_event(&mut self, e: Event) {
@@ -4768,7 +5276,7 @@ fn on_event(&mut self, e: Event) {
 
 Platine désignée par la position du crossfader.
 
-`app/src-tauri/src/controller/mod.rs` ligne 498
+`app/src-tauri/src/controller/mod.rs` ligne 540
 
 ```rust
 fn on_air_side(&self) -> usize {
@@ -4852,7 +5360,7 @@ pub const EV_STATE: &str = "blast://state";
 
 Niveau et message.
 
-`app/src-tauri/src/controller/views.rs` ligne 20
+`app/src-tauri/src/controller/views.rs` ligne 21
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -4866,7 +5374,7 @@ pub struct Notice {
 
 Nom, type, muet et volume.
 
-`app/src-tauri/src/controller/views.rs` ligne 27
+`app/src-tauri/src/controller/views.rs` ligne 28
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -4882,7 +5390,7 @@ pub struct ObsInputView {
 
 État de connexion, scènes, stream, enregistrement et sources audio.
 
-`app/src-tauri/src/controller/views.rs` ligne 36
+`app/src-tauri/src/controller/views.rs` ligne 37
 
 ```rust
 #[derive(Serialize, Clone, Default)]
@@ -4904,7 +5412,7 @@ pub struct ObsView {
 
 Nom, couleur, fichier, prêt ou en erreur.
 
-`app/src-tauri/src/controller/views.rs` ligne 63
+`app/src-tauri/src/controller/views.rs` ligne 64
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -4922,7 +5430,7 @@ pub struct PadView {
 
 Pads affectés et nombre total.
 
-`app/src-tauri/src/controller/views.rs` ligne 74
+`app/src-tauri/src/controller/views.rs` ligne 75
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -4936,7 +5444,7 @@ pub struct PadsView {
 
 Disponibilité, ouverture, niveau, nom et erreur.
 
-`app/src-tauri/src/controller/views.rs` ligne 81
+`app/src-tauri/src/controller/views.rs` ligne 82
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -4953,7 +5461,7 @@ pub struct MicView {
 
 État, position, durée, titre, artiste et fichier.
 
-`app/src-tauri/src/controller/views.rs` ligne 91
+`app/src-tauri/src/controller/views.rs` ligne 92
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -4971,7 +5479,7 @@ pub struct DeckView {
 
 Platines, crossfader, vumètres, auto-mix, platine à l'antenne, sortie audio, micro, pads en cours, ducking et réduction.
 
-`app/src-tauri/src/controller/views.rs` ligne 102
+`app/src-tauri/src/controller/views.rs` ligne 103
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -4993,7 +5501,7 @@ pub struct StateView {
 
 Entrées avec motif d'attente et durée totale.
 
-`app/src-tauri/src/controller/views.rs` ligne 120
+`app/src-tauri/src/controller/views.rs` ligne 121
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -5007,7 +5515,7 @@ pub struct PlaylistView<'a> {
 
 État, cible, auditeurs, pic et heure de passage en direct.
 
-`app/src-tauri/src/controller/views.rs` ligne 127
+`app/src-tauri/src/controller/views.rs` ligne 128
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -5028,7 +5536,7 @@ pub struct CastOutputView {
 
 Diffusion en cours, titre, sorties, auditeurs, pic de session et début.
 
-`app/src-tauri/src/controller/views.rs` ligne 141
+`app/src-tauri/src/controller/views.rs` ligne 142
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -5044,16 +5552,21 @@ pub struct CastView {
 
 ### [CTL-39] Vue d'historique
 
-Derniers passages, statistiques et passage en cours.
+Tampons mémoire envoyés à l'interface : flux global, morceaux, jingles et pubs, avec statistiques, passage en cours et taille des tampons.
 
-`app/src-tauri/src/controller/views.rs` ligne 152
+`app/src-tauri/src/controller/views.rs` ligne 153
 
 ```rust
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Default)]
 pub struct HistoryView {
-    pub rows: Vec<HistoryRow>,
+    pub all: Vec<HistoryRow>,
+    pub morceau: Vec<HistoryRow>,
+    pub jingle: Vec<HistoryRow>,
+    #[serde(rename = "pub")]
+    pub pub_: Vec<HistoryRow>,
     pub stats: Option<LibraryStats>,
     pub current: Option<i64>,
+    pub capacity: u32,
 }
 ```
 
@@ -5061,7 +5574,7 @@ pub struct HistoryView {
 
 État publié d'une platine sans titre.
 
-`app/src-tauri/src/controller/decks.rs` ligne 12
+`app/src-tauri/src/controller/decks.rs` ligne 13
 
 ```rust
 pub const EMPTY_STATUS: DeckStatus = DeckStatus {
@@ -5075,7 +5588,7 @@ pub const EMPTY_STATUS: DeckStatus = DeckStatus {
 
 Titre, artiste, fichier, chargement en cours et fin de lecture.
 
-`app/src-tauri/src/controller/decks.rs` ligne 19
+`app/src-tauri/src/controller/decks.rs` ligne 20
 
 ```rust
 #[derive(Debug, Default, Clone)]
@@ -5085,6 +5598,7 @@ pub struct DeckMeta {
     pub path: Option<PathBuf>,
     pub loading: Option<u64>,
     pub finished: bool,
+    pub kind: Kind,
 }
 ```
 
@@ -5092,7 +5606,7 @@ pub struct DeckMeta {
 
 Titre et dernier état publié par le mixeur.
 
-`app/src-tauri/src/controller/decks.rs` ligne 29
+`app/src-tauri/src/controller/decks.rs` ligne 31
 
 ```rust
 #[derive(Debug, Clone)]
@@ -5106,7 +5620,7 @@ pub struct DeckSide {
 
 En lecture, prête, active (chargement, lecture ou en attente), libellé et remise à zéro.
 
-`app/src-tauri/src/controller/decks.rs` ligne 45
+`app/src-tauri/src/controller/decks.rs` ligne 47
 
 ```rust
 impl DeckSide {
@@ -5128,7 +5642,7 @@ impl DeckSide {
 
 Décode un titre en arrière-plan ; seul le dernier chargement demandé est retenu.
 
-`app/src-tauri/src/controller/decks.rs` ligne 86
+`app/src-tauri/src/controller/decks.rs` ligne 88
 
 ```rust
 pub(super) fn request_load(&mut self, deck: Deck, entry: Entry, play: bool) {
@@ -5140,9 +5654,9 @@ pub(super) fn request_load(&mut self, deck: Deck, entry: Entry, play: bool) {
         path: Some(entry.path.clone()),
         loading: Some(job),
         finished: false,
+        kind: entry.kind,
     };
     let tx = self.work_tx.clone();
-    let rate = self.sample_rate;
 …
 ```
 
@@ -5150,7 +5664,7 @@ pub(super) fn request_load(&mut self, deck: Deck, entry: Entry, play: bool) {
 
 Charge le titre dans le mixeur, le lance si demandé, déclenche un fondu en attente ou signale l'erreur.
 
-`app/src-tauri/src/controller/decks.rs` ligne 110
+`app/src-tauri/src/controller/decks.rs` ligne 113
 
 ```rust
 pub(super) fn on_decoded(
@@ -5172,7 +5686,7 @@ pub(super) fn on_decoded(
 
 Marque la platine comme terminée.
 
-`app/src-tauri/src/controller/decks.rs` ligne 165
+`app/src-tauri/src/controller/decks.rs` ligne 168
 
 ```rust
 pub(super) fn on_ended(&mut self, i: usize) {
@@ -5187,7 +5701,7 @@ pub(super) fn on_ended(&mut self, i: usize) {
 
 Remet au début une platine terminée avant de la relancer.
 
-`app/src-tauri/src/controller/decks.rs` ligne 173
+`app/src-tauri/src/controller/decks.rs` ligne 176
 
 ```rust
 fn rewind_if_finished(&mut self, deck: Deck) {
@@ -5203,7 +5717,7 @@ fn rewind_if_finished(&mut self, deck: Deck) {
 
 Lance la platine cible et le fondu du crossfader vers elle.
 
-`app/src-tauri/src/controller/decks.rs` ligne 182
+`app/src-tauri/src/controller/decks.rs` ligne 185
 
 ```rust
 pub(super) fn crossfade_to(&mut self, to: Deck) {
@@ -5223,7 +5737,7 @@ pub(super) fn crossfade_to(&mut self, to: Deck) {
 
 Fait le fondu si la platine cible a un titre, sinon charge le suivant de la playlist puis fait le fondu.
 
-`app/src-tauri/src/controller/decks.rs` ligne 195
+`app/src-tauri/src/controller/decks.rs` ligne 198
 
 ```rust
 pub(super) fn fade_or_fetch(&mut self, to: Deck) {
@@ -5245,7 +5759,7 @@ pub(super) fn fade_or_fetch(&mut self, to: Deck) {
 
 Sur une platine en lecture : fondu vers l'autre. Sur une platine arrêtée : charge le titre suivant.
 
-`app/src-tauri/src/controller/decks.rs` ligne 211
+`app/src-tauri/src/controller/decks.rs` ligne 214
 
 ```rust
 pub(super) fn next(&mut self, deck: Deck) {
@@ -5267,7 +5781,7 @@ pub(super) fn next(&mut self, deck: Deck) {
 
 Remet en tête de playlist un titre chargé mais jamais lu qu'on remplace.
 
-`app/src-tauri/src/controller/decks.rs` ligne 227
+`app/src-tauri/src/controller/decks.rs` ligne 230
 
 ```rust
 pub(super) fn return_cued(&mut self, deck: Deck) {
@@ -5277,7 +5791,7 @@ pub(super) fn return_cued(&mut self, deck: Deck) {
     }
     if let Some(path) = side.meta.path.clone() {
         self.playlist
-            .insert(vec![playlist::make_entry(&path)], Some(0));
+            .insert(vec![playlist::make_entry(&path, &self.categories)], Some(0));
     }
 }
 ```
@@ -5286,7 +5800,7 @@ pub(super) fn return_cued(&mut self, deck: Deck) {
 
 Garde les deux platines garnies : démarre la première, prépare la suivante.
 
-`app/src-tauri/src/controller/decks.rs` ligne 239
+`app/src-tauri/src/controller/decks.rs` ligne 242
 
 ```rust
 pub(super) fn fill_automix(&mut self) {
@@ -5308,7 +5822,7 @@ pub(super) fn fill_automix(&mut self) {
 
 Charge une entrée sur une platine, sauf si celle-ci est à l'antenne ou le fichier illisible.
 
-`app/src-tauri/src/controller/decks.rs` ligne 266
+`app/src-tauri/src/controller/decks.rs` ligne 269
 
 ```rust
 pub(super) fn load_entry(&mut self, id: u64, deck: Deck) {
@@ -5330,7 +5844,7 @@ pub(super) fn load_entry(&mut self, id: u64, deck: Deck) {
 
 Lance une platine prête.
 
-`app/src-tauri/src/controller/decks.rs` ligne 290
+`app/src-tauri/src/controller/decks.rs` ligne 293
 
 ```rust
 pub(super) fn play(&mut self, deck: Deck) {
@@ -5345,7 +5859,7 @@ pub(super) fn play(&mut self, deck: Deck) {
 
 Arrête une platine et la remet au début.
 
-`app/src-tauri/src/controller/decks.rs` ligne 298
+`app/src-tauri/src/controller/decks.rs` ligne 301
 
 ```rust
 pub(super) fn stop(&mut self, deck: Deck) {
@@ -5358,7 +5872,7 @@ pub(super) fn stop(&mut self, deck: Deck) {
 
 Vide une platine qui n'est pas en lecture.
 
-`app/src-tauri/src/controller/decks.rs` ligne 304
+`app/src-tauri/src/controller/decks.rs` ligne 307
 
 ```rust
 pub(super) fn eject(&mut self, deck: Deck) {
@@ -5374,7 +5888,7 @@ pub(super) fn eject(&mut self, deck: Deck) {
 
 Place la lecture à une fraction du titre.
 
-`app/src-tauri/src/controller/decks.rs` ligne 313
+`app/src-tauri/src/controller/decks.rs` ligne 316
 
 ```rust
 pub(super) fn seek(&mut self, deck: Deck, fraction: f32) {
@@ -5396,7 +5910,7 @@ pub(super) fn seek(&mut self, deck: Deck, fraction: f32) {
 
 Transmet l'activation et la durée de fondu au mixeur.
 
-`app/src-tauri/src/controller/decks.rs` ligne 328
+`app/src-tauri/src/controller/decks.rs` ligne 331
 
 ```rust
 pub(super) fn send_automix(&self) {
@@ -5411,7 +5925,7 @@ pub(super) fn send_automix(&self) {
 
 Convertit trames en secondes pour l'interface.
 
-`app/src-tauri/src/controller/decks.rs` ligne 336
+`app/src-tauri/src/controller/decks.rs` ligne 339
 
 ```rust
 fn deck_view(&self, i: usize) -> DeckView {
@@ -5432,7 +5946,7 @@ fn deck_view(&self, i: usize) -> DeckView {
 
 Envoie la vue d'état à l'interface.
 
-`app/src-tauri/src/controller/decks.rs` ligne 350
+`app/src-tauri/src/controller/decks.rs` ligne 353
 
 ```rust
 pub(super) fn emit_state(&self) {
@@ -5470,21 +5984,15 @@ Toutes les 30 s, la playlist est republiée pour mettre à jour les motifs d'att
 const RULES_REFRESH_EVERY: Duration = Duration::from_secs(30);
 ```
 
-### [CTL-63] Taille de l'historique affiché
+### [CTL-63] Taille de l'historique affiché *(retiré)*
 
-Nombre de passages envoyés à l'interface.
-
-`app/src-tauri/src/controller/automation.rs` ligne 17
-
-```rust
-const HISTORY_ROWS: u32 = 300;
-```
+Nombre de passages envoyés à l'interface ; remplacé par la taille des tampons mémoire [CFG-06].
 
 ### [CTL-64] Passage en cours
 
 Platine, fichier, ligne d'historique et heure de début.
 
-`app/src-tauri/src/controller/automation.rs` ligne 20
+`app/src-tauri/src/controller/automation.rs` ligne 18
 
 ```rust
 pub struct CurrentPlay {
@@ -5497,13 +6005,13 @@ pub struct CurrentPlay {
 
 ### [CTL-65] État d'automation
 
-Bibliothèque, réglages, passage en cours et horloges d'entretien.
+Historique (base et tampons mémoire), réglages, passage en cours et horloges d'entretien.
 
-`app/src-tauri/src/controller/automation.rs` ligne 28
+`app/src-tauri/src/controller/automation.rs` ligne 26
 
 ```rust
 pub struct AutoState {
-    pub library: Option<Library>,
+    pub history: Option<History>,
     pub settings: AutomationSettings,
     pub current: Option<CurrentPlay>,
     pub last_purge: Option<Instant>,
@@ -5515,7 +6023,7 @@ pub struct AutoState {
 
 Titre conforme, titre forcé faute de mieux, ou playlist vide.
 
-`app/src-tauri/src/controller/automation.rs` ligne 53
+`app/src-tauri/src/controller/automation.rs` ligne 51
 
 ```rust
 pub enum NextPick {
@@ -5529,7 +6037,7 @@ pub enum NextPick {
 
 Premier titre lisible conforme aux règles ; sinon le premier titre lisible, avec le motif.
 
-`app/src-tauri/src/controller/automation.rs` ligne 60
+`app/src-tauri/src/controller/automation.rs` ligne 58
 
 ```rust
 pub fn pick_next<'a>(
@@ -5549,13 +6057,13 @@ pub fn pick_next<'a>(
 
 ### [CTL-68] Motif d'attente
 
-Même artiste déjà sur une platine, ou règle enfreinte selon l'historique.
+Même artiste déjà sur une platine, ou règle enfreinte selon l'historique ; jingles et pubs en sont exemptés.
 
-`app/src-tauri/src/controller/automation.rs` ligne 81
+`app/src-tauri/src/controller/automation.rs` ligne 79
 
 ```rust
 pub(super) fn violation_for(&self, e: &Entry, now: i64) -> Option<String> {
-    if e.error.is_some() {
+    if e.error.is_some() || e.kind != Kind::Morceau {
         return None;
     }
     let rules = self.auto.rules();
@@ -5565,7 +6073,7 @@ pub(super) fn violation_for(&self, e: &Entry, now: i64) -> Option<String> {
     let artist = e.artist.trim();
     if rules.artist_minutes > 0 && !artist.is_empty() {
         for (i, side) in self.decks.iter().enumerate() {
-            let busy = side.meta.loading.is_some() || side.is_cued();
+            let busy = side.meta.kind == Kind::Morceau
 …
 ```
 
@@ -5573,7 +6081,7 @@ pub(super) fn violation_for(&self, e: &Entry, now: i64) -> Option<String> {
 
 Retire de la playlist le titre choisi et prévient si les règles n'ont pas pu être respectées.
 
-`app/src-tauri/src/controller/automation.rs` ligne 112
+`app/src-tauri/src/controller/automation.rs` ligne 111
 
 ```rust
 pub(super) fn take_next_auto(&mut self) -> Option<Entry> {
@@ -5593,9 +6101,9 @@ pub(super) fn take_next_auto(&mut self) -> Option<Entry> {
 
 ### [CTL-70] Suivi des passages
 
-Ouvre un passage quand un titre passe à l'antenne, le clôt avec sa durée quand il en sort.
+Ouvre un passage typé quand un titre passe à l'antenne, le clôt avec sa durée quand il en sort.
 
-`app/src-tauri/src/controller/automation.rs` ligne 130
+`app/src-tauri/src/controller/automation.rs` ligne 129
 
 ```rust
 pub(super) fn track_history(&mut self) {
@@ -5617,12 +6125,12 @@ pub(super) fn track_history(&mut self) {
 
 Vide l'historique et détache le passage en cours.
 
-`app/src-tauri/src/controller/automation.rs` ligne 182
+`app/src-tauri/src/controller/automation.rs` ligne 197
 
 ```rust
 pub(super) fn history_clear(&mut self) {
-    if let Some(lib) = &self.auto.library {
-        if let Err(e) = lib.clear_history() {
+    if let Some(history) = self.auto.history.as_mut() {
+        if let Err(e) = history.clear() {
             self.notice("error", format!("Impossible de vider l'historique : {e}"));
         }
     }
@@ -5636,13 +6144,18 @@ pub(super) fn history_clear(&mut self) {
 
 ### [CTL-72] Nouveaux réglages d'automation
 
-Applique les règles et relance la purge.
+Applique les règles, redimensionne les tampons mémoire et relance la purge.
 
-`app/src-tauri/src/controller/automation.rs` ligne 196
+`app/src-tauri/src/controller/automation.rs` ligne 211
 
 ```rust
 pub(super) fn apply_automation(&mut self, settings: AutomationSettings) {
     if settings != self.auto.settings {
+        if let Some(history) = self.auto.history.as_mut() {
+            if let Err(e) = history.set_capacity(settings.memory_size as usize) {
+                journal::warn(format!("historique (rechargement) : {e}"));
+            }
+        }
         self.auto.settings = settings;
         self.auto.last_purge = None;
         self.emit_playlist();
@@ -5654,7 +6167,7 @@ pub(super) fn apply_automation(&mut self, settings: AutomationSettings) {
 
 Purge horaire et rafraîchissement des motifs d'attente.
 
-`app/src-tauri/src/controller/automation.rs` ligne 205
+`app/src-tauri/src/controller/automation.rs` ligne 225
 
 ```rust
 pub(super) fn housekeeping(&mut self) {
@@ -5676,16 +6189,16 @@ pub(super) fn housekeeping(&mut self) {
 
 Supprime les passages plus anciens que la durée de conservation.
 
-`app/src-tauri/src/controller/automation.rs` ligne 221
+`app/src-tauri/src/controller/automation.rs` ligne 241
 
 ```rust
 fn purge_history(&mut self) {
     let days = self.auto.settings.history_days;
-    let Some(lib) = self.auto.library.as_ref().filter(|_| days > 0) else {
+    let Some(history) = self.auto.history.as_mut().filter(|_| days > 0) else {
         return;
     };
     let cutoff = now_secs() - days as i64 * 86_400;
-    match lib.purge_older_than(cutoff) {
+    match history.purge_older_than(cutoff) {
         Ok(0) => {}
         Ok(n) => {
             journal::info(format!(
@@ -5696,23 +6209,23 @@ fn purge_history(&mut self) {
 
 ### [CTL-75] Publication de l'historique
 
-Envoie les derniers passages et les statistiques.
+Envoie les tampons mémoire (global et par catégorie) sans interroger la base.
 
-`app/src-tauri/src/controller/automation.rs` ligne 240
+`app/src-tauri/src/controller/automation.rs` ligne 260
 
 ```rust
 pub(super) fn emit_history(&self) {
-    let (rows, stats) = match &self.auto.library {
-        Some(lib) => (
-            lib.recent(HISTORY_ROWS).unwrap_or_default(),
-            lib.stats().ok(),
-        ),
-        None => (Vec::new(), None),
-    };
-    self.emit(
-        EV_HISTORY,
-        &HistoryView {
-            rows,
+    let view = match &self.auto.history {
+        Some(h) => {
+            let rows = |k| h.rows(k).iter().cloned().collect();
+            HistoryView {
+                all: rows(None),
+                morceau: rows(Some(Kind::Morceau)),
+                jingle: rows(Some(Kind::Jingle)),
+                pub_: rows(Some(Kind::Pub)),
+                stats: h.stats().ok(),
+                current: self.auto.current.as_ref().and_then(|c| c.hist_id),
+                capacity: self.auto.settings.memory_size,
 …
 ```
 
@@ -5824,18 +6337,20 @@ pub(super) fn now_playing(&self) -> String {
         return String::new();
     }
     let m = &self.decks[side].meta;
+    if m.kind != blast_library::Kind::Morceau {
+        return String::new();
+    }
     match (m.artist.trim(), m.title.trim()) {
         ("", t) => t.to_string(),
         (a, t) => format!("{a} - {t}"),
-    }
-}
+…
 ```
 
 ### [CTL-82] Changement de titre
 
 Met à jour le titre envoyé aux serveurs et à OBS.
 
-`app/src-tauri/src/controller/cast.rs` ligne 141
+`app/src-tauri/src/controller/cast.rs` ligne 144
 
 ```rust
 pub(super) fn update_song(&mut self) {
@@ -5853,7 +6368,7 @@ pub(super) fn update_song(&mut self) {
 
 Démarre chaque sortie active qui a un mot de passe.
 
-`app/src-tauri/src/controller/cast.rs` ligne 152
+`app/src-tauri/src/controller/cast.rs` ligne 155
 
 ```rust
 pub(super) fn start_casting(&mut self) {
@@ -5875,7 +6390,7 @@ pub(super) fn start_casting(&mut self) {
 
 Arrête toutes les sorties.
 
-`app/src-tauri/src/controller/cast.rs` ligne 198
+`app/src-tauri/src/controller/cast.rs` ligne 201
 
 ```rust
 pub(super) fn stop_casting(&mut self) {
@@ -5895,7 +6410,7 @@ pub(super) fn stop_casting(&mut self) {
 
 Applique les sorties modifiées ; relance la diffusion en cours, y compris après une erreur.
 
-`app/src-tauri/src/controller/cast.rs` ligne 211
+`app/src-tauri/src/controller/cast.rs` ligne 214
 
 ```rust
 pub(super) fn apply_outputs(&mut self, outputs: Vec<OutputConfig>) {
@@ -5917,7 +6432,7 @@ pub(super) fn apply_outputs(&mut self, outputs: Vec<OutputConfig>) {
 
 Interroge les serveurs en direct en arrière-plan.
 
-`app/src-tauri/src/controller/cast.rs` ligne 234
+`app/src-tauri/src/controller/cast.rs` ligne 237
 
 ```rust
 pub(super) fn poll_listeners(&mut self) {
@@ -5939,7 +6454,7 @@ pub(super) fn poll_listeners(&mut self) {
 
 Met à jour compteurs et pics ; les échecs vont au journal.
 
-`app/src-tauri/src/controller/cast.rs` ligne 255
+`app/src-tauri/src/controller/cast.rs` ligne 258
 
 ```rust
 pub(super) fn on_listeners(&mut self, id: String, result: Result<Listeners, String>) {
@@ -5961,7 +6476,7 @@ pub(super) fn on_listeners(&mut self, id: String, result: Result<Listeners, Stri
 
 Envoie la vue de diffusion.
 
-`app/src-tauri/src/controller/cast.rs` ligne 273
+`app/src-tauri/src/controller/cast.rs` ligne 276
 
 ```rust
 pub(super) fn emit_cast(&self) {
@@ -6280,23 +6795,24 @@ Développe dossiers et fichiers en entrées, en arrière-plan.
 ```rust
 pub(super) fn scan(&self, paths: Vec<PathBuf>, index: Option<usize>, to_deck: Option<Deck>) {
     let tx = self.work_tx.clone();
+    let cats = self.categories.clone();
     thread::spawn(move || {
         let files = playlist::expand(&paths);
-        let entries = files.iter().map(|p| playlist::make_entry(p)).collect();
+        let entries = files
+            .iter()
+            .map(|p| playlist::make_entry(p, &cats))
+            .collect();
         let _ = tx.send(Work::Scanned {
             entries,
             index,
-            to_deck,
-        });
-    });
-}
+…
 ```
 
 ### [CTL-106] Fichiers scannés
 
 Enregistre en bibliothèque, charge le premier titre sur la platine visée, ajoute le reste à la playlist.
 
-`app/src-tauri/src/controller/playlist_ops.rs` ligne 25
+`app/src-tauri/src/controller/playlist_ops.rs` ligne 29
 
 ```rust
 pub(super) fn on_scanned(
@@ -6310,7 +6826,7 @@ pub(super) fn on_scanned(
         return;
     }
     let errors = entries.iter().filter(|e| e.error.is_some()).count();
-    if let Some(lib) = self.auto.library.as_mut() {
+    if let Some(lib) = self.auto.history.as_mut() {
 …
 ```
 
@@ -6318,7 +6834,7 @@ pub(super) fn on_scanned(
 
 Envoie la playlist avec le motif d'attente de chaque titre.
 
-`app/src-tauri/src/controller/playlist_ops.rs` ligne 76
+`app/src-tauri/src/controller/playlist_ops.rs` ligne 80
 
 ```rust
 pub(super) fn emit_playlist(&self) {
@@ -6411,6 +6927,246 @@ pub(super) fn mic_open(&mut self, open: bool) {
         );
     }
 }
+```
+
+### [CTL-121] Enregistrement d'un passage
+
+Point d'entrée unique des passages : base et tampons mémoire en même temps ; si la base échoue, le passage reste en mémoire et l'erreur va au journal.
+
+`app/src-tauri/src/controller/automation.rs` ligne 176
+
+```rust
+pub(super) fn record_play(&mut self, play: NewPlay) -> Option<i64> {
+    let history = self.auto.history.as_mut()?;
+    let (id, error) = history.record(play);
+    if let Some(e) = error {
+        journal::warn(format!(
+            "historique (passage gardé en mémoire seulement) : {e}"
+        ));
+    }
+    Some(id)
+}
+```
+
+### [CTL-122] Fin d'un passage
+
+Enregistre la durée réellement diffusée, en base et en mémoire.
+
+`app/src-tauri/src/controller/automation.rs` ligne 188
+
+```rust
+pub(super) fn finish_play(&mut self, id: i64, duration: f64) {
+    if let Some(history) = self.auto.history.as_mut() {
+        if let Err(e) = history.finish(id, duration) {
+            journal::warn(format!("historique (fin de passage) : {e}"));
+        }
+    }
+}
+```
+
+### [CTL-123] Vue d'un jingle
+
+Nom, fichier, durée, prêt, en erreur ou en cours de lecture.
+
+`app/src-tauri/src/controller/views.rs` ligne 166
+
+```rust
+#[derive(Serialize, Clone)]
+pub struct JingleView {
+    pub index: usize,
+    pub name: String,
+    pub path: PathBuf,
+    pub duration: Option<f64>,
+    pub ready: bool,
+    pub error: Option<String>,
+    pub playing: bool,
+}
+```
+
+### [CTL-124] Vue de la box à jingles
+
+Jingles du dossier, dossier choisi et lecture en cours du dossier.
+
+`app/src-tauri/src/controller/views.rs` ligne 178
+
+```rust
+#[derive(Serialize, Clone)]
+pub struct JinglesView {
+    pub items: Vec<JingleView>,
+    pub dirs: Vec<PathBuf>,
+    pub scanning: bool,
+}
+```
+
+### [CTL-125] Nombre maximal de jingles
+
+Au-delà de 500 fichiers, le reste du dossier est ignoré.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 16
+
+```rust
+const MAX_JINGLES: usize = 500;
+```
+
+### [CTL-126] Jingle chargé
+
+Entrée du dossier, son décodé ou erreur.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 19
+
+```rust
+pub struct Jingle {
+    pub entry: Entry,
+    pub track: Option<Arc<Track>>,
+    pub error: Option<String>,
+}
+```
+
+### [CTL-127] Jingle en cours
+
+Ligne d'historique et heure de départ d'un jingle lancé depuis la box.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 26
+
+```rust
+pub struct Cart {
+    pub hist_id: Option<i64>,
+    pub started: Instant,
+}
+```
+
+### [CTL-128] État de la box à jingles
+
+Dossier, jingles, génération du dernier scan et jingles en cours.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 32
+
+```rust
+#[derive(Default)]
+pub struct JingleState {
+    pub dirs: Vec<PathBuf>,
+    pub items: Vec<Jingle>,
+    pub generation: u64,
+    pub scanning: bool,
+    pub playing: HashMap<usize, Cart>,
+}
+```
+
+### [CTL-129] Synchronisation des jingles
+
+Applique le volume des jingles et relit le dossier s'il a changé.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 47
+
+```rust
+pub(super) fn sync_jingles(&mut self, settings: &JingleSettings) {
+    self.send(Command::SetCartGain(db_to_gain(settings.volume_db)));
+    if settings.dirs != self.jingles.dirs {
+        self.jingles.dirs = settings.dirs.clone();
+        self.rescan_jingles();
+    }
+}
+```
+
+### [CTL-130] Lecture du dossier de jingles
+
+Arrête les jingles en cours, liste le dossier puis décode chaque jingle en arrière-plan ; un scan plus récent annule le précédent.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 56
+
+```rust
+pub(super) fn rescan_jingles(&mut self) {
+    self.jingle_stop_all();
+    self.jingles.generation += 1;
+    self.jingles.items.clear();
+    self.jingles.scanning = !self.jingles.dirs.is_empty();
+    self.emit_jingles();
+    if self.jingles.dirs.is_empty() {
+        return;
+    }
+    let generation = self.jingles.generation;
+    let dirs = self.jingles.dirs.clone();
+    let cats = CategorySettings {
+…
+```
+
+### [CTL-131] Lancement d'un jingle
+
+Joue le jingle à l'antenne par-dessus la musique, avec son propre volume, et l'inscrit dans l'historique ; un second clic l'arrête.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 144
+
+```rust
+pub(super) fn jingle_play(&mut self, index: usize) {
+    if self.jingles.playing.contains_key(&index) {
+        self.send(Command::StopSfx(voice(index)));
+        self.on_cart_ended(index);
+        return;
+    }
+    let Some(j) = self.jingles.items.get(index) else {
+        return;
+    };
+    let track = match (&j.track, &j.error) {
+        (Some(t), _) => t.clone(),
+        (None, Some(e)) => {
+…
+```
+
+### [CTL-132] Arrêt des jingles
+
+Coupe tous les jingles en cours et clôt leurs passages.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 192
+
+```rust
+pub(super) fn jingle_stop_all(&mut self) {
+    self.send(Command::StopAllCarts);
+    let playing: Vec<usize> = self.jingles.playing.keys().copied().collect();
+    for index in playing {
+        self.on_cart_ended(index);
+    }
+}
+```
+
+### [CTL-133] Fin d'un jingle
+
+Clôt le passage du jingle avec sa durée réelle ; les fins de sons de pads restent hors historique.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 201
+
+```rust
+pub(super) fn on_cart_ended(&mut self, index: usize) {
+    let Some(cart) = self.jingles.playing.remove(&index) else {
+        return;
+    };
+    if let Some(id) = cart.hist_id {
+        self.finish_play(id, cart.started.elapsed().as_secs_f64());
+    }
+    self.emit_jingles();
+    self.emit_history();
+}
+```
+
+### [CTL-134] Publication de la box à jingles
+
+Envoie la vue de la box à jingles.
+
+`app/src-tauri/src/controller/jingles.rs` ligne 221
+
+```rust
+pub(super) fn emit_jingles(&self) {
+    let items = self
+        .jingles
+        .items
+        .iter()
+        .enumerate()
+        .map(|(index, j)| JingleView {
+            index,
+            name: j.entry.title.clone(),
+            path: j.entry.path.clone(),
+            duration: j.entry.duration,
+            ready: j.track.is_some(),
+…
 ```
 
 
@@ -6644,7 +7400,7 @@ export async function pickAudio(multiple, title) {
 
 Met à jour l'horloge de la barre du haut.
 
-`app/ui/js/main.js` ligne 14
+`app/ui/js/main.js` ligne 15
 
 ```js
 function tickClock() {
@@ -6656,7 +7412,7 @@ function tickClock() {
 
 Relie chaque événement blast:// à son module.
 
-`app/ui/js/main.js` ligne 19
+`app/ui/js/main.js` ligne 20
 
 ```js
 async function subscribe() {
@@ -6678,11 +7434,11 @@ async function subscribe() {
 
 Initialise les modules, s'abonne, charge thèmes et voix, active le glisser-déposer puis vérifie les mises à jour.
 
-`app/ui/js/main.js` ligne 36
+`app/ui/js/main.js` ligne 38
 
 ```js
 async function start() {
-  for (const m of [theme, decks, playlist, cast, settings, voice, pads, obs, shortcuts, update]) m.init();
+  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update]) m.init();
   $("#themes-folder").addEventListener("click", async () => {
     try {
       const dir = await invoke("themes_dir");
@@ -6863,7 +7619,7 @@ export function freeDeck() {
 
 Lignes, titres en attente, fichiers illisibles et durée totale.
 
-`app/ui/js/playlist.js` ligne 6
+`app/ui/js/playlist.js` ligne 8
 
 ```js
 export function renderPlaylist(total) {
@@ -6885,7 +7641,7 @@ export function renderPlaylist(total) {
 
 Bascule entre PLAYLIST et HISTORIQUE.
 
-`app/ui/js/playlist.js` ligne 44
+`app/ui/js/playlist.js` ligne 52
 
 ```js
 function showPlaylistTab(tab) {
@@ -6899,7 +7655,7 @@ function showPlaylistTab(tab) {
 
 Heure seule aujourd'hui, date et heure sinon.
 
-`app/ui/js/playlist.js` ligne 51
+`app/ui/js/playlist.js` ligne 59
 
 ```js
 function clockTime(secs) {
@@ -6911,45 +7667,37 @@ function clockTime(secs) {
 
 ### [UI-29] Affichage de l'historique
 
-Lignes de passages et statistiques.
+Reçoit les tampons et affiche celui du filtre choisi.
 
-`app/ui/js/playlist.js` ligne 58
+`app/ui/js/playlist.js` ligne 66
 
 ```js
 export function setHistory(h) {
   history = h;
-  const box = $("#hrows");
-  box.innerHTML = "";
-  if (!history.rows.length) {
-    const e = document.createElement("div");
-    e.className = "hempty";
-    e.textContent = "Aucune diffusion enregistrée pour l'instant : chaque titre passé à l'antenne apparaîtra ici.";
-    box.appendChild(e);
-  }
-  for (const r of history.rows) {
-    const el = document.createElement("div");
-…
+  renderHistory();
+}
 ```
 
 ### [UI-30] Export de l'historique
 
-Demande un fichier puis exporte en CSV.
+Exporte la catégorie et la période choisies dans un fichier CSV.
 
-`app/ui/js/playlist.js` ligne 88
+`app/ui/js/playlist.js` ligne 133
 
 ```js
 async function exportHistory() {
-  const d = new Date();
-  const day = [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n) => String(n).padStart(2, "0")).join("-");
-  const path = await T.dialog.save({ title: "Exporter l'historique", defaultPath: `blast-historique-${day}.csv`, filters: [{ name: "CSV", extensions: ["csv"] }] });
+  const kind = $("#export-kind").value;
+  const fromValue = $("#export-from").value;
+  const toValue = $("#export-to").value;
+  const from = fromValue ? Math.floor(new Date(`${fromValue}T00:00:00`).getTime() / 1000) : null;
+  const to = toValue ? Math.floor(new Date(`${toValue}T00:00:00`).getTime() / 1000) + 86400 : null;
+  closeExportMenu();
+  const suffix = [kind === "all" ? "" : kind, fromValue, toValue].filter(Boolean).join("_") || day(new Date());
+  const path = await T.dialog.save({ title: "Exporter l'historique", defaultPath: `blast-historique-${suffix}.csv`, filters: [{ name: "CSV", extensions: ["csv"] }] });
   if (!path) return;
   try {
-    const n = await invoke("export_history", { path });
-    toast("info", `${n} diffusion${n > 1 ? "s" : ""} exportée${n > 1 ? "s" : ""} : ${path}`);
-  } catch (e) {
-    toast("error", String(e));
-  }
-}
+    const n = await invoke("export_history", { path, kind, from, to });
+…
 ```
 
 ### [UI-31] Cible de dépôt
@@ -6962,7 +7710,7 @@ Pad, platine, ligne (avant ou après) ou playlist sous le pointeur.
 function targetAt(x, y) {
   const el = document.elementFromPoint(x, y);
   if (!el) return null;
-  const pad = el.closest(".pad");
+  const pad = el.closest(".pad:not(.jingle)");
   if (pad) return { kind: "pad", index: Number(pad.dataset.index), el: pad };
   const deck = el.closest(".deck");
   if (deck) return { kind: "deck", deck: deck.dataset.deck, el: deck };
@@ -7250,7 +7998,7 @@ function applySettings(view, keepSelection = true) {
 
 Enregistre, rafraîchit la vue et affiche le résultat.
 
-`app/ui/js/settings.js` ligne 117
+`app/ui/js/settings.js` ligne 125
 
 ```js
 async function saveForm(resultId, run) {
@@ -7268,7 +8016,7 @@ async function saveForm(resultId, run) {
 
 Affiche l'attente puis le résultat d'un test.
 
-`app/ui/js/settings.js` ligne 128
+`app/ui/js/settings.js` ligne 136
 
 ```js
 async function testForm(resultId, busy, run) {
@@ -7285,7 +8033,7 @@ async function testForm(resultId, busy, run) {
 
 Charge les réglages et ouvre la fenêtre, éventuellement sur un onglet.
 
-`app/ui/js/settings.js` ligne 155
+`app/ui/js/settings.js` ligne 171
 
 ```js
 export async function openSettings(tab) {
@@ -7304,7 +8052,7 @@ export async function openSettings(tab) {
 
 Affiche l'onglet choisi.
 
-`app/ui/js/settings.js` ligne 170
+`app/ui/js/settings.js` ligne 186
 
 ```js
 function showTab(tab) {
@@ -7318,7 +8066,7 @@ function showTab(tab) {
 
 Demande confirmation puis supprime.
 
-`app/ui/js/settings.js` ligne 177
+`app/ui/js/settings.js` ligne 193
 
 ```js
 async function deleteOutput() {
@@ -7448,16 +8196,11 @@ Remplit les préréglages voix et antenne, les curseurs et le volume Sound FX.
 `app/ui/js/voice.js` ligne 79
 
 ```js
-export async function loadVoiceSettings() {
-  try {
-    const view = await invoke("get_settings");
-    fillSelect($("#voice-preset"), view.voice_presets, view.voice.preset);
-    fillSelect($("#master-preset"), view.master_presets, view.audio.master_preset);
-    applyVoice(view.voice);
-    $("#sfx-vol").value = view.soundboard.volume_db;
-  } catch (e) {
-    toast("error", String(e));
-  }
+export function applySettings(view) {
+  fillSelect($("#voice-preset"), view.voice_presets, view.voice.preset);
+  fillSelect($("#master-preset"), view.master_presets, view.audio.master_preset);
+  applyVoice(view.voice);
+  $("#sfx-vol").value = view.soundboard.volume_db;
 }
 ```
 
@@ -7804,6 +8547,122 @@ export async function renderAbout() {
 …
 ```
 
+### [UI-79] Bouton de jingle
+
+Nom, durée, prêt, en lecture ou en erreur.
+
+`app/ui/js/jingles.js` ligne 7
+
+```js
+function jingleButton(j) {
+  const el = document.createElement("button");
+  el.className = "pad jingle" + (j.playing ? " playing" : "") + (!j.ready && !j.error ? " loading" : "") + (j.error ? " error" : "");
+  el.dataset.index = j.index;
+  el.title = `${j.name}\n${j.path}${j.error ? "\n⚠ " + j.error : ""}\nClic : lancer à l'antenne · reclic : arrêter`;
+  const label = document.createElement("span");
+  label.textContent = j.name;
+  const dur = document.createElement("span");
+  dur.className = "key";
+  dur.textContent = j.duration != null ? fmt(j.duration) : "";
+  el.append(label, dur);
+  return el;
+…
+```
+
+### [UI-80] Affichage de la box à jingles
+
+Grille des jingles et nom du dossier.
+
+`app/ui/js/jingles.js` ligne 22
+
+```js
+export function setJingles(v) {
+  view = v;
+  const box = $("#jingles");
+  box.innerHTML = "";
+  for (const j of view.items) box.appendChild(jingleButton(j));
+  if (!view.items.length) {
+    const e = document.createElement("div");
+    e.className = "obs-empty";
+    e.textContent = view.scanning
+      ? "Lecture du dossier des jingles…"
+      : view.dirs.length
+        ? "Aucun son dans le dossier des jingles"
+…
+```
+
+### [UI-81] Choix du dossier de jingles
+
+Sélecteur de dossier du système.
+
+`app/ui/js/jingles.js` ligne 44
+
+```js
+async function pickDir() {
+  const picked = await T.dialog.open({ directory: true, multiple: false, title: "Dossier des jingles" });
+  if (!picked) return;
+  invoke("save_jingles", { dirs: [].concat(picked), volumeDb: null }).catch(errorOut);
+}
+```
+
+### [UI-82] Liste de l'historique
+
+Lignes du filtre choisi, avec le type de chaque passage.
+
+`app/ui/js/playlist.js` ligne 72
+
+```js
+function renderHistory() {
+  const rows = history[filter] || [];
+  const box = $("#hrows");
+  box.innerHTML = "";
+  if (!rows.length) {
+    const e = document.createElement("div");
+    e.className = "hempty";
+    e.textContent = filter === "all"
+      ? "Aucune diffusion enregistrée pour l'instant : chaque titre passé à l'antenne apparaîtra ici."
+      : `Aucun passage de type « ${KIND_LABEL[filter]} » dans les ${history.capacity} derniers.`;
+    box.appendChild(e);
+  }
+…
+```
+
+### [UI-83] Menu d'export
+
+Ouvre le choix de la catégorie et de la période, le mois en cours par défaut.
+
+`app/ui/js/playlist.js` ligne 115
+
+```js
+function openExportMenu(anchor) {
+  const menu = $("#export-menu");
+  $("#export-kind").value = filter;
+  const now = new Date();
+  if (!$("#export-from").value && !$("#export-to").value) {
+    $("#export-from").value = day(new Date(now.getFullYear(), now.getMonth(), 1));
+    $("#export-to").value = day(now);
+  }
+  menu.classList.remove("hidden");
+  const r = anchor.getBoundingClientRect();
+  const m = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(r.left, window.innerWidth - m.width - 8)}px`;
+…
+```
+
+### [UI-84] Mots-clés saisis
+
+Lit les mots-clés séparés par des virgules.
+
+`app/ui/js/settings.js` ligne 164
+
+```js
+function categoryValues() {
+  const v = formValues($("#categories-form"));
+  const list = (text) => text.split(",").map((w) => w.trim()).filter(Boolean);
+  return { jingle_keywords: list(v.jingle_keywords), pub_keywords: list(v.pub_keywords) };
+}
+```
+
 
 ## STY
 
@@ -7940,7 +8799,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Étiquette qui suit le pointeur et curseur pendant le glisser.
 
-`app/ui/style.css` ligne 407
+`app/ui/style.css` ligne 420
 
 ```css
 .drag-ghost {
@@ -7962,7 +8821,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
-`app/ui/style.css` ligne 426
+`app/ui/style.css` ligne 439
 
 ```css
 .fx { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -7972,7 +8831,7 @@ Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
 VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
-`app/ui/style.css` ligne 444
+`app/ui/style.css` ligne 457
 
 ```css
 .vfx-main { display: grid; grid-template-columns: 78px 1fr 60px; gap: 8px; height: 48px; }
@@ -7982,7 +8841,7 @@ VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
 Grille de pads, état de lecture et menu de pad.
 
-`app/ui/style.css` ligne 481
+`app/ui/style.css` ligne 494
 
 ```css
 .soundfx { flex: 1; min-height: 160px; }
@@ -7992,7 +8851,7 @@ Grille de pads, état de lecture et menu de pad.
 
 Boutons matériels, scènes et sources audio.
 
-`app/ui/style.css` ligne 519
+`app/ui/style.css` ligne 536
 
 ```css
 .obs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -8002,7 +8861,7 @@ Boutons matériels, scènes et sources audio.
 
 Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos.
 
-`app/ui/style.css` ligne 547
+`app/ui/style.css` ligne 564
 
 ```css
 .about-head { display: flex; flex-direction: column; gap: 4px; }
@@ -8012,7 +8871,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 611
+`app/ui/style.css` ligne 628
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -8022,7 +8881,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 630
+`app/ui/style.css` ligne 647
 
 ```css
 .statusbar {
@@ -8040,7 +8899,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 641
+`app/ui/style.css` ligne 658
 
 ```css
 .hidden { display: none !important; }
@@ -8145,7 +9004,7 @@ Barre d'outils, lignes de playlist et historique de diffusion.
 
 Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
-`app/ui/index.html` ligne 174
+`app/ui/index.html` ligne 181
 
 ```html
 <section class="fx voicefx" id="voicefx">
@@ -8160,22 +9019,22 @@ Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
 Pads et panneau de pilotage d'OBS.
 
-`app/ui/index.html` ligne 204
+`app/ui/index.html` ligne 211
 
 ```html
 <section class="fx soundfx" id="soundfx">
   <div class="fx-tabs">
     <button class="fx-tab active" data-fx="pads">SOUND FX</button>
+    <button class="fx-tab" data-fx="jingles">JINGLES</button>
     <button class="fx-tab" data-fx="obs">AURA &middot; OBS</button>
   </div>
-  <div class="fx-page" data-fxpage="obs" hidden>
 ```
 
 ### [HTM-09] Menu de pad
 
 Renommer, choisir un son, vider.
 
-`app/ui/index.html` ligne 247
+`app/ui/index.html` ligne 265
 
 ```html
 <div id="pad-menu" class="pad-menu hidden">
@@ -8190,7 +9049,7 @@ Renommer, choisir un son, vider.
 
 Sortie audio et résumé de diffusion.
 
-`app/ui/index.html` ligne 255
+`app/ui/index.html` ligne 290
 
 ```html
 <footer class="statusbar">
@@ -8205,7 +9064,7 @@ Sortie audio et résumé de diffusion.
 
 Fenêtre des réglages et ses onglets.
 
-`app/ui/index.html` ligne 263
+`app/ui/index.html` ligne 298
 
 ```html
 <div id="settings" class="modal hidden" role="dialog" aria-modal="true">
@@ -8220,7 +9079,7 @@ Fenêtre des réglages et ses onglets.
 
 Liste et formulaire des sorties Icecast / Shoutcast.
 
-`app/ui/index.html` ligne 278
+`app/ui/index.html` ligne 313
 
 ```html
 <section class="tab-page" data-page="cast">
@@ -8235,7 +9094,7 @@ Liste et formulaire des sorties Icecast / Shoutcast.
 
 Connexion à obs-websocket et source « Now Playing ».
 
-`app/ui/index.html` ligne 331
+`app/ui/index.html` ligne 366
 
 ```html
 <section class="tab-page hidden" data-page="aura">
@@ -8250,7 +9109,7 @@ Connexion à obs-websocket et source « Now Playing ».
 
 Règles de séparation et conservation de l'historique.
 
-`app/ui/index.html` ligne 351
+`app/ui/index.html` ligne 386
 
 ```html
 <section class="tab-page hidden" data-page="automation">
@@ -8265,7 +9124,7 @@ Règles de séparation et conservation de l'historique.
 
 Micro, retour et sortie audio.
 
-`app/ui/index.html` ligne 370
+`app/ui/index.html` ligne 420
 
 ```html
 <section class="tab-page hidden" data-page="audio">
@@ -8280,7 +9139,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 403
+`app/ui/index.html` ligne 453
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -8289,4 +9148,64 @@ Version, mises à jour et diagnostic.
       <div class="about-name">BLAST Broadcaster</div>
       <div class="muted">Black-Lab Audio Streaming Tool · version <b id="about-version"></b> · <span id="about-platform"></span></div>
     </div>
+```
+
+### [HTM-17] Box à jingles
+
+Dossier, relecture, volume, arrêt et grille des jingles.
+
+`app/ui/index.html` ligne 218
+
+```html
+<div class="fx-head" data-fxpage="jingles" hidden>
+  <button class="btn ghost small" id="jingle-dir" title="Choisir le dossier des jingles">Dossier…</button>
+  <button class="btn ghost small pager" id="jingle-rescan" title="Relire le dossier">&#8635;</button>
+  <span id="jingle-info" class="muted fx-sub"></span>
+  <span class="spacer"></span>
+  <input type="range" id="jingle-vol" min="-30" max="6" step="0.5" title="Volume des jingles">
+```
+
+### [HTM-18] Filtres de l'historique
+
+Tout, Morceaux, Jingles, Pubs.
+
+`app/ui/index.html` ligne 151
+
+```html
+<div class="hfilters" data-ppage="history" hidden>
+  <button class="chip-btn active" data-hfilter="all">Tout</button>
+  <button class="chip-btn" data-hfilter="morceau">Morceaux</button>
+  <button class="chip-btn" data-hfilter="jingle">Jingles</button>
+  <button class="chip-btn" data-hfilter="pub">Pubs</button>
+</div>
+```
+
+### [HTM-19] Menu d'export
+
+Catégorie et période de l'export CSV de l'historique.
+
+`app/ui/index.html` ligne 273
+
+```html
+<div id="export-menu" class="pad-menu export-menu hidden">
+  <div class="menu-title">Exporter l'historique (CSV)</div>
+  <label>Catégorie
+    <select id="export-kind">
+      <option value="all">Tout</option>
+      <option value="morceau">Morceaux</option>
+```
+
+### [HTM-20] Réglages : Catégories
+
+Mots-clés de dossier des jingles et des pubs.
+
+`app/ui/index.html` ligne 405
+
+```html
+<form class="form" id="categories-form">
+  <p class="muted">Un fichier rangé dans un dossier dont le nom contient l'un de ces mots (au singulier ou au pluriel, majuscules et accents ignorés) est classé jingle ou pub ; tout le reste est un morceau. Jingles et pubs ne sont pas soumis aux règles de séparation et ne changent pas le titre annoncé aux auditeurs. Plusieurs mots : séparés par des virgules.</p>
+  <div class="grid2">
+    <label>Dossiers de jingles<input name="jingle_keywords" placeholder="JINGLE"></label>
+    <label>Dossiers de pubs<input name="pub_keywords" placeholder="PUB, PUBLICITE"></label>
+  </div>
 ```

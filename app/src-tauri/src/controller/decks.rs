@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::thread;
 
 use blast_core::{decode_file, Command, DeckState, DeckStatus, Track};
+use blast_library::Kind;
 
 use super::commands::Deck;
 use super::views::{DeckView, MicView, StateView, EV_STATE};
@@ -24,6 +25,7 @@ pub struct DeckMeta {
     pub path: Option<PathBuf>,
     pub loading: Option<u64>,
     pub finished: bool,
+    pub kind: Kind,
 }
 
 // [CTL-42]
@@ -93,6 +95,7 @@ impl Controller {
             path: Some(entry.path.clone()),
             loading: Some(job),
             finished: false,
+            kind: entry.kind,
         };
         let tx = self.work_tx.clone();
         let rate = self.sample_rate;
@@ -232,7 +235,7 @@ impl Controller {
         }
         if let Some(path) = side.meta.path.clone() {
             self.playlist
-                .insert(vec![playlist::make_entry(&path)], Some(0));
+                .insert(vec![playlist::make_entry(&path, &self.categories)], Some(0));
         }
     }
 

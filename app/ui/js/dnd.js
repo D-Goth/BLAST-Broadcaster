@@ -7,7 +7,7 @@ let drag = null;
 function targetAt(x, y) {
   const el = document.elementFromPoint(x, y);
   if (!el) return null;
-  const pad = el.closest(".pad");
+  const pad = el.closest(".pad:not(.jingle)");
   if (pad) return { kind: "pad", index: Number(pad.dataset.index), el: pad };
   const deck = el.closest(".deck");
   if (deck) return { kind: "deck", deck: deck.dataset.deck, el: deck };

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use blast_core::{DeckId, DeckState, DeckStatus, Event};
-use blast_library::Library;
+use blast_library::{History, Kind, NewPlay, SqliteStore};
 use crossbeam_channel::unbounded;
 use serde_json::Value;
 
@@ -35,7 +35,9 @@ impl Harness {
     fn new(name: &str) -> Self {
         let log: Log = Arc::default();
         let (_tx, rx) = unbounded();
-        let library = Library::open_in_memory().ok();
+        let library = SqliteStore::open_in_memory()
+            .and_then(|s| History::new(Box::new(s), 200))
+            .ok();
         let c = Controller::new(
             Box::new(RecordingUi(log.clone())),
             rx,
@@ -206,16 +208,23 @@ fn files_dropped_on_a_deck_are_loaded() {
     );
 }
 
+fn old_play(at: i64) -> NewPlay {
+    NewPlay {
+        path: "/x/old.mp3".into(),
+        title: "Ancien".into(),
+        artist: "Artiste X".into(),
+        kind: Kind::Morceau,
+        started_at: at,
+        on_air: true,
+        listeners: None,
+    }
+}
+
 #[test]
 fn separation_skips_an_artist_played_recently() {
     let mut h = Harness::new("rules");
     let now = now_secs();
-    h.c.auto
-        .library
-        .as_ref()
-        .unwrap()
-        .record_play("/x/old.mp3", "Ancien", "Artiste X", now - 60, true, None)
-        .unwrap();
+    h.c.record_play(old_play(now - 60));
     h.c.playlist.insert(
         vec![
             entry("/x/1.mp3", "Encore X", "Artiste X"),
@@ -235,19 +244,7 @@ fn separation_skips_an_artist_played_recently() {
 #[test]
 fn separation_falls_back_with_a_warning() {
     let mut h = Harness::new("fallback");
-    h.c.auto
-        .library
-        .as_ref()
-        .unwrap()
-        .record_play(
-            "/x/old.mp3",
-            "Ancien",
-            "Artiste X",
-            now_secs() - 60,
-            true,
-            None,
-        )
-        .unwrap();
+    h.c.record_play(old_play(now_secs() - 60));
     h.c.playlist
         .insert(vec![entry("/x/1.mp3", "Encore X", "Artiste X")], None);
     assert_eq!(h.c.take_next_auto().unwrap().title, "Encore X");
@@ -287,12 +284,16 @@ fn plays_are_written_to_the_history() {
     h.work(2);
     h.tick(DeckState::Playing, DeckState::Empty);
     let hist = h.last(EV_HISTORY);
-    assert_eq!(hist["rows"].as_array().map(Vec::len), Some(1));
+    assert_eq!(hist["all"].as_array().map(Vec::len), Some(1));
+    assert_eq!(hist["morceau"].as_array().map(Vec::len), Some(1));
+    assert_eq!(hist["jingle"].as_array().map(Vec::len), Some(0));
     assert!(hist["current"].is_i64());
     h.c.on_event(Event::Ended(DeckId::A));
     assert!(h.last(EV_HISTORY)["current"].is_null());
-    let rows = h.c.auto.library.as_ref().unwrap().recent(10).unwrap();
-    assert_eq!(rows.len(), 1);
+    let history = h.c.auto.history.as_ref().unwrap();
+    assert_eq!(history.rows(None).len(), 1);
+    assert!(history.rows(None)[0].duration_played.is_some());
+    assert_eq!(history.store_lookups(), 0);
 }
 
 #[test]
@@ -318,4 +319,53 @@ fn casting_without_outputs_warns() {
     h.c.handle(UiCommand::CastStart);
     assert_eq!(h.notices("warn").len(), 1);
     assert_eq!(h.last(EV_CAST), Value::Null);
+}
+
+#[test]
+fn jingles_and_pubs_are_typed_and_exempt_from_rules() {
+    let mut h = Harness::new("kinds");
+    h.c.record_play(old_play(now_secs() - 60));
+    std::fs::create_dir_all(h.dir.join("Jingles")).unwrap();
+    std::fs::create_dir_all(h.dir.join("Pubs")).unwrap();
+    write_wav(&h.dir.join("Jingles/id.wav"), 44_100, 4_410);
+    write_wav(&h.dir.join("Pubs/garage.wav"), 44_100, 4_410);
+    h.c.handle(UiCommand::AddPaths {
+        paths: vec![h.dir.clone()],
+        index: None,
+    });
+    h.work(1);
+    let kinds: Vec<Kind> = h.c.playlist.entries().iter().map(|e| e.kind).collect();
+    assert_eq!(kinds, [Kind::Jingle, Kind::Pub]);
+    let mut e = h.c.playlist.entries()[0].clone();
+    e.artist = "Artiste X".into();
+    assert!(h.c.violation_for(&e, now_secs()).is_none());
+    let mut cfg = AppConfig::default();
+    cfg.categories.jingle_keywords.clear();
+    h.c.handle(UiCommand::Config(Box::new(cfg)));
+    assert_eq!(h.c.playlist.entries()[0].kind, Kind::Morceau);
+}
+
+#[test]
+fn jingle_box_plays_and_logs_jingles() {
+    let mut h = Harness::new("jbox");
+    let dir = h.dir.join("Jingles");
+    std::fs::create_dir_all(&dir).unwrap();
+    write_wav(&dir.join("a.wav"), 44_100, 4_410);
+    write_wav(&dir.join("b.wav"), 44_100, 4_410);
+    let mut cfg = AppConfig::default();
+    cfg.jingles.dirs = vec![dir];
+    h.c.handle(UiCommand::Config(Box::new(cfg)));
+    h.work(3);
+    let view = h.last(EV_JINGLES);
+    assert_eq!(view["items"].as_array().map(Vec::len), Some(2));
+    assert_eq!(view["items"][1]["ready"], true);
+    h.c.handle(UiCommand::JinglePlay { index: 1 });
+    assert_eq!(h.last(EV_JINGLES)["items"][1]["playing"], true);
+    let hist = h.last(EV_HISTORY);
+    assert_eq!(hist["jingle"].as_array().map(Vec::len), Some(1));
+    assert_eq!(hist["jingle"][0]["kind"], "jingle");
+    assert_eq!(hist["morceau"].as_array().map(Vec::len), Some(0));
+    h.c.on_event(Event::SfxEnded(blast_core::CART_BASE + 1));
+    assert_eq!(h.last(EV_JINGLES)["items"][1]["playing"], false);
+    assert!(h.last(EV_HISTORY)["jingle"][0]["duration_played"].is_f64());
 }

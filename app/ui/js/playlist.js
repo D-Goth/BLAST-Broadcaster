@@ -1,7 +1,9 @@
 import { $, $$, S, T, send, toast, fmt, ico, invoke, confirmClick, pickAudio } from "./core.js";
 import { freeDeck } from "./decks.js";
 
-let history = { rows: [], stats: null, current: null };
+const KIND_LABEL = { morceau: "Morceau", jingle: "Jingle", pub: "Pub" };
+let history = { all: [], morceau: [], jingle: [], pub: [], stats: null, current: null, capacity: 200 };
+let filter = "all";
 
 // [UI-26]
 export function renderPlaylist(total) {
@@ -24,6 +26,12 @@ export function renderPlaylist(total) {
         <button class="btn ghost" data-remove title="Retirer de la playlist">&#10005;</button>
       </span>`;
     $(".title", row).textContent = e.title;
+    if (e.kind && e.kind !== "morceau") {
+      const tag = document.createElement("span");
+      tag.className = `kind-tag ${e.kind}`;
+      tag.textContent = KIND_LABEL[e.kind];
+      $(".title", row).prepend(tag);
+    }
     if (e.blocked && !e.error) {
       row.classList.add("blocked");
       const w = document.createElement("span");
@@ -58,21 +66,31 @@ function clockTime(secs) {
 // [UI-29]
 export function setHistory(h) {
   history = h;
+  renderHistory();
+}
+
+// [UI-82]
+function renderHistory() {
+  const rows = history[filter] || [];
   const box = $("#hrows");
   box.innerHTML = "";
-  if (!history.rows.length) {
+  if (!rows.length) {
     const e = document.createElement("div");
     e.className = "hempty";
-    e.textContent = "Aucune diffusion enregistrée pour l'instant : chaque titre passé à l'antenne apparaîtra ici.";
+    e.textContent = filter === "all"
+      ? "Aucune diffusion enregistrée pour l'instant : chaque titre passé à l'antenne apparaîtra ici."
+      : `Aucun passage de type « ${KIND_LABEL[filter]} » dans les ${history.capacity} derniers.`;
     box.appendChild(e);
   }
-  for (const r of history.rows) {
+  for (const r of rows) {
     const el = document.createElement("div");
     const current = r.id === history.current;
     el.className = "hrow hrow-grid" + (current ? " current" : "");
     el.title = r.path;
-    el.innerHTML = `<span class="t"></span><span class="ti"></span><span class="ar muted"></span><span class="d"></span><span class="a"><span class="air-dot"></span></span><span class="n"></span>`;
+    el.innerHTML = `<span class="t"></span><span class="k"><span class="kind-tag"></span></span><span class="ti"></span><span class="ar muted"></span><span class="d"></span><span class="a"><span class="air-dot"></span></span><span class="n"></span>`;
     $(".t", el).textContent = clockTime(r.started_at);
+    $(".kind-tag", el).textContent = KIND_LABEL[r.kind] || r.kind;
+    $(".kind-tag", el).classList.add(r.kind);
     $(".ti", el).textContent = r.title || "—";
     $(".ar", el).textContent = r.artist;
     $(".d", el).textContent = current ? "en cours" : r.duration_played != null ? fmt(r.duration_played) : "--:--";
@@ -82,18 +100,50 @@ export function setHistory(h) {
     box.appendChild(el);
   }
   const s = history.stats;
-  $("#history-info").textContent = s ? `${s.plays} diffusion${s.plays > 1 ? "s" : ""} · ${s.tracks} titre${s.tracks > 1 ? "s" : ""} en bibliothèque` : "";
+  $("#history-info").textContent = s ? `${s.plays} passage${s.plays > 1 ? "s" : ""} · ${s.tracks} titre${s.tracks > 1 ? "s" : ""}` : "";
+  $("#history-info").title = `Affichage : ${history.capacity} derniers passages par catégorie, gardés en mémoire`;
 }
+
+function setFilter(f) {
+  filter = f;
+  $$("[data-hfilter]").forEach((b) => b.classList.toggle("active", b.dataset.hfilter === f));
+  renderHistory();
+}
+
+const day = (d) => [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n) => String(n).padStart(2, "0")).join("-");
+
+// [UI-83]
+function openExportMenu(anchor) {
+  const menu = $("#export-menu");
+  $("#export-kind").value = filter;
+  const now = new Date();
+  if (!$("#export-from").value && !$("#export-to").value) {
+    $("#export-from").value = day(new Date(now.getFullYear(), now.getMonth(), 1));
+    $("#export-to").value = day(now);
+  }
+  menu.classList.remove("hidden");
+  const r = anchor.getBoundingClientRect();
+  const m = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(r.left, window.innerWidth - m.width - 8)}px`;
+  menu.style.top = `${Math.max(8, r.top - m.height - 6)}px`;
+}
+
+const closeExportMenu = () => $("#export-menu").classList.add("hidden");
 
 // [UI-30]
 async function exportHistory() {
-  const d = new Date();
-  const day = [d.getFullYear(), d.getMonth() + 1, d.getDate()].map((n) => String(n).padStart(2, "0")).join("-");
-  const path = await T.dialog.save({ title: "Exporter l'historique", defaultPath: `blast-historique-${day}.csv`, filters: [{ name: "CSV", extensions: ["csv"] }] });
+  const kind = $("#export-kind").value;
+  const fromValue = $("#export-from").value;
+  const toValue = $("#export-to").value;
+  const from = fromValue ? Math.floor(new Date(`${fromValue}T00:00:00`).getTime() / 1000) : null;
+  const to = toValue ? Math.floor(new Date(`${toValue}T00:00:00`).getTime() / 1000) + 86400 : null;
+  closeExportMenu();
+  const suffix = [kind === "all" ? "" : kind, fromValue, toValue].filter(Boolean).join("_") || day(new Date());
+  const path = await T.dialog.save({ title: "Exporter l'historique", defaultPath: `blast-historique-${suffix}.csv`, filters: [{ name: "CSV", extensions: ["csv"] }] });
   if (!path) return;
   try {
-    const n = await invoke("export_history", { path });
-    toast("info", `${n} diffusion${n > 1 ? "s" : ""} exportée${n > 1 ? "s" : ""} : ${path}`);
+    const n = await invoke("export_history", { path, kind, from, to });
+    toast("info", `${n} passage${n > 1 ? "s" : ""} exporté${n > 1 ? "s" : ""} : ${path}`);
   } catch (e) {
     toast("error", String(e));
   }
@@ -128,7 +178,20 @@ export function init() {
     if (paths.length) send({ type: "add_paths", paths, index: null });
   });
   $$("[data-ptab]").forEach((t) => t.addEventListener("click", () => showPlaylistTab(t.dataset.ptab)));
-  $("#history-export").addEventListener("click", exportHistory);
+  $("#history-export").addEventListener("click", (e) => openExportMenu(e.currentTarget));
+  $("#export-go").addEventListener("click", exportHistory);
+  $("#export-all").addEventListener("click", () => {
+    $("#export-from").value = "";
+    $("#export-to").value = "";
+    exportHistory();
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (!e.target.closest("#export-menu, #history-export")) closeExportMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeExportMenu();
+  });
+  $$("[data-hfilter]").forEach((b) => b.addEventListener("click", () => setFilter(b.dataset.hfilter)));
   $("#history-clear").addEventListener("click", (e) =>
     confirmClick(e.currentTarget, "Effacer", "Confirmer l'effacement", () => send({ type: "history_clear" })),
   );

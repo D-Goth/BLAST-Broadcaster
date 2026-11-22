@@ -1,7 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use blast_core::{is_audio_path, probe_file};
+use blast_library::Kind;
 use serde::Serialize;
+
+use crate::config::CategorySettings;
 
 // [PL-01]
 #[derive(Debug, Clone, Default, Serialize)]
@@ -16,6 +19,7 @@ pub struct Entry {
     pub duration: Option<f64>,
     pub error: Option<String>,
     pub blocked: Option<String>,
+    pub kind: Kind,
 }
 
 impl Entry {
@@ -28,6 +32,7 @@ impl Entry {
             genre: self.genre.clone(),
             year: self.year,
             duration: self.duration,
+            kind: self.kind,
         }
     }
 }
@@ -77,6 +82,16 @@ impl Playlist {
         self.entries.clear();
     }
 
+    pub fn reclassify(&mut self, cats: &CategorySettings) -> bool {
+        let mut changed = false;
+        for e in &mut self.entries {
+            let kind = classify(&e.path, cats);
+            changed |= kind != e.kind;
+            e.kind = kind;
+        }
+        changed
+    }
+
     #[cfg(test)]
     pub fn take_next(&mut self) -> Option<Entry> {
         let pos = self.entries.iter().position(|e| e.error.is_none())?;
@@ -113,8 +128,58 @@ pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
     out
 }
 
+// [PL-07]
+fn fold(word: &str) -> String {
+    word.chars()
+        .map(|c| match c {
+            'à' | 'â' | 'ä' | 'À' | 'Â' | 'Ä' => 'a',
+            'é' | 'è' | 'ê' | 'ë' | 'É' | 'È' | 'Ê' | 'Ë' => 'e',
+            'î' | 'ï' | 'Î' | 'Ï' => 'i',
+            'ô' | 'ö' | 'Ô' | 'Ö' => 'o',
+            'ù' | 'û' | 'ü' | 'Ù' | 'Û' | 'Ü' => 'u',
+            'ç' | 'Ç' => 'c',
+            c => c.to_ascii_lowercase(),
+        })
+        .collect()
+}
+
+// [PL-08]
+fn folder_matches(folder: &str, keywords: &[String]) -> bool {
+    let words: Vec<String> = folder
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(fold)
+        .collect();
+    keywords.iter().map(|k| fold(k.trim())).any(|k| {
+        !k.is_empty()
+            && words
+                .iter()
+                .any(|w| *w == k || w.strip_suffix('s') == Some(k.as_str()))
+    })
+}
+
+// [PL-09]
+pub fn classify(path: &Path, cats: &CategorySettings) -> Kind {
+    let folders: Vec<String> = path
+        .parent()
+        .into_iter()
+        .flat_map(|p| p.components())
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    for folder in folders.iter().rev() {
+        if folder_matches(folder, &cats.jingle_keywords) {
+            return Kind::Jingle;
+        }
+        if folder_matches(folder, &cats.pub_keywords) {
+            return Kind::Pub;
+        }
+    }
+    Kind::Morceau
+}
+
 // [PL-06]
-pub fn make_entry(path: &Path) -> Entry {
+pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
+    let kind = classify(path, cats);
     match probe_file(path) {
         Ok(info) => Entry {
             id: 0,
@@ -127,6 +192,7 @@ pub fn make_entry(path: &Path) -> Entry {
             duration: info.duration_secs,
             error: None,
             blocked: None,
+            kind,
         },
         Err(e) => Entry {
             id: 0,
@@ -136,6 +202,7 @@ pub fn make_entry(path: &Path) -> Entry {
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_default(),
             error: Some(e.to_string()),
+            kind,
             ..Default::default()
         },
     }
@@ -172,6 +239,27 @@ mod tests {
         assert_eq!(titles(&p), ["a", "x", "b", "c"]);
         assert_eq!(p.take_next().unwrap().title, "a");
         assert_eq!(p.total_secs(), 3.0);
+    }
+
+    #[test]
+    fn classifies_by_folder_keyword() {
+        let cats = CategorySettings::default();
+        let k = |p: &str| classify(Path::new(p), &cats);
+        assert_eq!(k("/radio/Jingles/station-id.mp3"), Kind::Jingle);
+        assert_eq!(k("/radio/JINGLE BLAST/id.mp3"), Kind::Jingle);
+        assert_eq!(k("/radio/Publicités/garage.mp3"), Kind::Pub);
+        assert_eq!(k("/radio/pub/garage.mp3"), Kind::Pub);
+        assert_eq!(k("/radio/Public Enemy/fight.mp3"), Kind::Morceau);
+        assert_eq!(k("/radio/Metal/jingle.mp3"), Kind::Morceau);
+        let custom = CategorySettings {
+            jingle_keywords: vec!["Habillage".into()],
+            pub_keywords: vec![],
+        };
+        assert_eq!(
+            classify(Path::new("/r/habillage/a.mp3"), &custom),
+            Kind::Jingle
+        );
+        assert_eq!(classify(Path::new("/r/pub/a.mp3"), &custom), Kind::Morceau);
     }
 
     #[test]

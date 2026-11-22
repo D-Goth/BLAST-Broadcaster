@@ -8,7 +8,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 
 ![BLAST Broadcaster — thème Black-Lab](docs/img/interface-black-lab.png)
 
-> Statut : **piliers 1 et 3**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX, Sound FX (36 pads) pilotage d'OBS, historique de diffusion avec règles de séparation, traitement audio antenne et effets de voix. Prochaines étapes : clockwheels (pilier 2) et chat (M8).
+> Statut : **piliers 1 et 3**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX, Sound FX (36 pads) pilotage d'OBS, historique de diffusion avec règles de séparation, traitement audio antenne et effets de voix. Historique typé (morceaux, jingles, pubs) avec box à jingles. Prochaines étapes : clockwheels (pilier 2) et chat (M8).
 
 ## Fonctionnalités prévues
 
@@ -121,7 +121,8 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 | Égaliseur micro | Grave, médium, aigu (±12 dB) et coupe-bas ; volume micro et volume musique séparés |
 | Effets voix | Sélecteur dans l'en-tête du Voice FX : Naturel, Podcast chaleureux, Voix radio FM, ASMR, Radio TSF 1930, Téléphone, Mégaphone (porte de bruit, filtres, saturation « lampe », compresseur, de-esser, souffle et craquements selon l'effet) |
 | Son antenne | Sélecteur **Son** du panneau MIX : Aucun traitement, Doux, Radio FM, Puissant (AGC, compresseur, limiteur à anticipation). Le VU **RÉD** montre la réduction de gain appliquée |
-| Historique | Onglet **HISTORIQUE** de la playlist : chaque titre passé à l'antenne avec l'heure, la durée réellement diffusée, l'état de la diffusion et le nombre d'auditeurs ; **Exporter CSV** (pour les déclarations de droits) |
+| Historique | Onglet **HISTORIQUE** de la playlist : chaque passage avec l'heure, le type (morceau, jingle, pub), la durée réellement diffusée, l'état de la diffusion et le nombre d'auditeurs ; filtres **Tout / Morceaux / Jingles / Pubs** ; **Exporter…** par catégorie et par période (mois en cours par défaut), pour les bilans et les déclarations de droits |
+| Jingles | Onglet **JINGLES** à côté de la Sound FX : **Dossier…** choisit le dossier de tes jingles, clic sur un jingle pour le lancer à l'antenne par-dessus la musique (re-clic = stop), volume et **STOP** propres. Les fichiers rangés dans un dossier nommé « Jingles » ou « Pubs » (mots-clés réglables dans Réglages → Automation) sont aussi reconnus dans la playlist |
 | Règles de séparation | **Réglages → Automation** : pas le même artiste avant 120 min, pas le même titre avant 240 min (réglables). L'auto-mix et le bouton Suivant sautent les titres en attente, marqués d'une horloge dans la playlist |
 | Soundboard | 36 pads sur 3 pages ; clic ou **F1 à F12** pour jouer (re-clic = stop), **STOP** coupe tout ; glisser un fichier (ou un titre de la playlist) sur un pad pour l'assigner ; clic droit : choisir, renommer, vider |
 | Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |

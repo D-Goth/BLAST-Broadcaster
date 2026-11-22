@@ -13,6 +13,8 @@ L'interface (M3a) a été avancée avant la diffusion (M2) pour que la suite s'a
 | **M2b** | Compteurs façon SAM dans la barre du haut : auditeurs en cours, pic d'auditeurs (max peak), durée de diffusion (timer du stream), par sortie et au total | Suivre son audience en direct ✅ |
 | **M3b** | Interface : forme d'onde, raccourcis clavier, préférences (sortie audio, dossier par défaut), sauvegarde de la playlist | Confort d'utilisation au quotidien |
 | **M4** | Pilier 1 — Bibliothèque SQLite (titres et tags), table `historique_diffusion`, règles de séparation artiste/titre appliquées par l'auto-mix, purge automatique, onglet Historique et export CSV | Laisser tourner la radio sans répétitions ✅ |
+| **M4c** | Historique typé (morceau, jingle, pub), tampons mémoire global et par catégorie, filtres, export par catégorie et période, box à jingles, interface de stockage prête pour MariaDB / MySQL | Bilans et déclarations par catégorie ✅ |
+| **M4d** | Pilote MariaDB / MySQL (base externe, plusieurs postes sur une même radio), correction du type titre par titre | Travailler à plusieurs, ou en déplacement |
 | **M4b** | Pilier 2 — Clockwheels : catégories, grilles horaires, sélection pondérée (genre, année, BPM) dans la bibliothèque | Programmer une grille d'antenne |
 | **M5** | **Voice FX** (micro) et **Sound FX** (soundboard) — voir ci-dessous. Reste : noise gate, compresseur voix, modes boucle/maintien des pads, couleurs de pads, pré-écoute casque | Animer une émission en direct ✅ (base) |
 | **M5b** | Platines façon SAM : volume et VU par platine, boutons Air/Cue, pitch, pochette, format du fichier ; file d'attente et historique séparés ; dispositions d'écran (bureaux A/B/C) | Parité avec SAM Broadcaster |

@@ -106,7 +106,8 @@ le document est généré et vérifié par `scripts/nomenclature.py`.
 
 **Commandes de l'interface** (`UiCommand`, JSON `{"type": …}`) : `refresh`, `add_paths`, `load_paths`, `remove`, `move`,
 `clear`, `load_entry`, `play`, `pause`, `stop`, `eject`, `seek`, `crossfader`, `crossfade`, `auto_mix`, `fade_seconds`,
-`cast_start`, `cast_stop`, `next`, `mic_open`, `pad_play`, `pad_stop_all`, `obs`, `history_clear` ([CTL-26]).
+`cast_start`, `cast_stop`, `next`, `mic_open`, `pad_play`, `pad_stop_all`, `jingle_play`, `jingle_stop_all`, `jingle_rescan`,
+`obs`, `history_clear` ([CTL-26]).
 
 **Auto-mix côté application** : dès qu'une platine est libre (vide ou terminée) et que l'autre est occupée,
 le contrôleur y charge le titre suivant de la playlist. Si les deux sont libres, il charge et lance la platine du côté du crossfader.
@@ -180,18 +181,33 @@ Les événements `CurrentProgramSceneChanged`, `StreamStateChanged`, `RecordStat
 
 ## Bibliothèque et historique (M4)
 
-`blast-library` ouvre une base SQLite (`blast.db`, dossier de données de l'application) en mode WAL :
+`blast-library` sépare trois couches :
+
+| Couche | Rôle |
+|---|---|
+| `HistoryStore` ([LIB-25]) | Interface de stockage. `SqliteStore` ([LIB-08]) l'implémente (`blast.db`, mode WAL) ; un pilote MariaDB / MySQL pourra s'y brancher pour une base externe partagée entre plusieurs postes |
+| `HistoryCache` ([LIB-30]) | Tampons en mémoire : un flux global et un tampon par catégorie (morceaux, jingles, pubs), 200 passages chacun par défaut (réglable) |
+| `History` ([LIB-36]) | Point d'entrée unique : chaque passage validé à l'antenne est écrit en base et dans les tampons en même temps ; au démarrage, les tampons sont pré-remplis depuis la base |
 
 | Table | Contenu |
 |---|---|
-| `tracks` | Chemin, titre, artiste, album, genre, année, durée, catégorie, nombre de passages, dernier passage |
-| `historique_diffusion` | Chaque passage à l'antenne : titre, artiste, heure de début, durée réellement diffusée, diffusion en direct ou non, auditeurs |
+| `tracks` | Chemin, titre, artiste, album, genre, année, durée, type, nombre de passages, dernier passage |
+| `historique_diffusion` | Chaque passage : type (`morceau`, `jingle`, `pub`), titre, artiste, heure de début, durée réellement diffusée, diffusion en direct ou non, auditeurs ; index par date, par type et date, par artiste et par fichier |
 
-Un titre est inscrit quand il devient le titre à l'antenne (côté du crossfader, en lecture) et clôturé
-quand il est remplacé ou arrêté. Les règles de séparation sont deux requêtes indexées sur l'historique
-(même fichier ou même titre+artiste ; même artiste, sans tenir compte des majuscules), plus une
-vérification de l'artiste déjà chargé sur l'autre platine. La purge (durée de conservation réglable)
-tourne toutes les heures dans le thread du contrôleur.
+La base garde tout l'historique (purge réglable, désactivable). Les tampons servent l'onglet Historique
+et ses filtres sans aucune requête. Les règles de séparation ([LIB-39]) s'appliquent aux morceaux
+seulement : elles sont vérifiées en mémoire tant que le tampon des morceaux couvre la fenêtre des règles,
+et ne passent par la base que pour des règles plus longues que ce qu'il contient (plusieurs jours).
+L'export CSV lit la base, filtré par catégorie et par période.
+
+**Types** : un fichier est jingle ou pub si l'un de ses dossiers porte un mot-clé réglable
+(« JINGLE », « PUB », « PUBLICITE » par défaut ; singulier ou pluriel, accents ignorés) ([PL-09]).
+Jingles et pubs ne changent pas le titre envoyé aux serveurs ni à OBS.
+
+**Box à jingles** : les fichiers du dossier choisi sont décodés à l'avance et joués à la demande
+par-dessus la musique, sur des voix « cart » du mixeur (numéros à partir de 1000, volume propre,
+arrêt séparé des pads) ([MIX-16], [CTL-131]). Chaque lancement est un passage de type jingle.
+Les sons de la Sound FX (pads) restent hors historique.
 
 ## Traitement audio (M6)
 

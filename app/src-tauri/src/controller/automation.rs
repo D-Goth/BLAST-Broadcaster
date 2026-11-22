@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use blast_core::DeckState;
-use blast_library::{Library, SeparationRules};
+use blast_library::{History, Kind, NewPlay, SeparationRules};
 
 use super::views::{HistoryView, EV_HISTORY};
 use super::{now_secs, Controller};
@@ -14,8 +14,6 @@ use crate::playlist::Entry;
 const PURGE_EVERY: Duration = Duration::from_secs(3600);
 // [CTL-62]
 const RULES_REFRESH_EVERY: Duration = Duration::from_secs(30);
-// [CTL-63]
-const HISTORY_ROWS: u32 = 300;
 
 // [CTL-64]
 pub struct CurrentPlay {
@@ -27,7 +25,7 @@ pub struct CurrentPlay {
 
 // [CTL-65]
 pub struct AutoState {
-    pub library: Option<Library>,
+    pub history: Option<History>,
     pub settings: AutomationSettings,
     pub current: Option<CurrentPlay>,
     pub last_purge: Option<Instant>,
@@ -35,9 +33,9 @@ pub struct AutoState {
 }
 
 impl AutoState {
-    pub fn new(library: Option<Library>, settings: AutomationSettings) -> Self {
+    pub fn new(history: Option<History>, settings: AutomationSettings) -> Self {
         Self {
-            library,
+            history,
             settings,
             current: None,
             last_purge: None,
@@ -80,7 +78,7 @@ pub fn pick_next<'a>(
 impl Controller {
     // [CTL-68]
     pub(super) fn violation_for(&self, e: &Entry, now: i64) -> Option<String> {
-        if e.error.is_some() {
+        if e.error.is_some() || e.kind != Kind::Morceau {
             return None;
         }
         let rules = self.auto.rules();
@@ -90,7 +88,8 @@ impl Controller {
         let artist = e.artist.trim();
         if rules.artist_minutes > 0 && !artist.is_empty() {
             for (i, side) in self.decks.iter().enumerate() {
-                let busy = side.meta.loading.is_some() || side.is_cued();
+                let busy = side.meta.kind == Kind::Morceau
+                    && (side.meta.loading.is_some() || side.is_cued());
                 if busy && side.meta.artist.trim().eq_ignore_ascii_case(artist) {
                     return Some(format!(
                         "même artiste déjà sur la platine {}",
@@ -99,8 +98,8 @@ impl Controller {
                 }
             }
         }
-        let lib = self.auto.library.as_ref()?;
-        match lib.check(&e.path.to_string_lossy(), &e.title, &e.artist, now, &rules) {
+        let history = self.auto.history.as_ref()?;
+        match history.check(&e.path.to_string_lossy(), &e.title, &e.artist, now, &rules) {
             Ok(v) => v.map(|v| v.describe()),
             Err(err) => {
                 journal::warn(format!("règles de séparation : {err}"));
@@ -143,28 +142,23 @@ impl Controller {
         }
         let mut changed = false;
         if let Some(cp) = self.auto.current.take() {
-            if let (Some(lib), Some(id)) = (&self.auto.library, cp.hist_id) {
-                if let Err(e) = lib.finish_play(id, cp.started.elapsed().as_secs_f64()) {
-                    journal::warn(format!("historique (fin de passage) : {e}"));
-                }
+            if let Some(id) = cp.hist_id {
+                self.finish_play(id, cp.started.elapsed().as_secs_f64());
             }
             changed = true;
         }
         if let Some(path) = now_path {
             let m = &self.decks[side].meta;
-            let listeners = self.cast.total_listeners();
-            let hist_id = self.auto.library.as_ref().and_then(|lib| {
-                lib.record_play(
-                    &path.to_string_lossy(),
-                    m.title.trim(),
-                    m.artist.trim(),
-                    now_secs(),
-                    self.cast.casting,
-                    listeners,
-                )
-                .map_err(|e| journal::warn(format!("historique (passage) : {e}")))
-                .ok()
-            });
+            let play = NewPlay {
+                path: path.to_string_lossy().into_owned(),
+                title: m.title.trim().to_string(),
+                artist: m.artist.trim().to_string(),
+                kind: m.kind,
+                started_at: now_secs(),
+                on_air: self.cast.casting,
+                listeners: self.cast.total_listeners(),
+            };
+            let hist_id = self.record_play(play);
             self.auto.current = Some(CurrentPlay {
                 deck: side,
                 path,
@@ -179,10 +173,31 @@ impl Controller {
         }
     }
 
+    // [CTL-121]
+    pub(super) fn record_play(&mut self, play: NewPlay) -> Option<i64> {
+        let history = self.auto.history.as_mut()?;
+        let (id, error) = history.record(play);
+        if let Some(e) = error {
+            journal::warn(format!(
+                "historique (passage gardé en mémoire seulement) : {e}"
+            ));
+        }
+        Some(id)
+    }
+
+    // [CTL-122]
+    pub(super) fn finish_play(&mut self, id: i64, duration: f64) {
+        if let Some(history) = self.auto.history.as_mut() {
+            if let Err(e) = history.finish(id, duration) {
+                journal::warn(format!("historique (fin de passage) : {e}"));
+            }
+        }
+    }
+
     // [CTL-71]
     pub(super) fn history_clear(&mut self) {
-        if let Some(lib) = &self.auto.library {
-            if let Err(e) = lib.clear_history() {
+        if let Some(history) = self.auto.history.as_mut() {
+            if let Err(e) = history.clear() {
                 self.notice("error", format!("Impossible de vider l'historique : {e}"));
             }
         }
@@ -196,6 +211,11 @@ impl Controller {
     // [CTL-72]
     pub(super) fn apply_automation(&mut self, settings: AutomationSettings) {
         if settings != self.auto.settings {
+            if let Some(history) = self.auto.history.as_mut() {
+                if let Err(e) = history.set_capacity(settings.memory_size as usize) {
+                    journal::warn(format!("historique (rechargement) : {e}"));
+                }
+            }
             self.auto.settings = settings;
             self.auto.last_purge = None;
             self.emit_playlist();
@@ -221,11 +241,11 @@ impl Controller {
     // [CTL-74]
     fn purge_history(&mut self) {
         let days = self.auto.settings.history_days;
-        let Some(lib) = self.auto.library.as_ref().filter(|_| days > 0) else {
+        let Some(history) = self.auto.history.as_mut().filter(|_| days > 0) else {
             return;
         };
         let cutoff = now_secs() - days as i64 * 86_400;
-        match lib.purge_older_than(cutoff) {
+        match history.purge_older_than(cutoff) {
             Ok(0) => {}
             Ok(n) => {
                 journal::info(format!(
@@ -239,21 +259,22 @@ impl Controller {
 
     // [CTL-75]
     pub(super) fn emit_history(&self) {
-        let (rows, stats) = match &self.auto.library {
-            Some(lib) => (
-                lib.recent(HISTORY_ROWS).unwrap_or_default(),
-                lib.stats().ok(),
-            ),
-            None => (Vec::new(), None),
+        let view = match &self.auto.history {
+            Some(h) => {
+                let rows = |k| h.rows(k).iter().cloned().collect();
+                HistoryView {
+                    all: rows(None),
+                    morceau: rows(Some(Kind::Morceau)),
+                    jingle: rows(Some(Kind::Jingle)),
+                    pub_: rows(Some(Kind::Pub)),
+                    stats: h.stats().ok(),
+                    current: self.auto.current.as_ref().and_then(|c| c.hist_id),
+                    capacity: self.auto.settings.memory_size,
+                }
+            }
+            None => HistoryView::default(),
         };
-        self.emit(
-            EV_HISTORY,
-            &HistoryView {
-                rows,
-                stats,
-                current: self.auto.current.as_ref().and_then(|c| c.hist_id),
-            },
-        );
+        self.emit(EV_HISTORY, &view);
     }
 }
 

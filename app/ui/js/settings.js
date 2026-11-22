@@ -104,7 +104,15 @@ function applySettings(view, keepSelection = true) {
   aura.elements.password.value = "";
   aura.elements.password.placeholder = view.aura_has_password ? "•••••• enregistré" : "vide si OBS n'en demande pas";
   fillDevices($("#audio-form").elements.device, view.devices, view.default_device, "Sortie par défaut du système", view.audio.device);
-  fillForm($("#automation-form"), { ...view.automation.rules, history_days: view.automation.history_days });
+  fillForm($("#automation-form"), {
+    ...view.automation.rules,
+    history_days: view.automation.history_days,
+    memory_size: view.automation.memory_size,
+  });
+  fillForm($("#categories-form"), {
+    jingle_keywords: view.categories.jingle_keywords.join(", "),
+    pub_keywords: view.categories.pub_keywords.join(", "),
+  });
   $("#library-info").textContent = view.library
     ? `Bibliothèque : ${view.library.tracks} titres connus, ${view.library.plays} diffusions enregistrées. Base : ${view.db_path}`
     : `Base : ${view.db_path}`;
@@ -149,7 +157,15 @@ function automationValues() {
   return {
     rules: { enabled: v.enabled, artist_minutes: n(v.artist_minutes), title_minutes: n(v.title_minutes) },
     history_days: n(v.history_days),
+    memory_size: n(v.memory_size),
   };
+}
+
+// [UI-84]
+function categoryValues() {
+  const v = formValues($("#categories-form"));
+  const list = (text) => text.split(",").map((w) => w.trim()).filter(Boolean);
+  return { jingle_keywords: list(v.jingle_keywords), pub_keywords: list(v.pub_keywords) };
 }
 
 // [UI-49]
@@ -246,5 +262,9 @@ export function init() {
   $("#automation-form").addEventListener("submit", (e) => {
     e.preventDefault();
     saveForm("#automation-result", () => invoke("save_automation", { automation: automationValues() }));
+  });
+  $("#categories-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveForm("#categories-result", () => invoke("save_categories", { categories: categoryValues() }));
   });
 }

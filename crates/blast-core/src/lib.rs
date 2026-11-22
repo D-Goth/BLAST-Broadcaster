@@ -10,7 +10,7 @@ pub use decode::{decode_file, is_audio_path, probe_file, DecodeError, Track, Tra
 pub use dsp::{
     master_preset, voice_preset, MasterParams, VoiceParams, MASTER_PRESETS, VOICE_PRESETS,
 };
-pub use mixer::{Command, DeckStatus, Event, MicParams, Mixer};
+pub use mixer::{Command, DeckStatus, Event, MicParams, Mixer, CART_BASE};
 
 // [CORE-01]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
