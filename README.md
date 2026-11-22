@@ -174,6 +174,8 @@ python3 scripts/nomenclature.py --check  # ce que vérifie la CI
 ```
 
 La CI GitHub (Linux et Windows) vérifie le formatage, clippy sans avertissement, les tests et la nomenclature.
+Elle utilise une version de Rust figée (`.github/workflows/ci.yml`) : on la monte volontairement, pour qu'une
+nouvelle règle de clippy ne casse pas la CI sans prévenir.
 
 ## Outil de test en ligne de commande
 

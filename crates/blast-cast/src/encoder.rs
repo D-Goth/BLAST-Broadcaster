@@ -57,8 +57,13 @@ impl Mp3Encoder {
             .reserve(mp3lame_encoder::max_required_buffer_size(frames.max(1)));
         let result = if self.mono {
             self.scratch.clear();
-            self.scratch
-                .extend(interleaved.chunks_exact(2).map(|f| (f[0] + f[1]) * 0.5));
+            self.scratch.extend(
+                interleaved
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|[l, r]| (l + r) * 0.5),
+            );
             self.inner
                 .encode_to_vec(MonoPcm(&self.scratch[..]), &mut self.out)
         } else {
