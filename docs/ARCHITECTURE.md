@@ -164,6 +164,28 @@ quand il est remplacé ou arrêté. Les règles de séparation sont deux requêt
 vérification de l'artiste déjà chargé sur l'autre platine. La purge (durée de conservation réglable)
 tourne toutes les heures dans le thread du contrôleur.
 
+## Traitement audio (M6)
+
+Tout est écrit dans `blast-core/src/dsp.rs`, sans dépendance externe et sans allocation dans le thread audio.
+
+```
+ voix : coupe-bas → porte de bruit → filtres passe-haut/passe-bas → grave / présence / aigu
+        → saturation (tanh, ou asymétrique façon lampe) → compresseur → de-esser → souffle et craquements
+        → égaliseur de l'utilisateur → gain
+ antenne : (platines + pads + micro) → AGC (vise un niveau RMS, ±9 à 12 dB, gelée sous -50 dB)
+           → compresseur (genou doux) → limiteur à anticipation de 3 ms (plafond -0,5 à -1 dBFS)
+```
+
+Le gain de la chaîne antenne est calculé sur le mélange antenne et appliqué aussi au mélange local
+(enceintes, casque) : les deux restent alignés, et l'animateur entend le même son que les auditeurs, micro en moins.
+
+| Préréglage antenne | AGC | Compresseur | Plafond |
+|---|---|---|---|
+| Aucun traitement | — | — | -0,3 dBFS |
+| Doux | — | 2:1 à -16 dB | -1 dBFS |
+| Radio FM | cible -17 dB | 3,5:1 à -20 dB | -0,8 dBFS |
+| Puissant | cible -14 dB | 5:1 à -22 dB | -0,5 dBFS |
+
 ## Dépendances envisagées
 
 | Besoin | Crate / bibliothèque | Licence |

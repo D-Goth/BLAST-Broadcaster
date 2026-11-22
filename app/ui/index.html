@@ -92,14 +92,17 @@
         <div class="automix-row">
           <button id="automix" class="btn toggle wide">AUTO-MIX</button>
         </div>
-        <label class="fade-input">
-          <span>Durée du fondu</span>
-          <span class="fade-field"><input id="fade-seconds" type="number" min="0" max="30" step="0.5" value="6"> s</span>
-        </label>
+        <div class="mix-row">
+          <label class="fade-input">
+            <span>Fondu</span>
+            <span class="fade-field"><input id="fade-seconds" type="number" min="0" max="30" step="0.5" value="6"> s</span>
+          </label>
+          <label class="fx-select master-select" title="Traitement du son envoyé à l'antenne (AGC, compresseur, limiteur)"><span>Son</span><select id="master-preset"></select></label>
+        </div>
         <div class="meters">
           <div class="meter"><span>L</span><div class="meter-bar"><div class="meter-fill" id="meter-l"></div></div></div>
           <div class="meter"><span>R</span><div class="meter-bar"><div class="meter-fill" id="meter-r"></div></div></div>
-          <div id="clip" class="clip">CLIP</div>
+          <div class="meter red-meter" title="Réduction de gain appliquée par le traitement antenne"><span>RÉD</span><div class="meter-bar"><div class="meter-fill" id="meter-red"></div></div><output id="red-v">0 dB</output><div id="clip" class="clip">CLIP</div></div>
         </div>
       </section>
 
@@ -164,8 +167,8 @@
     <aside class="side">
       <section class="fx voicefx" id="voicefx">
         <div class="fx-head">
-          <span class="fx-title">VOICE FX</span>
-          <span class="fx-sub muted" id="mic-name"></span>
+          <span class="fx-title" id="mic-name">VOICE FX</span>
+          <label class="fx-select head-select" title="Effet appliqué à la voix"><select id="voice-preset"></select></label>
         </div>
         <div class="vfx-main">
           <button id="mic-toggle" class="btn toggle mic" title="Verrouille le micro ouvert, comme un appui maintenu sur « Appuyer pour parler » (touche M). Re-cliquer pour le refermer."><svg class="ico"><use href="#i-lock"/></svg><span>VERROU</span></button>
