@@ -62,6 +62,22 @@ function renderMeters(st) {
 }
 
 // [UI-24]
+// [UI-99]
+function renderClock(clock) {
+  const title = $(".mixer-title");
+  const key = clock ? `${clock.id}|${clock.name}|${clock.color}` : "";
+  if (title.dataset.clock === key) return;
+  title.dataset.clock = key;
+  title.textContent = "MIX";
+  title.title = clock ? `Grille de l'heure : ${clock.name}` : "Aucune grille pour cette heure : l'auto-mix suit la playlist";
+  if (!clock) return;
+  const tag = document.createElement("span");
+  tag.className = "clock-tag";
+  tag.style.setProperty("--clock-color", clock.color || "var(--accent)");
+  tag.textContent = clock.name;
+  title.append(" · ", tag);
+}
+
 export function renderState() {
   const st = S.state;
   if (!st) return;
@@ -75,6 +91,7 @@ export function renderState() {
   $("#fade-btn").dataset.target = target;
   $("#automix").classList.toggle("on", st.automix);
   $("#automix").textContent = st.automix ? "AUTO-MIX ACTIF" : "AUTO-MIX";
+  renderClock(st.clock);
   if (document.activeElement !== $("#fade-seconds")) $("#fade-seconds").value = st.fade;
   renderMeters(st);
   $("#device").textContent = st.audio_error ? "Aucune sortie audio" : `Sortie : ${st.device} · ${st.sample_rate} Hz`;

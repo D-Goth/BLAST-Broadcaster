@@ -179,6 +179,20 @@ commandes ↔ messages avec un délai de lecture de 50 ms. En cas de coupure, no
 Les événements `CurrentProgramSceneChanged`, `StreamStateChanged`, `RecordStateChanged`,
 `InputMuteStateChanged`, `InputVolumeChanged` tiennent l'interface à jour quand on agit directement dans OBS.
 
+## Grilles horaires (pilier 2)
+
+La logique pure est dans `blast-library/src/rotation.rs` (testée sans interface ni audio) :
+catégories à règles ([LIB-46]), grilles ([LIB-49]), planning 7 × 24 ([LIB-52]), poids ([LIB-53]) et tirage
+pondéré ([LIB-54]). Le contrôleur (`controller/rotation.rs`) scanne les dossiers de la bibliothèque en
+arrière-plan (seuls les fichiers dont la date de modification a changé sont relus, [CTL-140]), garde les
+titres en mémoire, et, quand l'auto-mix est actif et qu'une grille couvre l'heure en cours, complète la
+playlist jusqu'à 3 titres d'avance ([CTL-145]). Chaque titre tiré porte l'étiquette de sa catégorie.
+
+Le tirage ([CTL-146]) exclut les titres déjà prévus ou sur une platine, applique les mêmes règles de
+séparation que la playlist ([CTL-150]) et évite de prévoir deux fois de suite le même artiste. Si une
+catégorie n'a plus aucun titre conforme, les règles sont assouplies pour elle (avertissement unique) ;
+si elle est vide, la case est passée (avertissement unique).
+
 ## Verre dépoli
 
 Purement dans l'interface, donc identique sous Linux et Windows : l'image choisie est copiée dans le dossier

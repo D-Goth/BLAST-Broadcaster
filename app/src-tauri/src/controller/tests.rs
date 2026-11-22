@@ -369,3 +369,82 @@ fn jingle_box_plays_and_logs_jingles() {
     assert_eq!(h.last(EV_JINGLES)["items"][1]["playing"], false);
     assert!(h.last(EV_HISTORY)["jingle"][0]["duration_played"].is_f64());
 }
+
+#[test]
+fn clockwheel_fills_the_playlist_from_the_library() {
+    let mut h = Harness::new("clock");
+    let rock = h.dir.join("Rock");
+    let jingles = h.dir.join("Jingles");
+    std::fs::create_dir_all(&rock).unwrap();
+    std::fs::create_dir_all(&jingles).unwrap();
+    for i in 0..4 {
+        write_wav(&rock.join(format!("r{i}.wav")), 44_100, 22_050);
+    }
+    write_wav(&jingles.join("id.wav"), 44_100, 4_410);
+    let mut cfg = AppConfig::default();
+    cfg.library.dirs = vec![h.dir.clone()];
+    cfg.rotation = blast_library::Rotation {
+        categories: vec![
+            blast_library::RotationCategory {
+                id: "rock".into(),
+                name: "Rock".into(),
+                color: "#ff0000".into(),
+                rule: blast_library::CategoryRule {
+                    folders: vec![rock.to_string_lossy().into_owned()],
+                    ..Default::default()
+                },
+            },
+            blast_library::RotationCategory {
+                id: "ident".into(),
+                name: "Habillage".into(),
+                color: "#00ff00".into(),
+                rule: blast_library::CategoryRule {
+                    kinds: vec![Kind::Jingle],
+                    ..Default::default()
+                },
+            },
+        ],
+        clocks: vec![blast_library::Clock {
+            id: "jour".into(),
+            name: "Journée".into(),
+            color: "#0000ff".into(),
+            slots: vec!["ident".into(), "rock".into(), "rock".into()],
+        }],
+        schedule: Vec::new(),
+        default_clock: Some("jour".into()),
+    };
+    h.c.handle(UiCommand::Config(Box::new(cfg)));
+    loop {
+        let w =
+            h.c.work_rx
+                .recv_timeout(Duration::from_secs(10))
+                .expect("scan");
+        let done = matches!(w, Work::LibraryDone { .. });
+        h.c.on_work(w);
+        if done {
+            break;
+        }
+    }
+    assert_eq!(h.last(EV_LIBRARY)["tracks"], 5);
+    assert_eq!(h.last(EV_STATE)["clock"]["name"], "Journée");
+    h.c.handle(UiCommand::AutoMix { enabled: true });
+    let loaded: Vec<Kind> = h.c.decks.iter().map(|d| d.meta.kind).collect();
+    assert_eq!(loaded, [Kind::Jingle, Kind::Morceau]);
+    h.c.fill_automix();
+    assert_eq!(h.c.playlist.entries().len(), 3);
+    assert!(h
+        .c
+        .playlist
+        .entries()
+        .iter()
+        .all(|e| e.kind == Kind::Morceau));
+    assert_eq!(h.notices("warn").len(), 1);
+    let paths: std::collections::HashSet<_> =
+        h.c.playlist
+            .entries()
+            .iter()
+            .map(|e| e.path.clone())
+            .collect();
+    assert_eq!(paths.len(), 3);
+    assert!(h.c.playlist.entries().iter().all(|e| e.slot.is_some()));
+}

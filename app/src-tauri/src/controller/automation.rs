@@ -78,14 +78,29 @@ pub fn pick_next<'a>(
 impl Controller {
     // [CTL-68]
     pub(super) fn violation_for(&self, e: &Entry, now: i64) -> Option<String> {
-        if e.error.is_some() || e.kind != Kind::Morceau {
+        if e.error.is_some() {
+            return None;
+        }
+        self.violation_of(&e.path.to_string_lossy(), &e.title, &e.artist, e.kind, now)
+    }
+
+    // [CTL-150]
+    pub(super) fn violation_of(
+        &self,
+        path: &str,
+        title: &str,
+        artist: &str,
+        kind: Kind,
+        now: i64,
+    ) -> Option<String> {
+        if kind != Kind::Morceau {
             return None;
         }
         let rules = self.auto.rules();
         if !rules.enabled {
             return None;
         }
-        let artist = e.artist.trim();
+        let artist = artist.trim();
         if rules.artist_minutes > 0 && !artist.is_empty() {
             for (i, side) in self.decks.iter().enumerate() {
                 let busy = side.meta.kind == Kind::Morceau
@@ -99,7 +114,7 @@ impl Controller {
             }
         }
         let history = self.auto.history.as_ref()?;
-        match history.check(&e.path.to_string_lossy(), &e.title, &e.artist, now, &rules) {
+        match history.check(path, title, artist, now, &rules) {
             Ok(v) => v.map(|v| v.describe()),
             Err(err) => {
                 journal::warn(format!("règles de séparation : {err}"));
@@ -158,6 +173,9 @@ impl Controller {
                 on_air: self.cast.casting,
                 listeners: self.cast.total_listeners(),
             };
+            if play.kind == Kind::Morceau {
+                self.rot.mark_played(&play.path, play.started_at);
+            }
             let hist_id = self.record_play(play);
             self.auto.current = Some(CurrentPlay {
                 deck: side,

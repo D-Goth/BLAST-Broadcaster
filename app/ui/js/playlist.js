@@ -26,6 +26,14 @@ export function renderPlaylist(total) {
         <button class="btn ghost" data-remove title="Retirer de la playlist">&#10005;</button>
       </span>`;
     $(".title", row).textContent = e.title;
+    if (e.slot) {
+      const tag = document.createElement("span");
+      tag.className = "slot-tag";
+      tag.style.setProperty("--slot-color", e.slot.color || "var(--accent)");
+      tag.textContent = e.slot.name;
+      tag.title = "Ajouté par la grille";
+      $(".title", row).prepend(tag);
+    }
     if (e.kind && e.kind !== "morceau") {
       const tag = document.createElement("span");
       tag.className = `kind-tag ${e.kind}`;

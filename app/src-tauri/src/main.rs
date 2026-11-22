@@ -99,7 +99,10 @@ fn main() {
             api::get_appearance,
             api::save_appearance,
             api::set_background,
-            api::clear_background
+            api::clear_background,
+            api::save_library_dirs,
+            api::save_rotation,
+            api::rotation_counts
         ])
         .run(tauri::generate_context!());
     if let Err(e) = result {

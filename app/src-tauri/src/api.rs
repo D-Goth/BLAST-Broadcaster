@@ -43,6 +43,8 @@ pub struct SettingsView {
     automation: AutomationSettings,
     categories: CategorySettings,
     jingles: JingleSettings,
+    library_dirs: Vec<PathBuf>,
+    rotation: blast_library::Rotation,
     library: Option<blast_library::LibraryStats>,
     db_path: String,
     voice: VoiceSettings,
@@ -77,6 +79,8 @@ impl App {
             automation: cfg.automation,
             categories: cfg.categories,
             jingles: cfg.jingles,
+            library_dirs: cfg.library.dirs,
+            rotation: cfg.rotation,
             library: blast_library::SqliteStore::open(&self.db_path)
                 .ok()
                 .and_then(|l| l.stats().ok()),
@@ -636,4 +640,52 @@ pub fn clear_background(state: tauri::State<'_, App>) -> Result<AppearanceView, 
     state.commit(|cfg| cfg.appearance.background = None)?;
     state.remove_backgrounds(None);
     Ok(state.appearance_view())
+}
+
+// [APP-41]
+#[tauri::command]
+pub fn save_library_dirs(
+    state: tauri::State<'_, App>,
+    dirs: Vec<PathBuf>,
+) -> Result<SettingsView, String> {
+    if let Some(missing) = dirs.iter().find(|p| !p.is_dir()) {
+        return Err(format!("Dossier introuvable : {}", missing.display()));
+    }
+    state.commit(move |cfg| cfg.library.dirs = dirs)?;
+    Ok(state.view(None))
+}
+
+// [APP-42]
+#[tauri::command]
+pub fn save_rotation(
+    state: tauri::State<'_, App>,
+    rotation: blast_library::Rotation,
+) -> Result<SettingsView, String> {
+    rotation.validate()?;
+    let mut rotation = rotation;
+    rotation
+        .schedule
+        .resize(blast_library::SCHEDULE_SLOTS, String::new());
+    state.commit(move |cfg| cfg.rotation = rotation)?;
+    Ok(state.view(None))
+}
+
+// [APP-43]
+#[tauri::command]
+pub async fn rotation_counts(
+    state: tauri::State<'_, App>,
+    rules: Vec<blast_library::CategoryRule>,
+) -> Result<Vec<usize>, String> {
+    let db = state.db_path.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let tracks = blast_library::SqliteStore::open(&db)
+            .and_then(|l| l.tracks())
+            .map_err(|e| e.to_string())?;
+        Ok(rules
+            .iter()
+            .map(|r| tracks.iter().filter(|t| r.matches(t)).count())
+            .collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

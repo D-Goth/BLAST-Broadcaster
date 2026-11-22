@@ -90,6 +90,7 @@ struct Tags {
     album: Option<String>,
     genre: Option<String>,
     year: Option<i32>,
+    bpm: Option<f32>,
 }
 
 // [DEC-03]
@@ -100,6 +101,17 @@ fn parse_year(v: &str) -> Option<i32> {
     } else {
         None
     }
+}
+
+// [DEC-13]
+fn parse_bpm(v: &str) -> Option<f32> {
+    let n: f32 = v
+        .split_whitespace()
+        .next()?
+        .replace(',', ".")
+        .parse()
+        .ok()?;
+    (20.0..=400.0).contains(&n).then_some(n)
 }
 
 // [DEC-04]
@@ -121,6 +133,7 @@ fn read_tags(rev: &MetadataRevision, t: &mut Tags) {
             Some(
                 StandardTagKey::Date | StandardTagKey::ReleaseDate | StandardTagKey::OriginalDate,
             ) if t.year.is_none() => t.year = parse_year(v),
+            Some(StandardTagKey::Bpm) if t.bpm.is_none() => t.bpm = parse_bpm(v),
             _ => {}
         }
     }
@@ -149,6 +162,7 @@ pub struct TrackInfo {
     pub album: Option<String>,
     pub genre: Option<String>,
     pub year: Option<i32>,
+    pub bpm: Option<f32>,
     pub duration_secs: Option<f64>,
     pub sample_rate: Option<u32>,
 }
@@ -217,6 +231,7 @@ pub fn probe_file(path: &Path) -> Result<TrackInfo, DecodeError> {
         album: tags.album,
         genre: tags.genre,
         year: tags.year,
+        bpm: tags.bpm,
         duration_secs,
         sample_rate: params.sample_rate,
     })

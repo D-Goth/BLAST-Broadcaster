@@ -304,6 +304,7 @@
         <button class="tab" data-tab="aura">Aura / OBS</button>
         <button class="tab" data-tab="audio">Audio</button>
         <button class="tab" data-tab="automation">Automation</button>
+        <button class="tab" data-tab="rotation">Grilles</button>
         <button class="tab" data-tab="appearance">Apparence</button>
         <button class="tab" data-tab="about">À propos</button>
         <div class="spacer"></div>
@@ -451,6 +452,93 @@
           </div>
         </form>
       </section>
+      <!-- [HTM-22] -->
+      <section class="tab-page hidden" data-page="rotation">
+        <div class="hfilters rot-nav">
+          <button class="chip-btn active" data-rot="library">Bibliothèque</button>
+          <button class="chip-btn" data-rot="categories">Catégories</button>
+          <button class="chip-btn" data-rot="clocks">Grilles</button>
+          <button class="chip-btn" data-rot="schedule">Planning</button>
+          <span class="spacer"></span>
+          <span class="form-result" id="rotation-result"></span>
+          <button type="button" class="btn accent small" id="rotation-save">Enregistrer les grilles</button>
+        </div>
+
+        <div class="rot-page" data-rotpage="library">
+          <p class="muted">Les grilles piochent dans ta bibliothèque : les dossiers ci-dessous sont lus en arrière-plan (tags, durée, BPM). Au démarrage, seuls les fichiers nouveaux ou modifiés sont relus.</p>
+          <div id="lib-dirs" class="rot-list"></div>
+          <div class="form-actions">
+            <button type="button" class="btn small" id="lib-add">Ajouter un dossier…</button>
+            <button type="button" class="btn ghost small" id="lib-rescan">Relire maintenant</button>
+            <span class="spacer"></span>
+            <span class="muted" id="lib-status"></span>
+          </div>
+        </div>
+
+        <div class="rot-page rot-split" data-rotpage="categories" hidden>
+          <div class="rot-side">
+            <div id="cat-list" class="rot-list"></div>
+            <button type="button" class="btn small" id="cat-add">Nouvelle catégorie</button>
+          </div>
+          <form class="form rot-form" id="cat-form">
+            <div class="grid2">
+              <label>Nom<input name="name" placeholder="Rock 90s"></label>
+              <label>Couleur<input type="color" name="color"></label>
+            </div>
+            <div class="rot-kinds">
+              <span class="muted">Type</span>
+              <label class="check"><input type="checkbox" name="k_morceau"> Morceaux</label>
+              <label class="check"><input type="checkbox" name="k_jingle"> Jingles</label>
+              <label class="check"><input type="checkbox" name="k_pub"> Pubs</label>
+            </div>
+            <label>Genres (le genre du titre contient l'un de ces mots, séparés par des virgules)<input name="genres" placeholder="rock, metal"></label>
+            <div class="grid4">
+              <label>Année de<input type="number" name="year_min" min="1900" max="2100"></label>
+              <label>à<input type="number" name="year_max" min="1900" max="2100"></label>
+              <label>BPM de<input type="number" name="bpm_min" min="20" max="400"></label>
+              <label>à<input type="number" name="bpm_max" min="20" max="400"></label>
+            </div>
+            <label>Dossiers (un par ligne ; vide = toute la bibliothèque)<textarea name="folders" rows="3"></textarea></label>
+            <div class="form-actions">
+              <button type="button" class="btn ghost small" id="cat-folder">Ajouter un dossier…</button>
+              <span class="spacer"></span>
+              <span class="muted" id="cat-count"></span>
+              <button type="button" class="btn danger small" id="cat-delete">Supprimer</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="rot-page rot-split" data-rotpage="clocks" hidden>
+          <div class="rot-side">
+            <div id="clock-list" class="rot-list"></div>
+            <button type="button" class="btn small" id="clock-add">Nouvelle grille</button>
+          </div>
+          <form class="form rot-form" id="clock-form">
+            <div class="grid2">
+              <label>Nom<input name="name" placeholder="Soirée Metal"></label>
+              <label>Couleur<input type="color" name="color"></label>
+            </div>
+            <p class="muted">Les cases sont jouées dans l'ordre, puis la grille recommence. Chaque case tire un titre de sa catégorie, en favorisant ceux qui ne sont pas passés depuis longtemps.</p>
+            <div id="clock-slots" class="clock-slots"></div>
+            <div class="form-actions">
+              <button type="button" class="btn small" id="slot-add">+ Ajouter une case</button>
+              <span class="spacer"></span>
+              <button type="button" class="btn danger small" id="clock-delete">Supprimer</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="rot-page" data-rotpage="schedule" hidden>
+          <p class="muted">Choisis une grille dans la palette, puis clique ou glisse sur les heures. Les heures vides utilisent la grille hors planning. L'auto-mix applique la grille de l'heure en cours.</p>
+          <div class="form-actions sched-tools">
+            <div id="sched-palette" class="sched-palette"></div>
+            <span class="spacer"></span>
+            <label class="sched-default">Hors planning<select id="sched-default"></select></label>
+          </div>
+          <div id="sched-grid" class="sched-grid"></div>
+        </div>
+      </section>
+
       <!-- [HTM-21] -->
       <section class="tab-page hidden" data-page="appearance">
         <form class="form" id="appearance-form">

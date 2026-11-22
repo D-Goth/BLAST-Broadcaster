@@ -2147,3 +2147,199 @@ definition = "Applique chaque mouvement de curseur immédiatement et enregistre 
 [codes.UI-89]
 titre = "Choix de l'image de fond"
 definition = "Sélecteur d'image du système, puis copie dans le dossier de BLAST."
+
+[codes.APP-41]
+titre = "Commande save_library_dirs"
+definition = "Enregistre les dossiers de la bibliothèque (vérifiés) ; le contrôleur les relit aussitôt."
+
+[codes.APP-42]
+titre = "Commande save_rotation"
+definition = "Valide puis enregistre catégories, grilles, planning et grille hors planning."
+
+[codes.APP-43]
+titre = "Commande rotation_counts"
+definition = "Compte les titres de la bibliothèque qui correspondent à des règles de catégorie, pour l'aperçu en direct."
+
+[codes.CFG-14]
+titre = "Réglages de la bibliothèque"
+definition = "Dossiers de musique lus pour alimenter les grilles."
+
+[codes.CTL-135]
+titre = "Avance de la playlist"
+definition = "Avec une grille active, l'auto-mix garde au moins 3 titres d'avance dans la playlist."
+
+[codes.CTL-136]
+titre = "Lot de scan"
+definition = "Les titres lus sont enregistrés en base par lots de 200."
+
+[codes.CTL-137]
+titre = "Tentatives de tirage"
+definition = "Nombre de tirages tentés si le fichier choisi a disparu du disque."
+
+[codes.CTL-138]
+titre = "État des grilles"
+definition = "Grilles, dossiers et titres de la bibliothèque en mémoire, scan en cours, grille et case courantes, tirage aléatoire et avertissements déjà donnés."
+
+[codes.CTL-139]
+titre = "Passage d'un titre"
+definition = "Met à jour en mémoire la date du dernier passage, pour que la pondération en tienne compte aussitôt."
+
+[codes.CTL-140]
+titre = "Scan de la bibliothèque"
+definition = "Parcourt les dossiers en arrière-plan et ne relit que les fichiers nouveaux ou modifiés (date de modification)."
+
+[codes.CTL-141]
+titre = "Chargement de la bibliothèque"
+definition = "Charge en mémoire les titres connus de la base."
+
+[codes.CTL-142]
+titre = "Relecture de la bibliothèque"
+definition = "Lance un scan, sauf s'il en tourne déjà un."
+
+[codes.CTL-143]
+titre = "Nouveaux réglages de grilles"
+definition = "Applique les grilles (la case courante repart du début) et relit la bibliothèque si ses dossiers changent."
+
+[codes.CTL-144]
+titre = "Grille de l'heure"
+definition = "Grille du planning pour le jour et l'heure locaux, ou grille hors planning."
+
+[codes.CTL-145]
+titre = "Remplissage par la grille"
+definition = "Ajoute à la playlist les titres tirés par la grille de l'heure jusqu'à avoir 3 titres d'avance ; la grille repart de sa première case quand elle change."
+
+[codes.CTL-146]
+titre = "Tirage dans une catégorie"
+definition = "Titres de la catégorie absents de la playlist et des platines, conformes aux règles de séparation (et pas du même artiste qu'un titre déjà prévu), tirés avec pondération ; si aucun n'est conforme, les règles sont assouplies avec un avertissement."
+
+[codes.CTL-147]
+titre = "Publication de la bibliothèque"
+definition = "Envoie dossiers, nombre de titres et état du scan."
+
+[codes.CTL-148]
+titre = "Vue de la grille active"
+definition = "Identifiant, nom et couleur de la grille de l'heure."
+
+[codes.CTL-149]
+titre = "Vue de la bibliothèque"
+definition = "Dossiers, nombre de titres, scan en cours et titres lus."
+
+[codes.CTL-150]
+titre = "Règles pour un titre"
+definition = "Vérifie un titre décrit par son fichier, son titre, son artiste et son type : platines puis historique ; commun à la playlist et aux grilles."
+
+[codes.DEC-13]
+titre = "BPM des tags"
+definition = "Lit un tempo entre 20 et 400 BPM dans le champ BPM des tags."
+
+[codes.HTM-22]
+titre = "Réglages : Grilles"
+definition = "Bibliothèque, catégories, grilles et planning de la semaine."
+
+[codes.LIB-41]
+titre = "Titre de la bibliothèque"
+definition = "Ce que les grilles savent d'un titre : tags, BPM, durée, type, nombre de passages et dernier passage."
+
+[codes.LIB-42]
+titre = "Liste des titres"
+definition = "Tous les titres connus de la base, pour les grilles."
+
+[codes.LIB-43]
+titre = "Dates de modification"
+definition = "Date de modification enregistrée pour chaque fichier, pour ne relire que ce qui a changé."
+
+[codes.LIB-44]
+titre = "Taille du planning"
+definition = "7 jours de 24 heures."
+
+[codes.LIB-45]
+titre = "Plafond d'ancienneté"
+definition = "Au-delà d'une semaine sans passage, tous les titres ont le même poids."
+
+[codes.LIB-46]
+titre = "Règles d'une catégorie"
+definition = "Types, mots de genre, années, BPM et dossiers ; un critère vide n'impose rien."
+
+[codes.LIB-47]
+titre = "Correspondance"
+definition = "Un titre entre dans la catégorie s'il remplit tous les critères renseignés ; sans année ou sans BPM, il ne passe pas un filtre d'année ou de BPM."
+
+[codes.LIB-48]
+titre = "Catégorie de grille"
+definition = "Nom, couleur et règles."
+
+[codes.LIB-49]
+titre = "Grille"
+definition = "Nom, couleur et suite ordonnée de catégories, jouée en boucle."
+
+[codes.LIB-50]
+titre = "Grilles et planning"
+definition = "Catégories, grilles, grille de chaque heure de la semaine et grille hors planning."
+
+[codes.LIB-51]
+titre = "Validation des grilles"
+definition = "Noms présents, identifiants uniques, aucune référence à une catégorie ou une grille supprimée."
+
+[codes.LIB-52]
+titre = "Grille d'une heure"
+definition = "Grille du planning pour un jour et une heure, sinon grille hors planning ; une grille sans case est ignorée."
+
+[codes.LIB-53]
+titre = "Poids d'un titre"
+definition = "Heures écoulées depuis le dernier passage (une semaine au plus), plus un : un titre oublié pèse beaucoup plus qu'un titre récent."
+
+[codes.LIB-54]
+titre = "Tirage pondéré"
+definition = "Choisit un titre au hasard proportionnellement à son poids."
+
+[codes.PL-10]
+titre = "Étiquette de grille"
+definition = "Nom et couleur de la catégorie qui a ajouté un titre à la playlist."
+
+[codes.PL-11]
+titre = "Date de modification d'un fichier"
+definition = "Date de modification en secondes, pour le scan incrémental."
+
+[codes.PL-12]
+titre = "Entrée depuis la bibliothèque"
+definition = "Construit une entrée de playlist à partir d'un titre de la bibliothèque, sans relire le fichier."
+
+[codes.UI-90]
+titre = "Sous-pages des grilles"
+definition = "Bascule entre Bibliothèque, Catégories, Grilles et Planning."
+
+[codes.UI-91]
+titre = "Affichage de la bibliothèque"
+definition = "Dossiers, état du scan et nombre de titres."
+
+[codes.UI-92]
+titre = "Liste des catégories"
+definition = "Catégories avec leur couleur, et formulaire de celle choisie."
+
+[codes.UI-93]
+titre = "Saisie d'une catégorie"
+definition = "Lit le formulaire en règles de catégorie, à chaque frappe."
+
+[codes.UI-94]
+titre = "Liste des grilles"
+definition = "Grilles avec leur couleur et leur nombre de cases."
+
+[codes.UI-95]
+titre = "Cases d'une grille"
+definition = "Catégorie de chaque case, montée, descente et retrait."
+
+[codes.UI-96]
+titre = "Planning"
+definition = "Palette des grilles et tableau des 7 jours × 24 heures, à peindre au clic ou au glisser."
+
+[codes.UI-97]
+titre = "Chargement des grilles"
+definition = "Copie de travail des grilles à l'ouverture des réglages."
+
+[codes.UI-98]
+titre = "Enregistrement des grilles"
+definition = "Envoie la copie de travail ; une erreur de validation s'affiche sans rien perdre."
+
+[codes.UI-99]
+titre = "Grille dans le mixeur"
+definition = "Affiche le nom et la couleur de la grille de l'heure à côté du titre MIX."

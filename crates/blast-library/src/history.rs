@@ -139,6 +139,14 @@ impl History {
     pub fn stats(&self) -> Result<LibraryStats, StoreError> {
         self.store.stats()
     }
+
+    pub fn tracks(&self) -> Result<Vec<crate::LibraryTrack>, StoreError> {
+        self.store.tracks()
+    }
+
+    pub fn track_mtimes(&self) -> Result<std::collections::HashMap<String, i64>, StoreError> {
+        self.store.track_mtimes()
+    }
 }
 
 #[cfg(test)]
