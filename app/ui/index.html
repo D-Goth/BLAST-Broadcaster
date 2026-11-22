@@ -7,6 +7,22 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="5.5" y="4.5" width="4.5" height="15" rx="1.2"/><rect x="14" y="4.5" width="4.5" height="15" rx="1.2"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="2"/></symbol>
+    <symbol id="i-eject" viewBox="0 0 24 24"><path d="M12 4.5l7.5 9h-15z"/><rect x="4.5" y="16" width="15" height="3.5" rx="1.2"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M3 5v14l7.5-7zM10.5 5v14l7.5-7z"/><rect x="18.5" y="5" width="2.8" height="14" rx="1"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="8.5" y="2.5" width="7" height="12" rx="3.5"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8 21.5h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="11" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
+    <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="11" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 7.6-1.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/></symbol>
+    <symbol id="i-replay" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M4 3.5v5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3.5 8h3.5l2-3h6l2 3h3.5v11.5h-17z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13.2" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M3.5 9h4l5-4.5v15l-5-4.5h-4z"/><path d="M16 9l5.5 6M21.5 9L16 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.2"/><path d="M3.8 21a8.2 8.2 0 0 1 16.4 0z"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="6.5" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="17.5" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  </svg>
   <header class="topbar">
     <div class="brand">
       <img src="assets/icon.png" alt="" class="brand-icon">
@@ -21,8 +37,8 @@
     </button>
     <button id="obs-pill" class="obs-pill" title="OBS (module Aura)">
       <span class="obs-dot"></span><span class="obs-name">OBS</span>
-      <span id="obs-live" class="obs-timer live hidden">&#9654; 00:00:00</span>
-      <span id="obs-rec" class="obs-timer rec hidden">&#9210; 00:00:00</span>
+      <span id="obs-live" class="obs-timer live hidden"><svg class="ico"><use href="#i-play"/></svg><span>00:00:00</span></span>
+      <span id="obs-rec" class="obs-timer rec hidden"><svg class="ico"><use href="#i-rec"/></svg><span>00:00:00</span></span>
     </button>
     <div class="topbar-right">
       <div id="clock" class="clock">00:00:00</div>
@@ -32,7 +48,7 @@
         <select id="theme-select"></select>
       </label>
       <button id="themes-folder" class="btn ghost small" title="Dossier des thèmes personnalisés">Thèmes…</button>
-      <button id="settings-btn" class="btn small" title="Réglages">&#9881; Réglages</button>
+      <button id="settings-btn" class="btn small" title="Réglages"><svg class="ico"><use href="#i-settings"/></svg> Réglages</button>
     </div>
   </header>
 
@@ -55,11 +71,11 @@
           <div class="fill"></div>
         </div>
         <div class="deck-controls">
-          <button class="btn icon" data-action="play" title="Lecture">&#9654;</button>
-          <button class="btn icon" data-action="pause" title="Pause">&#10074;&#10074;</button>
-          <button class="btn icon" data-action="stop" title="Stop (retour au début)">&#9632;</button>
-          <button class="btn icon" data-action="eject" title="Éjecter">&#9167;</button>
-          <button class="btn icon next" data-action="next" title="Titre suivant : fondu vers l'autre platine (charge le prochain titre de la playlist si besoin)">&#9197;</button>
+          <button class="btn icon" data-action="play" title="Lecture"><svg class="ico"><use href="#i-play"/></svg></button>
+          <button class="btn icon" data-action="pause" title="Pause"><svg class="ico"><use href="#i-pause"/></svg></button>
+          <button class="btn icon" data-action="stop" title="Stop (retour au début)"><svg class="ico"><use href="#i-stop"/></svg></button>
+          <button class="btn icon" data-action="eject" title="Éjecter"><svg class="ico"><use href="#i-eject"/></svg></button>
+          <button class="btn icon next" data-action="next" title="Titre suivant : fondu vers l'autre platine (charge le prochain titre de la playlist si besoin)"><svg class="ico"><use href="#i-next"/></svg></button>
         </div>
         <div class="drop-hint">Déposer pour charger la platine A</div>
       </article>
@@ -103,11 +119,11 @@
           <div class="fill"></div>
         </div>
         <div class="deck-controls">
-          <button class="btn icon" data-action="play" title="Lecture">&#9654;</button>
-          <button class="btn icon" data-action="pause" title="Pause">&#10074;&#10074;</button>
-          <button class="btn icon" data-action="stop" title="Stop (retour au début)">&#9632;</button>
-          <button class="btn icon" data-action="eject" title="Éjecter">&#9167;</button>
-          <button class="btn icon next" data-action="next" title="Titre suivant : fondu vers l'autre platine (charge le prochain titre de la playlist si besoin)">&#9197;</button>
+          <button class="btn icon" data-action="play" title="Lecture"><svg class="ico"><use href="#i-play"/></svg></button>
+          <button class="btn icon" data-action="pause" title="Pause"><svg class="ico"><use href="#i-pause"/></svg></button>
+          <button class="btn icon" data-action="stop" title="Stop (retour au début)"><svg class="ico"><use href="#i-stop"/></svg></button>
+          <button class="btn icon" data-action="eject" title="Éjecter"><svg class="ico"><use href="#i-eject"/></svg></button>
+          <button class="btn icon next" data-action="next" title="Titre suivant : fondu vers l'autre platine (charge le prochain titre de la playlist si besoin)"><svg class="ico"><use href="#i-next"/></svg></button>
         </div>
         <div class="drop-hint">Déposer pour charger la platine B</div>
       </article>
@@ -141,9 +157,9 @@
           <span class="fx-sub muted" id="mic-name"></span>
         </div>
         <div class="vfx-main">
-          <button id="mic-toggle" class="btn toggle mic" title="Verrouille le micro ouvert, comme un appui maintenu sur « Appuyer pour parler » (touche M). Re-cliquer pour le refermer.">&#128274; VERROU</button>
+          <button id="mic-toggle" class="btn toggle mic" title="Verrouille le micro ouvert, comme un appui maintenu sur « Appuyer pour parler » (touche M). Re-cliquer pour le refermer."><svg class="ico"><use href="#i-lock"/></svg><span>VERROU</span></button>
           <button id="ptt" class="ptt" title="Micro ouvert tant que le bouton ou la touche Espace est maintenu">
-            <span>&#127908; APPUYER POUR PARLER</span><small>maintenir · Espace</small>
+            <span><svg class="ico"><use href="#i-mic"/></svg> PARLER</span><small>maintenir le clic ou Espace</small>
           </button>
           <button id="duck-toggle" class="btn toggle" title="Baisse automatiquement la musique quand le micro est ouvert">AUTO</button>
         </div>
@@ -177,12 +193,12 @@
             <button class="btn small" id="obs-connect">Connecter</button>
           </div>
           <div class="obs-grid">
-            <button class="hw" id="obs-stream" data-obs="stream"><span class="led"></span><b>&#9654;</b><small>STREAM</small></button>
-            <button class="hw" id="obs-record" data-obs="record"><span class="led"></span><b>&#9210;</b><small>REC</small></button>
-            <button class="hw" id="obs-pause" data-obs="record_pause"><span class="led"></span><b>&#10074;&#10074;</b><small>PAUSE REC</small></button>
-            <button class="hw" id="obs-replay" data-obs="replay"><b>&#8635;</b><small>REPLAY</small></button>
-            <button class="hw" id="obs-snap" data-obs="snap"><b>&#9673;</b><small>SNAP</small></button>
-            <button class="hw" id="obs-mute"><span class="led"></span><b>&#128263;</b><small>MUTE</small></button>
+            <button class="hw" id="obs-stream" data-obs="stream"><span class="led"></span><b><svg class="ico"><use href="#i-play"/></svg></b><small>STREAM</small></button>
+            <button class="hw" id="obs-record" data-obs="record"><span class="led"></span><b><svg class="ico"><use href="#i-rec"/></svg></b><small>REC</small></button>
+            <button class="hw" id="obs-pause" data-obs="record_pause"><span class="led"></span><b><svg class="ico"><use href="#i-pause"/></svg></b><small>PAUSE REC</small></button>
+            <button class="hw" id="obs-replay" data-obs="replay"><b><svg class="ico"><use href="#i-replay"/></svg></b><small>REPLAY</small></button>
+            <button class="hw" id="obs-snap" data-obs="snap"><b><svg class="ico"><use href="#i-camera"/></svg></b><small>SNAP</small></button>
+            <button class="hw" id="obs-mute"><span class="led"></span><b><svg class="ico"><use href="#i-mute"/></svg></b><small>MUTE</small></button>
           </div>
           <div class="obs-label">SCÈNES</div>
           <div class="obs-scenes" id="obs-scenes"></div>

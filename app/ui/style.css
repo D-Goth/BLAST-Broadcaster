@@ -587,3 +587,16 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
 .cast-extra { font-family: var(--mono); font-size: 12px; letter-spacing: 0; padding-left: 8px; border-left: 1px solid var(--border); color: var(--text); }
 .cast-extra.hidden { display: none; }
 #cast-listeners b { color: var(--meter-low); }
+
+.ico { width: 1.1em; height: 1.1em; fill: currentColor; vertical-align: -0.18em; flex: none; }
+.btn.icon .ico { width: 17px; height: 17px; vertical-align: middle; }
+.hw b .ico { width: 15px; height: 15px; }
+#settings-btn .ico { width: 15px; height: 15px; margin-right: 2px; }
+.btn.mic { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 4px; }
+.btn.mic .ico { width: 16px; height: 16px; }
+.ptt span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 13px; }
+.ptt .ico { width: 15px; height: 15px; }
+.obs-timer { display: inline-flex; align-items: center; gap: 4px; }
+.obs-timer .ico { width: 11px; height: 11px; }
+#cast-listeners { display: inline-flex; align-items: center; gap: 4px; }
+#cast-listeners .ico { width: 13px; height: 13px; }
