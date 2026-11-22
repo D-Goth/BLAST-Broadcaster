@@ -5,6 +5,7 @@ const listen = T.event.listen;
 const AUDIO_EXT = ["mp3", "mp2", "m4a", "mp4", "aac", "alac", "flac", "ogg", "oga", "wav", "aif", "aiff", "aifc", "caf", "mka", "mkv", "webm"];
 
 const $ = (sel, root = document) => root.querySelector(sel);
+const ico = (name) => `<svg class="ico"><use href="#i-${name}"/></svg>`;
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const decks = { A: $('.deck[data-deck="A"]'), B: $('.deck[data-deck="B"]') };
@@ -65,7 +66,7 @@ function renderDeck(id, d) {
   if (d.artist) $(".deck-artist", el).textContent = d.artist;
   const remaining = Math.max(0, d.duration - d.position);
   $(".elapsed", el).textContent = fmt(d.position);
-  $(".duration", el).textContent = fmt(d.duration);
+  $(".duration", el).textContent = fmt(Math.round(d.duration));
   const rem = $(".remaining", el);
   rem.textContent = "-" + fmt(Math.round(remaining));
   rem.classList.toggle("warn", d.state === "playing" && remaining <= 10);
@@ -414,7 +415,7 @@ function renderCast() {
   const hasCount = cast.casting && cast.listeners != null;
   lis.classList.toggle("hidden", !hasCount);
   if (hasCount) {
-    lis.innerHTML = `&#128100; <b>${cast.listeners}</b> · max ${Math.max(cast.session_peak || 0, ...cast.outputs.map((o) => o.peak || 0))}`;
+    lis.innerHTML = `${ico("user")} <b>${cast.listeners}</b> · max ${Math.max(cast.session_peak || 0, ...cast.outputs.map((o) => o.peak || 0))}`;
     lis.title = "Auditeurs en cours · pic d'auditeurs (serveur et session)";
   }
   btn.title = cast.outputs.length
@@ -731,7 +732,7 @@ function renderVoice() {
   $("#mic-name").textContent = m.available ? m.name || "" : m.error ? "Micro indisponible" : "Aucun micro";
   $("#mic-name").title = m.error || m.name || "";
   $("#mic-toggle").classList.toggle("on", micLatched && m.open);
-  $("#mic-toggle").innerHTML = micLatched && m.open ? "&#128275; OUVERT" : "&#128274; VERROU";
+  $("#mic-toggle").innerHTML = micLatched && m.open ? `${ico("unlock")}<span>OUVERT</span>` : `${ico("lock")}<span>VERROU</span>`;
   $("#ptt").classList.toggle("active", m.open);
   $("#meter-mic").style.width = `${(dbWidth(m.peak) * 100).toFixed(1)}%`;
 }
@@ -1011,12 +1012,12 @@ function renderObsTimers() {
   const now = Date.now();
   const live = $("#obs-live");
   live.classList.toggle("hidden", !(obs.stream && obs.stream_since));
-  if (obs.stream && obs.stream_since) live.innerHTML = `&#9654; ${hms(now - obs.stream_since)}`;
+  if (obs.stream && obs.stream_since) $("span", live).textContent = hms(now - obs.stream_since);
   const rec = $("#obs-rec");
   rec.classList.toggle("hidden", !(obs.record && obs.record_since));
   rec.classList.toggle("paused", !!obs.record_paused);
-  if (obs.record && obs.record_since && !obs.record_paused) rec.innerHTML = `&#9210; ${hms(now - obs.record_since)}`;
-  if (obs.record_paused) rec.innerHTML = rec.innerHTML.replace("&#9210;", "&#10074;&#10074;").replace("⏺", "❚❚");
+  if (obs.record && obs.record_since && !obs.record_paused) $("span", rec).textContent = hms(now - obs.record_since);
+  $("use", rec).setAttribute("href", obs.record_paused ? "#i-pause" : "#i-rec");
 }
 
 function renderObs() {
@@ -1071,7 +1072,7 @@ function renderObs() {
   for (const i of obs.inputs) {
     const o = document.createElement("option");
     o.value = i.name;
-    o.textContent = (i.muted ? "🔇 " : "") + i.name;
+    o.textContent = (i.muted ? "[muet] " : "") + i.name;
     sel.appendChild(o);
   }
   sel.value = obsInput || "";
