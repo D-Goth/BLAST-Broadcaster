@@ -11,9 +11,13 @@ impl Controller {
     // [CTL-105]
     pub(super) fn scan(&self, paths: Vec<PathBuf>, index: Option<usize>, to_deck: Option<Deck>) {
         let tx = self.work_tx.clone();
+        let cats = self.categories.clone();
         thread::spawn(move || {
             let files = playlist::expand(&paths);
-            let entries = files.iter().map(|p| playlist::make_entry(p)).collect();
+            let entries = files
+                .iter()
+                .map(|p| playlist::make_entry(p, &cats))
+                .collect();
             let _ = tx.send(Work::Scanned {
                 entries,
                 index,
@@ -34,7 +38,7 @@ impl Controller {
             return;
         }
         let errors = entries.iter().filter(|e| e.error.is_some()).count();
-        if let Some(lib) = self.auto.library.as_mut() {
+        if let Some(lib) = self.auto.history.as_mut() {
             let metas: Vec<_> = entries
                 .iter()
                 .filter(|e| e.error.is_none())

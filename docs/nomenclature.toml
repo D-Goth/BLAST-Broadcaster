@@ -544,7 +544,7 @@ definition = "Ouvre la WebSocket, s'identifie et fait tourner la session."
 
 [codes.LIB-01]
 titre = "Version du schéma"
-definition = "Numéro de version de la base, enregistré dans la table meta."
+definition = "Numéro de version de la base (2 : type des passages et des titres), enregistré dans la table meta."
 
 [codes.LIB-02]
 titre = "Schéma SQLite"
@@ -552,7 +552,7 @@ definition = "Tables tracks, historique_diffusion et meta, avec leurs index."
 
 [codes.LIB-03]
 titre = "Titre en bibliothèque"
-definition = "Chemin, titre, artiste, album, genre, année et durée enregistrés."
+definition = "Chemin, titre, artiste, album, genre, année, durée et type enregistrés."
 
 [codes.LIB-04]
 titre = "Règles de séparation"
@@ -564,15 +564,15 @@ definition = "Artiste ou titre passé trop récemment, avec le délai restant ; 
 
 [codes.LIB-06]
 titre = "Ligne d'historique"
-definition = "Un passage : début, titre, artiste, durée écoutée, diffusion en direct et auditeurs."
+definition = "Un passage : début, type, titre, artiste, durée diffusée, diffusion en direct et auditeurs."
 
 [codes.LIB-07]
 titre = "Statistiques"
 definition = "Nombre de titres connus et de passages enregistrés."
 
 [codes.LIB-08]
-titre = "Bibliothèque"
-definition = "Base SQLite en mode WAL : titres connus et historique de diffusion."
+titre = "Base SQLite"
+definition = "Implémentation SQLite de l'interface de stockage, en mode WAL : titres connus et historique de diffusion."
 
 [codes.LIB-09]
 titre = "Ouverture de la base"
@@ -591,16 +591,17 @@ titre = "Fin de passage"
 definition = "Enregistre la durée réellement écoutée."
 
 [codes.LIB-13]
-titre = "Contrôle des règles"
-definition = "Vérifie par requêtes SQL si un titre ou son artiste est passé trop récemment."
+titre = "Recherche des derniers passages en SQL"
+definition = "Dernier passage d'un titre ou d'un artiste depuis une date, morceaux seulement, par requêtes indexées."
 
 [codes.LIB-14]
 titre = "Derniers passages"
-definition = "Renvoie les passages les plus récents."
+definition = "Renvoyait les derniers passages ; remplacé par les tampons mémoire [LIB-36]."
+retire = true
 
 [codes.LIB-15]
 titre = "Passages sur une période"
-definition = "Renvoie les passages entre deux instants."
+definition = "Renvoie les passages entre deux instants, éventuellement d'une seule catégorie."
 
 [codes.LIB-16]
 titre = "Purge"
@@ -620,7 +621,7 @@ definition = "Met un champ entre guillemets si nécessaire."
 
 [codes.LIB-20]
 titre = "Export CSV"
-definition = "Produit l'historique au format CSV avec des dates lisibles."
+definition = "Produit l'historique au format CSV avec le type et des dates lisibles."
 
 [codes.LIVE-01]
 titre = "Plateforme de chat"
@@ -788,7 +789,7 @@ definition = "Enregistre les règles de séparation et la durée de conservation
 
 [codes.APP-24]
 titre = "Commande export_history"
-definition = "Exporte l'historique en CSV."
+definition = "Exporte en CSV l'historique complet de la base, filtré par catégorie et par période."
 
 [codes.APP-25]
 titre = "Informations de l'application"
@@ -836,7 +837,7 @@ definition = "36 pads, en trois pages de 12."
 
 [codes.CFG-06]
 titre = "Réglages d'automation"
-definition = "Règles de séparation et durée de conservation de l'historique."
+definition = "Règles de séparation, durée de conservation de l'historique et nombre de passages gardés en mémoire par catégorie (200 par défaut)."
 
 [codes.CFG-07]
 titre = "Réglages de mise à jour"
@@ -1140,7 +1141,7 @@ definition = "Diffusion en cours, titre, sorties, auditeurs, pic de session et d
 
 [codes.CTL-39]
 titre = "Vue d'historique"
-definition = "Derniers passages, statistiques et passage en cours."
+definition = "Tampons mémoire envoyés à l'interface : flux global, morceaux, jingles et pubs, avec statistiques, passage en cours et taille des tampons."
 
 [codes.CTL-40]
 titre = "Platine vide"
@@ -1236,7 +1237,8 @@ definition = "Toutes les 30 s, la playlist est republiée pour mettre à jour le
 
 [codes.CTL-63]
 titre = "Taille de l'historique affiché"
-definition = "Nombre de passages envoyés à l'interface."
+definition = "Nombre de passages envoyés à l'interface ; remplacé par la taille des tampons mémoire [CFG-06]."
+retire = true
 
 [codes.CTL-64]
 titre = "Passage en cours"
@@ -1244,7 +1246,7 @@ definition = "Platine, fichier, ligne d'historique et heure de début."
 
 [codes.CTL-65]
 titre = "État d'automation"
-definition = "Bibliothèque, réglages, passage en cours et horloges d'entretien."
+definition = "Historique (base et tampons mémoire), réglages, passage en cours et horloges d'entretien."
 
 [codes.CTL-66]
 titre = "Choix du titre suivant"
@@ -1256,7 +1258,7 @@ definition = "Premier titre lisible conforme aux règles ; sinon le premier titr
 
 [codes.CTL-68]
 titre = "Motif d'attente"
-definition = "Même artiste déjà sur une platine, ou règle enfreinte selon l'historique."
+definition = "Même artiste déjà sur une platine, ou règle enfreinte selon l'historique ; jingles et pubs en sont exemptés."
 
 [codes.CTL-69]
 titre = "Titre suivant"
@@ -1264,7 +1266,7 @@ definition = "Retire de la playlist le titre choisi et prévient si les règles 
 
 [codes.CTL-70]
 titre = "Suivi des passages"
-definition = "Ouvre un passage quand un titre passe à l'antenne, le clôt avec sa durée quand il en sort."
+definition = "Ouvre un passage typé quand un titre passe à l'antenne, le clôt avec sa durée quand il en sort."
 
 [codes.CTL-71]
 titre = "Effacement de l'historique"
@@ -1272,7 +1274,7 @@ definition = "Vide l'historique et détache le passage en cours."
 
 [codes.CTL-72]
 titre = "Nouveaux réglages d'automation"
-definition = "Applique les règles et relance la purge."
+definition = "Applique les règles, redimensionne les tampons mémoire et relance la purge."
 
 [codes.CTL-73]
 titre = "Entretien"
@@ -1284,7 +1286,7 @@ definition = "Supprime les passages plus anciens que la durée de conservation."
 
 [codes.CTL-75]
 titre = "Publication de l'historique"
-definition = "Envoie les derniers passages et les statistiques."
+definition = "Envoie les tampons mémoire (global et par catégorie) sans interroger la base."
 
 [codes.CTL-76]
 titre = "Fréquence des statistiques"
@@ -1544,11 +1546,11 @@ definition = "Heure seule aujourd'hui, date et heure sinon."
 
 [codes.UI-29]
 titre = "Affichage de l'historique"
-definition = "Lignes de passages et statistiques."
+definition = "Reçoit les tampons et affiche celui du filtre choisi."
 
 [codes.UI-30]
 titre = "Export de l'historique"
-definition = "Demande un fichier puis exporte en CSV."
+definition = "Exporte la catégorie et la période choisies dans un fichier CSV."
 
 [codes.UI-31]
 titre = "Cible de dépôt"
@@ -1873,3 +1875,211 @@ definition = "Version, mises à jour et diagnostic."
 [codes.AURA-21]
 titre = "Pause de la boucle OBS"
 definition = "Attente quand la socket non bloquante n'a rien à lire ; évite les lectures à délai, dont l'état est indéterminé sous Windows après expiration."
+
+[codes.APP-31]
+titre = "Commande save_categories"
+definition = "Enregistre les mots-clés de dossier des jingles et des pubs ; la playlist est reclassée aussitôt."
+
+[codes.APP-32]
+titre = "Commande save_jingles"
+definition = "Enregistre le dossier des jingles (vérifié) et leur volume."
+
+[codes.CFG-11]
+titre = "Réglages des catégories"
+definition = "Mots-clés de dossier qui classent un fichier en jingle ou en pub."
+
+[codes.CFG-12]
+titre = "Réglages des jingles"
+definition = "Dossier de la box à jingles et volume des jingles."
+
+[codes.CTL-121]
+titre = "Enregistrement d'un passage"
+definition = "Point d'entrée unique des passages : base et tampons mémoire en même temps ; si la base échoue, le passage reste en mémoire et l'erreur va au journal."
+
+[codes.CTL-122]
+titre = "Fin d'un passage"
+definition = "Enregistre la durée réellement diffusée, en base et en mémoire."
+
+[codes.CTL-123]
+titre = "Vue d'un jingle"
+definition = "Nom, fichier, durée, prêt, en erreur ou en cours de lecture."
+
+[codes.CTL-124]
+titre = "Vue de la box à jingles"
+definition = "Jingles du dossier, dossier choisi et lecture en cours du dossier."
+
+[codes.CTL-125]
+titre = "Nombre maximal de jingles"
+definition = "Au-delà de 500 fichiers, le reste du dossier est ignoré."
+
+[codes.CTL-126]
+titre = "Jingle chargé"
+definition = "Entrée du dossier, son décodé ou erreur."
+
+[codes.CTL-127]
+titre = "Jingle en cours"
+definition = "Ligne d'historique et heure de départ d'un jingle lancé depuis la box."
+
+[codes.CTL-128]
+titre = "État de la box à jingles"
+definition = "Dossier, jingles, génération du dernier scan et jingles en cours."
+
+[codes.CTL-129]
+titre = "Synchronisation des jingles"
+definition = "Applique le volume des jingles et relit le dossier s'il a changé."
+
+[codes.CTL-130]
+titre = "Lecture du dossier de jingles"
+definition = "Arrête les jingles en cours, liste le dossier puis décode chaque jingle en arrière-plan ; un scan plus récent annule le précédent."
+
+[codes.CTL-131]
+titre = "Lancement d'un jingle"
+definition = "Joue le jingle à l'antenne par-dessus la musique, avec son propre volume, et l'inscrit dans l'historique ; un second clic l'arrête."
+
+[codes.CTL-132]
+titre = "Arrêt des jingles"
+definition = "Coupe tous les jingles en cours et clôt leurs passages."
+
+[codes.CTL-133]
+titre = "Fin d'un jingle"
+definition = "Clôt le passage du jingle avec sa durée réelle ; les fins de sons de pads restent hors historique."
+
+[codes.CTL-134]
+titre = "Publication de la box à jingles"
+definition = "Envoie la vue de la box à jingles."
+
+[codes.HTM-17]
+titre = "Box à jingles"
+definition = "Dossier, relecture, volume, arrêt et grille des jingles."
+
+[codes.HTM-18]
+titre = "Filtres de l'historique"
+definition = "Tout, Morceaux, Jingles, Pubs."
+
+[codes.HTM-19]
+titre = "Menu d'export"
+definition = "Catégorie et période de l'export CSV de l'historique."
+
+[codes.HTM-20]
+titre = "Réglages : Catégories"
+definition = "Mots-clés de dossier des jingles et des pubs."
+
+[codes.LIB-21]
+titre = "Type de passage"
+definition = "Morceau, jingle ou pub ; morceau par défaut."
+
+[codes.LIB-22]
+titre = "Erreur de stockage"
+definition = "Erreur d'une base, quelle qu'elle soit, décrite en texte."
+
+[codes.LIB-23]
+titre = "Nouveau passage"
+definition = "Ce qu'on enregistre au début d'un passage : fichier, titre, artiste, type, heure, diffusion en direct et auditeurs."
+
+[codes.LIB-24]
+titre = "Recherche des derniers passages"
+definition = "Ce que les règles de séparation demandent à une source : dernier passage d'un titre, dernier passage d'un artiste."
+
+[codes.LIB-25]
+titre = "Interface de stockage"
+definition = "Opérations attendues d'une base d'historique ; SQLite aujourd'hui, MariaDB ou MySQL pourront s'y brancher."
+
+[codes.LIB-26]
+titre = "Application des règles"
+definition = "Vérifie titre puis artiste sur n'importe quelle source (tampons mémoire ou base)."
+
+[codes.LIB-27]
+titre = "Index de la version 2"
+definition = "Index par type et par date de l'historique, et par type des titres."
+
+[codes.LIB-28]
+titre = "Migration"
+definition = "Ajoute la colonne type aux bases de version 1, sans perte de données."
+
+[codes.LIB-29]
+titre = "Tampon circulaire"
+definition = "Passages les plus récents en premier ; sait s'il contient tout l'historique ou seulement sa fin."
+
+[codes.LIB-30]
+titre = "Tampons mémoire"
+definition = "Tampon global et un tampon par catégorie, de même taille."
+
+[codes.LIB-31]
+titre = "Pré-remplissage"
+definition = "Charge un tampon depuis la base au démarrage."
+
+[codes.LIB-32]
+titre = "Ajout d'un passage"
+definition = "Met à jour le tampon global et celui de la catégorie."
+
+[codes.LIB-33]
+titre = "Durée d'un passage"
+definition = "Complète la durée diffusée dans tous les tampons."
+
+[codes.LIB-34]
+titre = "Couverture"
+definition = "Indique si les tampons contiennent tout ce qui s'est passé depuis une date."
+
+[codes.LIB-35]
+titre = "Recherche en mémoire"
+definition = "Dernier passage d'un titre ou d'un artiste dans le tampon des morceaux, sans requête."
+
+[codes.LIB-36]
+titre = "Historique"
+definition = "Base et tampons mémoire réunis derrière un point d'entrée unique."
+
+[codes.LIB-37]
+titre = "Ouverture de l'historique"
+definition = "Ouvre l'historique sur une base et pré-remplit les tampons ; la taille se change à chaud."
+
+[codes.LIB-38]
+titre = "Enregistrement d'un passage"
+definition = "Écrit en base et dans les tampons ; si la base échoue, le passage reste en mémoire avec un identifiant provisoire."
+
+[codes.LIB-39]
+titre = "Règles de séparation"
+definition = "En mémoire quand les tampons couvrent la fenêtre des règles, sinon en base (règles de plusieurs jours)."
+
+[codes.LIB-40]
+titre = "Historique pour l'export"
+definition = "Lit dans la base tout l'historique d'une période et d'une catégorie, sans limite."
+
+[codes.MIX-16]
+titre = "Voix des jingles"
+definition = "Les voix numérotées à partir de 1000 sont des jingles : volume propre, arrêt séparé des pads."
+
+[codes.PL-07]
+titre = "Normalisation d'un mot"
+definition = "Minuscules et accents retirés, pour comparer les noms de dossiers."
+
+[codes.PL-08]
+titre = "Mot-clé dans un dossier"
+definition = "Le nom de dossier contient-il un des mots-clés, au singulier ou au pluriel ?"
+
+[codes.PL-09]
+titre = "Classement d'un fichier"
+definition = "Jingle, pub ou morceau d'après le dossier le plus proche qui porte un mot-clé."
+
+[codes.UI-79]
+titre = "Bouton de jingle"
+definition = "Nom, durée, prêt, en lecture ou en erreur."
+
+[codes.UI-80]
+titre = "Affichage de la box à jingles"
+definition = "Grille des jingles et nom du dossier."
+
+[codes.UI-81]
+titre = "Choix du dossier de jingles"
+definition = "Sélecteur de dossier du système."
+
+[codes.UI-82]
+titre = "Liste de l'historique"
+definition = "Lignes du filtre choisi, avec le type de chaque passage."
+
+[codes.UI-83]
+titre = "Menu d'export"
+definition = "Ouvre le choix de la catégorie et de la période, le mois en cours par défaut."
+
+[codes.UI-84]
+titre = "Mots-clés saisis"
+definition = "Lit les mots-clés séparés par des virgules."

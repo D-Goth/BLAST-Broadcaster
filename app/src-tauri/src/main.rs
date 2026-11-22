@@ -87,6 +87,8 @@ fn main() {
             api::clear_pad,
             api::save_sfx_volume,
             api::save_automation,
+            api::save_categories,
+            api::save_jingles,
             api::export_history,
             api::save_master_preset,
             api::app_info,

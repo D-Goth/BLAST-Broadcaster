@@ -85,6 +85,7 @@ pub const PAD_COUNT: u16 = 36;
 pub struct AutomationSettings {
     pub rules: blast_library::SeparationRules,
     pub history_days: u32,
+    pub memory_size: u32,
 }
 
 impl Default for AutomationSettings {
@@ -92,6 +93,41 @@ impl Default for AutomationSettings {
         Self {
             rules: blast_library::SeparationRules::default(),
             history_days: 365,
+            memory_size: 200,
+        }
+    }
+}
+
+// [CFG-11]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CategorySettings {
+    pub jingle_keywords: Vec<String>,
+    pub pub_keywords: Vec<String>,
+}
+
+impl Default for CategorySettings {
+    fn default() -> Self {
+        Self {
+            jingle_keywords: vec!["JINGLE".into()],
+            pub_keywords: vec!["PUB".into(), "PUBLICITE".into()],
+        }
+    }
+}
+
+// [CFG-12]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JingleSettings {
+    pub dirs: Vec<PathBuf>,
+    pub volume_db: f32,
+}
+
+impl Default for JingleSettings {
+    fn default() -> Self {
+        Self {
+            dirs: Vec::new(),
+            volume_db: 0.0,
         }
     }
 }
@@ -124,6 +160,8 @@ pub struct AppConfig {
     pub aura: AuraSettings,
     pub outputs: Vec<OutputConfig>,
     pub updates: UpdateSettings,
+    pub categories: CategorySettings,
+    pub jingles: JingleSettings,
 }
 
 // [CFG-09]

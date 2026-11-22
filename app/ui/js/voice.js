@@ -77,16 +77,11 @@ export function pttUp() {
 }
 
 // [UI-59]
-export async function loadVoiceSettings() {
-  try {
-    const view = await invoke("get_settings");
-    fillSelect($("#voice-preset"), view.voice_presets, view.voice.preset);
-    fillSelect($("#master-preset"), view.master_presets, view.audio.master_preset);
-    applyVoice(view.voice);
-    $("#sfx-vol").value = view.soundboard.volume_db;
-  } catch (e) {
-    toast("error", String(e));
-  }
+export function applySettings(view) {
+  fillSelect($("#voice-preset"), view.voice_presets, view.voice.preset);
+  fillSelect($("#master-preset"), view.master_presets, view.audio.master_preset);
+  applyVoice(view.voice);
+  $("#sfx-vol").value = view.soundboard.volume_db;
 }
 
 export function init() {

@@ -2,6 +2,7 @@ mod automation;
 mod cast;
 mod commands;
 mod decks;
+mod jingles;
 mod obs;
 mod pads;
 mod playlist_ops;
@@ -18,12 +19,12 @@ use std::time::Duration;
 
 use blast_core::engine::Engine;
 use blast_core::{master_preset, Command, Event, Track};
-use blast_library::Library;
+use blast_library::{History, SqliteStore};
 use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::config::AppConfig;
+use crate::config::{AppConfig, CategorySettings};
 use crate::journal;
 use crate::playlist::{Entry, Playlist};
 use crate::secrets::Secrets;
@@ -35,6 +36,7 @@ pub use commands::{Deck, UiCommand};
 use automation::AutoState;
 use cast::CastState;
 use decks::DeckSide;
+use jingles::JingleState;
 use obs::ObsState;
 use pads::PadState;
 use views::{Notice, EV_NOTICE};
@@ -137,6 +139,15 @@ enum Work {
         id: String,
         result: Result<blast_cast::Listeners, String>,
     },
+    JinglesScanned {
+        generation: u64,
+        entries: Vec<Entry>,
+    },
+    JingleDecoded {
+        generation: u64,
+        index: usize,
+        result: Result<Track, String>,
+    },
 }
 
 // [CTL-06]
@@ -165,7 +176,7 @@ pub fn spawn(
         .name("blast-controller".into())
         .spawn(move || {
             let audio = Audio::start(&config);
-            let (library, warning) = open_library(&db_path, warning);
+            let (library, warning) = open_library(&db_path, config.automation.memory_size, warning);
             Controller::new(
                 Box::new(TauriUi(app)),
                 rx,
@@ -182,9 +193,15 @@ pub fn spawn(
 }
 
 // [CTL-09]
-fn open_library(db_path: &Path, warning: Option<String>) -> (Option<Library>, Option<String>) {
-    match Library::open(db_path) {
-        Ok(l) => (Some(l), warning),
+fn open_library(
+    db_path: &Path,
+    memory_size: u32,
+    warning: Option<String>,
+) -> (Option<History>, Option<String>) {
+    let opened = SqliteStore::open(db_path)
+        .and_then(|store| History::new(Box::new(store), memory_size as usize));
+    match opened {
+        Ok(h) => (Some(h), warning),
         Err(e) => {
             journal::error(format!("base {} : {e}", db_path.display()));
             (
@@ -225,6 +242,8 @@ struct Controller {
     mic: MicState,
     obs: ObsState,
     auto: AutoState,
+    jingles: JingleState,
+    categories: CategorySettings,
 }
 
 impl Controller {
@@ -236,7 +255,7 @@ impl Controller {
         config: AppConfig,
         startup_warning: Option<String>,
         audio: Audio,
-        library: Option<Library>,
+        library: Option<History>,
     ) -> Self {
         let (work_tx, work_rx) = unbounded();
         let mic = MicState::from_engine(audio.engine.as_ref());
@@ -266,6 +285,8 @@ impl Controller {
             mic,
             obs: ObsState::new(config.aura.clone()),
             auto: AutoState::new(library, config.automation.clone()),
+            jingles: JingleState::default(),
+            categories: config.categories.clone(),
         };
         c.send(Command::SetMasterParams(master_preset(&c.master_preset)));
         if c.obs.settings.auto_connect {
@@ -274,6 +295,7 @@ impl Controller {
         c.send_automix();
         c.apply_voice(&config.voice);
         c.sync_pads(&config.soundboard);
+        c.sync_jingles(&config.jingles);
         c
     }
 
@@ -362,6 +384,9 @@ impl Controller {
             UiCommand::MicOpen { open } => self.mic_open(open),
             UiCommand::PadPlay { index } => self.pad_play(index),
             UiCommand::PadStopAll => self.send(Command::StopAllSfx),
+            UiCommand::JinglePlay { index } => self.jingle_play(index),
+            UiCommand::JingleStopAll => self.jingle_stop_all(),
+            UiCommand::JingleRescan => self.rescan_jingles(),
             UiCommand::Obs(action) => self.handle_obs(action),
             UiCommand::HistoryClear => self.history_clear(),
             UiCommand::Config(cfg) => self.apply_config(*cfg),
@@ -408,6 +433,7 @@ impl Controller {
         self.emit_playlist();
         self.emit_cast();
         self.emit_pads();
+        self.emit_jingles();
         self.emit_obs();
         self.emit_history();
         if let Some(w) = self.startup_warning.take() {
@@ -425,6 +451,13 @@ impl Controller {
         self.apply_aura(cfg.aura.clone());
         self.apply_voice(&cfg.voice);
         self.sync_pads(&cfg.soundboard);
+        self.sync_jingles(&cfg.jingles);
+        if cfg.categories != self.categories {
+            self.categories = cfg.categories;
+            if self.playlist.reclassify(&self.categories) {
+                self.emit_playlist();
+            }
+        }
         self.apply_outputs(cfg.outputs);
     }
 
@@ -448,6 +481,15 @@ impl Controller {
                 result,
                 play,
             } => self.on_decoded(deck, job, result, play),
+            Work::JinglesScanned {
+                generation,
+                entries,
+            } => self.on_jingles_scanned(generation, entries),
+            Work::JingleDecoded {
+                generation,
+                index,
+                result,
+            } => self.on_jingle_decoded(generation, index, result),
         }
     }
 
@@ -489,7 +531,7 @@ impl Controller {
             }
             Event::AutoTransition { .. } | Event::CrossfadeDone { .. } => self.emit_state(),
             Event::SfxEnded(i) => {
-                self.pads.clear_playing(i);
+                self.on_voice_ended(i);
                 self.emit_state();
             }
         }

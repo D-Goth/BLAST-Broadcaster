@@ -16,6 +16,7 @@ pub const EV_CAST: &str = "blast://cast";
 pub const EV_PADS: &str = "blast://pads";
 pub const EV_OBS: &str = "blast://obs";
 pub const EV_HISTORY: &str = "blast://history";
+pub const EV_JINGLES: &str = "blast://jingles";
 
 // [CTL-28]
 #[derive(Serialize, Clone)]
@@ -150,9 +151,34 @@ pub struct CastView {
 }
 
 // [CTL-39]
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Default)]
 pub struct HistoryView {
-    pub rows: Vec<HistoryRow>,
+    pub all: Vec<HistoryRow>,
+    pub morceau: Vec<HistoryRow>,
+    pub jingle: Vec<HistoryRow>,
+    #[serde(rename = "pub")]
+    pub pub_: Vec<HistoryRow>,
     pub stats: Option<LibraryStats>,
     pub current: Option<i64>,
+    pub capacity: u32,
+}
+
+// [CTL-123]
+#[derive(Serialize, Clone)]
+pub struct JingleView {
+    pub index: usize,
+    pub name: String,
+    pub path: PathBuf,
+    pub duration: Option<f64>,
+    pub ready: bool,
+    pub error: Option<String>,
+    pub playing: bool,
+}
+
+// [CTL-124]
+#[derive(Serialize, Clone)]
+pub struct JinglesView {
+    pub items: Vec<JingleView>,
+    pub dirs: Vec<PathBuf>,
+    pub scanning: bool,
 }

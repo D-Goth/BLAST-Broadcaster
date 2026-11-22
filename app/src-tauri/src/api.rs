@@ -8,12 +8,13 @@ use serde::Serialize;
 use tauri::Manager;
 
 use crate::config::{
-    self, AppConfig, AudioSettings, AutomationSettings, PadConfig, SoundboardSettings,
-    VoiceSettings, PAD_COUNT,
+    self, AppConfig, AudioSettings, AutomationSettings, CategorySettings, JingleSettings,
+    PadConfig, SoundboardSettings, VoiceSettings, PAD_COUNT,
 };
 use crate::controller::UiCommand;
 use crate::secrets::{output_key, Secrets, Stored, AURA_KEY};
 use crate::{journal, themes, update};
+use blast_library::{HistoryStore, Kind};
 
 // [APP-03]
 pub struct App {
@@ -40,6 +41,8 @@ pub struct SettingsView {
     aura_has_password: bool,
     audio: AudioSettings,
     automation: AutomationSettings,
+    categories: CategorySettings,
+    jingles: JingleSettings,
     library: Option<blast_library::LibraryStats>,
     db_path: String,
     voice: VoiceSettings,
@@ -72,7 +75,9 @@ impl App {
             aura: cfg.aura,
             audio: cfg.audio,
             automation: cfg.automation,
-            library: blast_library::Library::open(&self.db_path)
+            categories: cfg.categories,
+            jingles: cfg.jingles,
+            library: blast_library::SqliteStore::open(&self.db_path)
                 .ok()
                 .and_then(|l| l.stats().ok()),
             db_path: self.db_path.display().to_string(),
@@ -335,15 +340,74 @@ pub fn save_automation(
     state: tauri::State<'_, App>,
     automation: AutomationSettings,
 ) -> Result<SettingsView, String> {
+    if automation.memory_size == 0 || automation.memory_size > 5000 {
+        return Err(
+            "La mémoire de l'historique doit être comprise entre 1 et 5000 passages.".into(),
+        );
+    }
     state.commit(move |cfg| cfg.automation = automation)?;
     Ok(state.view(None))
 }
 
+// [APP-31]
+#[tauri::command]
+pub fn save_categories(
+    state: tauri::State<'_, App>,
+    categories: CategorySettings,
+) -> Result<SettingsView, String> {
+    let clean = |list: Vec<String>| -> Vec<String> {
+        list.into_iter()
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty())
+            .collect()
+    };
+    let categories = CategorySettings {
+        jingle_keywords: clean(categories.jingle_keywords),
+        pub_keywords: clean(categories.pub_keywords),
+    };
+    state.commit(move |cfg| cfg.categories = categories)?;
+    Ok(state.view(None))
+}
+
+// [APP-32]
+#[tauri::command]
+pub fn save_jingles(
+    state: tauri::State<'_, App>,
+    dirs: Option<Vec<PathBuf>>,
+    volume_db: Option<f32>,
+) -> Result<(), String> {
+    if let Some(d) = &dirs {
+        if let Some(missing) = d.iter().find(|p| !p.is_dir()) {
+            return Err(format!("Dossier introuvable : {}", missing.display()));
+        }
+    }
+    state.commit(move |cfg| {
+        if let Some(d) = dirs {
+            cfg.jingles.dirs = d;
+        }
+        if let Some(v) = volume_db {
+            cfg.jingles.volume_db = v.clamp(-60.0, 6.0);
+        }
+    })
+}
+
 // [APP-24]
 #[tauri::command]
-pub fn export_history(state: tauri::State<'_, App>, path: String) -> Result<usize, String> {
-    let lib = blast_library::Library::open(&state.db_path).map_err(|e| e.to_string())?;
-    let rows = lib.recent(u32::MAX).map_err(|e| e.to_string())?;
+pub fn export_history(
+    state: tauri::State<'_, App>,
+    path: String,
+    kind: Option<String>,
+    from: Option<i64>,
+    to: Option<i64>,
+) -> Result<usize, String> {
+    let kind = match kind.as_deref() {
+        None | Some("") | Some("all") => None,
+        Some(k) => Some(Kind::parse(k).ok_or_else(|| format!("Catégorie inconnue : {k}"))?),
+    };
+    let lib = blast_library::SqliteStore::open(&state.db_path).map_err(|e| e.to_string())?;
+    let rows = lib
+        .history_between(from.unwrap_or(0), to.unwrap_or(i64::MAX), kind, u32::MAX)
+        .map_err(|e| e.to_string())?;
     let csv = blast_library::history_csv(&rows, |t| {
         chrono::DateTime::from_timestamp(t, 0)
             .map(|d| {

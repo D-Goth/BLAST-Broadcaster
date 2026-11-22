@@ -142,5 +142,6 @@ export function init() {
   });
   setInterval(renderTimers, 500);
   render();
-  showFx(store.get("blast.fxtab") === "obs" ? "obs" : "pads");
+  const tab = store.get("blast.fxtab");
+  showFx(["obs", "jingles"].includes(tab) ? tab : "pads");
 }

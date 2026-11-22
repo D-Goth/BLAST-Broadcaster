@@ -122,6 +122,11 @@ pub enum UiCommand {
         index: u16,
     },
     PadStopAll,
+    JinglePlay {
+        index: usize,
+    },
+    JingleStopAll,
+    JingleRescan,
     Obs(ObsAction),
     HistoryClear,
     #[serde(skip)]

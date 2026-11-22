@@ -5,6 +5,8 @@ use crate::{crossfade_gains, DeckId, DeckState, Track};
 
 // [MIX-01]
 pub const MAX_VOICES: usize = 16;
+// [MIX-16]
+pub const CART_BASE: u16 = 1000;
 // [MIX-02]
 const MIC_MAX_BACKLOG_MS: usize = 80;
 
@@ -47,7 +49,9 @@ pub enum Command {
     PlaySfx { pad: u16, track: Arc<Track> },
     StopSfx(u16),
     StopAllSfx,
+    StopAllCarts,
     SetSfxGain(f32),
+    SetCartGain(f32),
     SetMusicGain(f32),
     SetMicOpen(bool),
     SetMicParams(MicParams),
@@ -163,6 +167,7 @@ pub struct Mixer {
     voices: Vec<Voice>,
     retired: Vec<Arc<Track>>,
     sfx_gain: f32,
+    cart_gain: f32,
     music_gain: f32,
     mic: Option<rtrb::Consumer<f32>>,
     mic_open: bool,
@@ -200,6 +205,7 @@ impl Mixer {
             voices: Vec::with_capacity(MAX_VOICES),
             retired: Vec::with_capacity(MAX_VOICES * 2),
             sfx_gain: 1.0,
+            cart_gain: 1.0,
             music_gain: 1.0,
             mic: None,
             mic_open: false,
@@ -235,6 +241,18 @@ impl Mixer {
             .iter()
             .filter(|v| v.pad < 64)
             .fold(0u64, |m, v| m | (1u64 << v.pad))
+    }
+
+    fn stop_voices(&mut self, carts: bool) {
+        let mut i = 0;
+        while i < self.voices.len() {
+            if (self.voices[i].pad >= CART_BASE) == carts {
+                let v = self.voices.swap_remove(i);
+                self.retire(v.track);
+            } else {
+                i += 1;
+            }
+        }
     }
 
     fn retire(&mut self, track: Arc<Track>) {
@@ -327,11 +345,9 @@ impl Mixer {
                     self.retire(old.track);
                 }
             }
-            Command::StopAllSfx => {
-                while let Some(v) = self.voices.pop() {
-                    self.retire(v.track);
-                }
-            }
+            Command::StopAllSfx => self.stop_voices(false),
+            Command::StopAllCarts => self.stop_voices(true),
+            Command::SetCartGain(g) => self.cart_gain = g.max(0.0),
             Command::SetSfxGain(g) => self.sfx_gain = g.max(0.0),
             Command::SetMusicGain(g) => self.music_gain = g.max(0.0),
             Command::SetMicOpen(open) => self.mic_open = open,
@@ -494,12 +510,17 @@ impl Mixer {
                 self.retire(done.track);
                 continue;
             }
-            l += v.track.samples[2 * v.pos];
-            r += v.track.samples[2 * v.pos + 1];
+            let g = if v.pad >= CART_BASE {
+                self.cart_gain
+            } else {
+                self.sfx_gain
+            };
+            l += v.track.samples[2 * v.pos] * g;
+            r += v.track.samples[2 * v.pos + 1] * g;
             v.pos += 1;
             i += 1;
         }
-        (l * self.sfx_gain, r * self.sfx_gain)
+        (l, r)
     }
 
     // [MIX-13]
@@ -778,6 +799,31 @@ mod tests {
         assert_eq!(ev, vec![Event::SfxEnded(3)]);
         assert_eq!(m.sfx_mask(), 0);
         assert!(m.take_retired().is_some());
+    }
+
+    #[test]
+    fn carts_have_their_own_gain_and_stop() {
+        let mut m = Mixer::new(1000);
+        m.apply(Command::SetSfxGain(0.0));
+        m.apply(Command::SetCartGain(0.5));
+        m.apply(Command::PlaySfx {
+            pad: CART_BASE,
+            track: tone(50, 0.4),
+        });
+        m.apply(Command::PlaySfx {
+            pad: 1,
+            track: tone(50, 0.4),
+        });
+        assert_eq!(m.sfx_mask(), 1 << 1);
+        let (out, _) = run(&mut m, 2);
+        assert!((out[0] - 0.2).abs() < 1e-6);
+        m.apply(Command::StopAllSfx);
+        let (out, _) = run(&mut m, 2);
+        assert!((out[0] - 0.2).abs() < 1e-6);
+        m.apply(Command::StopAllCarts);
+        let (out, ev) = run(&mut m, 2);
+        assert_eq!(out[0], 0.0);
+        assert!(ev.is_empty());
     }
 
     #[test]

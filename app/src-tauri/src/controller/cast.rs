@@ -132,6 +132,9 @@ impl Controller {
             return String::new();
         }
         let m = &self.decks[side].meta;
+        if m.kind != blast_library::Kind::Morceau {
+            return String::new();
+        }
         match (m.artist.trim(), m.title.trim()) {
             ("", t) => t.to_string(),
             (a, t) => format!("{a} - {t}"),
