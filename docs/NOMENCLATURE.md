@@ -8846,8 +8846,8 @@ export function applyAppearance() {
   root.style.setProperty("--glass-dim", String(s.dim));
   const light = luminance(colors.bg) > 0.5;
   root.style.setProperty("--glass-edge", light ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 255, 255, 0.12)");
-  const panels = { bg: [colors.bg, s.opacity * 0.6], panel: [colors.panel, s.opacity], "panel-alt": [colors.panel_alt, Math.min(0.95, s.opacity + 0.1)] };
-  for (const [name, [color, alpha]] of Object.entries(panels)) {
+  root.style.setProperty("--glass-shadow", light ? "rgba(255, 255, 255, 0.7)" : "rgba(0, 0, 0, 0.55)");
+  if (colors.text_muted && colors.text) {
 …
 ```
 
@@ -8855,7 +8855,7 @@ export function applyAppearance() {
 
 Applique chaque mouvement de curseur immédiatement et enregistre 300 ms après le dernier.
 
-`app/ui/js/appearance.js` ligne 69
+`app/ui/js/appearance.js` ligne 73
 
 ```js
 function editLive() {
@@ -8877,7 +8877,7 @@ function editLive() {
 
 Sélecteur d'image du système, puis copie dans le dossier de BLAST.
 
-`app/ui/js/appearance.js` ligne 86
+`app/ui/js/appearance.js` ligne 90
 
 ```js
 async function chooseImage() {
@@ -8993,7 +8993,7 @@ Cadres, effet Rainbow, temps, barre de progression et zone de fondu.
 
 Crossfader, fondu, préréglage antenne, vumètres et témoin CLIP.
 
-`app/ui/style.css` ligne 294
+`app/ui/style.css` ligne 301
 
 ```css
 .mixer {
@@ -9011,7 +9011,7 @@ Crossfader, fondu, préréglage antenne, vumètres et témoin CLIP.
 
 Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
-`app/ui/style.css` ligne 343
+`app/ui/style.css` ligne 350
 
 ```css
 .playlist {
@@ -9029,7 +9029,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Étiquette qui suit le pointeur et curseur pendant le glisser.
 
-`app/ui/style.css` ligne 420
+`app/ui/style.css` ligne 427
 
 ```css
 .drag-ghost {
@@ -9051,7 +9051,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
-`app/ui/style.css` ligne 439
+`app/ui/style.css` ligne 446
 
 ```css
 .fx { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -9061,7 +9061,7 @@ Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
 VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
-`app/ui/style.css` ligne 457
+`app/ui/style.css` ligne 464
 
 ```css
 .vfx-main { display: grid; grid-template-columns: 78px 1fr 60px; gap: 8px; height: 48px; }
@@ -9071,7 +9071,7 @@ VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
 Grille de pads, état de lecture et menu de pad.
 
-`app/ui/style.css` ligne 494
+`app/ui/style.css` ligne 501
 
 ```css
 .soundfx { flex: 1; min-height: 160px; }
@@ -9081,7 +9081,7 @@ Grille de pads, état de lecture et menu de pad.
 
 Boutons matériels, scènes et sources audio.
 
-`app/ui/style.css` ligne 536
+`app/ui/style.css` ligne 543
 
 ```css
 .obs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -9091,7 +9091,7 @@ Boutons matériels, scènes et sources audio.
 
 Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos.
 
-`app/ui/style.css` ligne 564
+`app/ui/style.css` ligne 571
 
 ```css
 .about-head { display: flex; flex-direction: column; gap: 4px; }
@@ -9101,7 +9101,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 635
+`app/ui/style.css` ligne 642
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -9111,7 +9111,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 654
+`app/ui/style.css` ligne 661
 
 ```css
 .statusbar {
@@ -9129,7 +9129,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 687
+`app/ui/style.css` ligne 696
 
 ```css
 .hidden { display: none !important; }
@@ -9139,7 +9139,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 665
+`app/ui/style.css` ligne 672
 
 ```css
 html.glass body {

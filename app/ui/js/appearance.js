@@ -40,6 +40,10 @@ export function applyAppearance() {
   root.style.setProperty("--glass-dim", String(s.dim));
   const light = luminance(colors.bg) > 0.5;
   root.style.setProperty("--glass-edge", light ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 255, 255, 0.12)");
+  root.style.setProperty("--glass-shadow", light ? "rgba(255, 255, 255, 0.7)" : "rgba(0, 0, 0, 0.55)");
+  if (colors.text_muted && colors.text) {
+    root.style.setProperty("--text-muted", s.glass ? `color-mix(in srgb, ${colors.text_muted} 60%, ${colors.text})` : colors.text_muted);
+  }
   const panels = { bg: [colors.bg, s.opacity * 0.6], panel: [colors.panel, s.opacity], "panel-alt": [colors.panel_alt, Math.min(0.95, s.opacity + 0.1)] };
   for (const [name, [color, alpha]] of Object.entries(panels)) {
     if (color) root.style.setProperty(`--${name}`, s.glass ? rgba(color, alpha) : color);
