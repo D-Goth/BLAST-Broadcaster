@@ -258,6 +258,7 @@
         <button class="tab" data-tab="aura">Aura / OBS</button>
         <button class="tab" data-tab="audio">Audio</button>
         <button class="tab" data-tab="automation">Automation</button>
+        <button class="tab" data-tab="about">À propos</button>
         <div class="spacer"></div>
         <div class="store-info muted" id="store-info"></div>
         <button class="btn ghost small" id="settings-close">Fermer</button>
@@ -384,12 +385,37 @@
           </div>
         </form>
       </section>
+      <section class="tab-page hidden" data-page="about">
+        <div class="form about">
+          <div class="about-head">
+            <div class="about-name">BLAST Broadcaster</div>
+            <div class="muted">Black-Lab Audio Streaming Tool · version <b id="about-version"></b> · <span id="about-platform"></span></div>
+          </div>
+          <div class="form-section">Mises à jour</div>
+          <p class="muted">BLAST interroge les versions publiées sur GitHub et te prévient quand une nouvelle est disponible. Rien n'est téléchargé ni installé automatiquement. Pour mettre à jour, dans le dossier du projet :</p>
+          <pre class="about-cmd" id="about-upgrade"></pre>
+          <label class="check"><input type="checkbox" id="about-auto"> Vérifier au démarrage de BLAST</label>
+          <div class="form-actions">
+            <button type="button" class="btn ghost small" id="about-repo">Projet sur GitHub</button>
+            <span class="spacer"></span>
+            <span class="form-result" id="about-result"></span>
+            <button type="button" class="btn small hidden" id="about-release">Voir la version</button>
+            <button type="button" class="btn accent small" id="about-check">Vérifier maintenant</button>
+          </div>
+          <div class="form-section">Diagnostic</div>
+          <div class="about-paths">
+            <span class="muted">Journal</span><code id="about-log"></code><button type="button" class="btn ghost small" id="about-open-log">Ouvrir</button>
+            <span class="muted">Réglages</span><code id="about-config"></code><button type="button" class="btn ghost small" id="about-open-config">Ouvrir</button>
+          </div>
+          <p class="muted">En cas de souci, joins le fichier journal (blast.log) à ton rapport : il ne contient aucun mot de passe.</p>
+        </div>
+      </section>
     </div>
   </div>
 
   <div id="toasts" class="toasts"></div>
   <div id="ghost" class="drag-ghost"></div>
 
-  <script src="app.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

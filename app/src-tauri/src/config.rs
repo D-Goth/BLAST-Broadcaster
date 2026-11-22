@@ -90,6 +90,22 @@ impl Default for AutomationSettings {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UpdateSettings {
+    pub check_on_start: bool,
+    pub skipped: Option<String>,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self {
+            check_on_start: true,
+            skipped: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
@@ -99,6 +115,7 @@ pub struct AppConfig {
     pub automation: AutomationSettings,
     pub aura: AuraSettings,
     pub outputs: Vec<OutputConfig>,
+    pub updates: UpdateSettings,
 }
 
 pub fn load(path: &Path) -> (AppConfig, Option<String>) {

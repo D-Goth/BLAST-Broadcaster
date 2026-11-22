@@ -1,0 +1,54 @@
+import { $, S, listen, toast, invoke } from "./core.js";
+import * as theme from "./theme.js";
+import * as decks from "./decks.js";
+import * as playlist from "./playlist.js";
+import * as dnd from "./dnd.js";
+import * as cast from "./cast.js";
+import * as settings from "./settings.js";
+import * as voice from "./voice.js";
+import * as pads from "./pads.js";
+import * as obs from "./obs.js";
+import * as shortcuts from "./shortcuts.js";
+import * as update from "./update.js";
+
+function tickClock() {
+  $("#clock").textContent = new Date().toLocaleTimeString("fr-FR", { hour12: false });
+}
+
+async function subscribe() {
+  await listen("blast://state", (e) => {
+    S.state = e.payload;
+    decks.renderState();
+  });
+  await listen("blast://playlist", (e) => {
+    S.entries = e.payload.entries;
+    playlist.renderPlaylist(e.payload.total);
+  });
+  await listen("blast://notice", (e) => toast(e.payload.level, e.payload.message));
+  await listen("blast://obs", (e) => obs.setObs(e.payload));
+  await listen("blast://history", (e) => playlist.setHistory(e.payload));
+  await listen("blast://pads", (e) => pads.setPads(e.payload));
+  await listen("blast://cast", (e) => cast.setCast(e.payload));
+}
+
+async function start() {
+  for (const m of [theme, decks, playlist, cast, settings, voice, pads, obs, shortcuts, update]) m.init();
+  $("#themes-folder").addEventListener("click", async () => {
+    try {
+      const dir = await invoke("themes_dir");
+      toast("info", `Dépose tes thèmes .toml dans : ${dir} — puis relance BLAST.`);
+    } catch (e) {
+      toast("error", String(e));
+    }
+  });
+  setInterval(tickClock, 500);
+  tickClock();
+  await subscribe();
+  await theme.loadThemes();
+  await voice.loadVoiceSettings();
+  await dnd.init();
+  await invoke("blast", { cmd: { type: "refresh" } }).catch((e) => toast("error", String(e)));
+  update.checkOnStart();
+}
+
+start();
