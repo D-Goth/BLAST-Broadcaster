@@ -304,6 +304,7 @@
         <button class="tab" data-tab="aura">Aura / OBS</button>
         <button class="tab" data-tab="audio">Audio</button>
         <button class="tab" data-tab="automation">Automation</button>
+        <button class="tab" data-tab="appearance">Apparence</button>
         <button class="tab" data-tab="about">À propos</button>
         <div class="spacer"></div>
         <div class="store-info muted" id="store-info"></div>
@@ -450,6 +451,31 @@
           </div>
         </form>
       </section>
+      <!-- [HTM-21] -->
+      <section class="tab-page hidden" data-page="appearance">
+        <form class="form" id="appearance-form">
+          <p class="muted">Verre dépoli : BLAST s'affiche sur une image de fond de ton choix, et ses panneaux deviennent translucides et floutent l'image derrière eux. L'image est copiée dans le dossier de BLAST. Les réglages s'appliquent en direct ; le flou demande un peu de carte graphique : décoche si l'interface ralentit.</p>
+          <label class="check"><input type="checkbox" name="glass"> Activer l'effet verre dépoli</label>
+          <div class="bg-pick">
+            <div class="bg-thumb" id="bg-thumb"></div>
+            <div class="bg-actions">
+              <button type="button" class="btn small" id="bg-choose">Choisir une image…</button>
+              <button type="button" class="btn ghost small" id="bg-clear">Retirer l'image</button>
+              <span class="muted" id="bg-name">Sans image : dégradé aux couleurs du thème</span>
+            </div>
+          </div>
+          <div class="ap-sliders">
+            <label>Flou</label><input type="range" name="blur" min="0" max="40" step="1"><span id="ap-blur-v"></span>
+            <label>Opacité des panneaux</label><input type="range" name="opacity" min="0.15" max="0.95" step="0.05"><span id="ap-opacity-v"></span>
+            <label>Assombrir le fond</label><input type="range" name="dim" min="0" max="0.85" step="0.05"><span id="ap-dim-v"></span>
+          </div>
+          <div class="form-actions">
+            <span class="spacer"></span>
+            <span class="form-result" id="appearance-result"></span>
+          </div>
+        </form>
+      </section>
+
       <!-- [HTM-16] -->
       <section class="tab-page hidden" data-page="about">
         <div class="form about">

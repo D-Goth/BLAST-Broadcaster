@@ -8,8 +8,8 @@ use serde::Serialize;
 use tauri::Manager;
 
 use crate::config::{
-    self, AppConfig, AudioSettings, AutomationSettings, CategorySettings, JingleSettings,
-    PadConfig, SoundboardSettings, VoiceSettings, PAD_COUNT,
+    self, AppConfig, AppearanceSettings, AudioSettings, AutomationSettings, CategorySettings,
+    JingleSettings, PadConfig, SoundboardSettings, VoiceSettings, PAD_COUNT,
 };
 use crate::controller::UiCommand;
 use crate::secrets::{output_key, Secrets, Stored, AURA_KEY};
@@ -529,4 +529,111 @@ pub fn open_folder(state: tauri::State<'_, App>, which: String) -> Result<(), St
     .ok_or("Dossier inconnu.")?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     open::that_detached(&dir).map_err(|e| e.to_string())
+}
+
+// [APP-33]
+const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
+// [APP-34]
+const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
+
+// [APP-35]
+#[derive(Serialize)]
+pub struct AppearanceView {
+    settings: AppearanceSettings,
+    image: Option<String>,
+}
+
+impl App {
+    fn config_dir(&self) -> PathBuf {
+        self.config_path
+            .parent()
+            .map(PathBuf::from)
+            .unwrap_or_default()
+    }
+
+    // [APP-36]
+    fn appearance_view(&self) -> AppearanceView {
+        let settings = self
+            .config
+            .lock()
+            .map(|c| c.appearance.clone())
+            .unwrap_or_default();
+        let image = settings
+            .background
+            .as_ref()
+            .map(|name| self.config_dir().join(name))
+            .filter(|p| p.is_file())
+            .map(|p| p.display().to_string());
+        AppearanceView { settings, image }
+    }
+
+    fn remove_backgrounds(&self, keep: Option<&str>) {
+        let Ok(dir) = std::fs::read_dir(self.config_dir()) else {
+            return;
+        };
+        for e in dir.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name.starts_with("background-") && Some(name.as_str()) != keep {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+}
+
+// [APP-37]
+#[tauri::command]
+pub fn get_appearance(state: tauri::State<'_, App>) -> AppearanceView {
+    state.appearance_view()
+}
+
+// [APP-38]
+#[tauri::command]
+pub fn save_appearance(
+    state: tauri::State<'_, App>,
+    appearance: AppearanceSettings,
+) -> Result<AppearanceView, String> {
+    let appearance = appearance.clamped();
+    state.commit(move |cfg| {
+        cfg.appearance = AppearanceSettings {
+            background: cfg.appearance.background.clone(),
+            ..appearance
+        }
+    })?;
+    Ok(state.appearance_view())
+}
+
+// [APP-39]
+#[tauri::command]
+pub fn set_background(
+    state: tauri::State<'_, App>,
+    path: PathBuf,
+) -> Result<AppearanceView, String> {
+    let ext = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .filter(|e| IMAGE_EXTENSIONS.contains(&e.as_str()))
+        .ok_or("Format d'image non pris en charge (JPEG, PNG, WebP ou AVIF).")?;
+    let size = std::fs::metadata(&path).map_err(|e| e.to_string())?.len();
+    if size > MAX_IMAGE_BYTES {
+        return Err("Image trop lourde (40 Mo au maximum).".into());
+    }
+    let name = format!("background-{}.{ext}", crate::controller::now_ms());
+    let dir = state.config_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::fs::copy(&path, dir.join(&name)).map_err(|e| e.to_string())?;
+    let keep = name.clone();
+    state.commit(move |cfg| {
+        cfg.appearance.background = Some(name);
+        cfg.appearance.glass = true;
+    })?;
+    state.remove_backgrounds(Some(&keep));
+    Ok(state.appearance_view())
+}
+
+// [APP-40]
+#[tauri::command]
+pub fn clear_background(state: tauri::State<'_, App>) -> Result<AppearanceView, String> {
+    state.commit(|cfg| cfg.appearance.background = None)?;
+    state.remove_backgrounds(None);
+    Ok(state.appearance_view())
 }

@@ -179,6 +179,15 @@ commandes ↔ messages avec un délai de lecture de 50 ms. En cas de coupure, no
 Les événements `CurrentProgramSceneChanged`, `StreamStateChanged`, `RecordStateChanged`,
 `InputMuteStateChanged`, `InputVolumeChanged` tiennent l'interface à jour quand on agit directement dans OBS.
 
+## Verre dépoli
+
+Purement dans l'interface, donc identique sous Linux et Windows : l'image choisie est copiée dans le dossier
+de réglages (`background-<horodatage>.<ext>`) et servie par le protocole de fichiers de Tauri, dont la
+portée est limitée à ces fichiers (`assetProtocol.scope` dans `tauri.conf.json`). En mode verre, les couleurs
+de fond du thème deviennent translucides ([UI-87]) et les panneaux floutent ce qui est derrière eux avec
+`backdrop-filter` ([STY-17]). La fenêtre reste opaque : voir le bureau à travers demanderait une fenêtre
+transparente et le flou du compositeur (Mica / Acrylic sous Windows, KWin sous KDE), non retenu pour l'instant.
+
 ## Bibliothèque et historique (M4)
 
 `blast-library` sépare trois couches :

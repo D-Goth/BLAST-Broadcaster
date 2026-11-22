@@ -150,6 +150,38 @@ impl Default for UpdateSettings {
 }
 
 // [CFG-08]
+// [CFG-13]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppearanceSettings {
+    pub glass: bool,
+    pub blur: f64,
+    pub opacity: f64,
+    pub dim: f64,
+    pub background: Option<String>,
+}
+
+impl Default for AppearanceSettings {
+    fn default() -> Self {
+        Self {
+            glass: false,
+            blur: 18.0,
+            opacity: 0.55,
+            dim: 0.25,
+            background: None,
+        }
+    }
+}
+
+impl AppearanceSettings {
+    pub fn clamped(mut self) -> Self {
+        self.blur = self.blur.clamp(0.0, 40.0);
+        self.opacity = self.opacity.clamp(0.15, 0.95);
+        self.dim = self.dim.clamp(0.0, 0.85);
+        self
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
@@ -162,6 +194,7 @@ pub struct AppConfig {
     pub updates: UpdateSettings,
     pub categories: CategorySettings,
     pub jingles: JingleSettings,
+    pub appearance: AppearanceSettings,
 }
 
 // [CFG-09]
@@ -198,6 +231,18 @@ pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn appearance_is_clamped() {
+        let a = super::AppearanceSettings {
+            blur: 500.0,
+            opacity: 0.0,
+            dim: 2.0,
+            ..Default::default()
+        }
+        .clamped();
+        assert_eq!((a.blur, a.opacity, a.dim), (40.0, 0.15, 0.85));
+    }
+
     use super::*;
     use blast_cast::ServerKind;
 

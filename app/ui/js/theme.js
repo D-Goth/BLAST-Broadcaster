@@ -1,13 +1,18 @@
 import { $, invoke, store } from "./core.js";
 import { renderState } from "./decks.js";
+import { applyAppearance } from "./appearance.js";
 
 let themes = [];
+let current = null;
+
+export const themeColors = () => (current && current.colors) || {};
 export const view = { rainbow: false };
 
 // [UI-18]
 function applyTheme(id) {
   const theme = themes.find((t) => t.id === id) || themes[0];
   if (!theme) return;
+  current = theme;
   const root = document.documentElement;
   for (const section of ["colors", "meters"]) {
     for (const [k, v] of Object.entries(theme[section] || {})) {
@@ -19,6 +24,7 @@ function applyTheme(id) {
   $("#theme-select").value = theme.id;
   store.set("blast.theme", theme.id);
   if (store.get("blast.rainbow") === null) setRainbow(!!fx.deck_rainbow, false);
+  applyAppearance();
 }
 
 // [UI-19]

@@ -95,7 +95,11 @@ fn main() {
             api::check_update,
             api::save_updates,
             api::open_link,
-            api::open_folder
+            api::open_folder,
+            api::get_appearance,
+            api::save_appearance,
+            api::set_background,
+            api::clear_background
         ])
         .run(tauri::generate_context!());
     if let Err(e) = result {

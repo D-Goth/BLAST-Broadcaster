@@ -2083,3 +2083,67 @@ definition = "Ouvre le choix de la catégorie et de la période, le mois en cour
 [codes.UI-84]
 titre = "Mots-clés saisis"
 definition = "Lit les mots-clés séparés par des virgules."
+
+[codes.APP-33]
+titre = "Formats d'image de fond"
+definition = "JPEG, PNG, WebP et AVIF."
+
+[codes.APP-34]
+titre = "Poids maximal de l'image de fond"
+definition = "40 Mo."
+
+[codes.APP-35]
+titre = "Vue de l'apparence"
+definition = "Réglages du verre dépoli et chemin de l'image de fond copiée."
+
+[codes.APP-36]
+titre = "Calcul de la vue d'apparence"
+definition = "Lit les réglages et vérifie que l'image de fond existe encore ; gère le dossier de BLAST où l'image est copiée et le ménage des anciennes images."
+
+[codes.APP-37]
+titre = "Commande get_appearance"
+definition = "Renvoie l'apparence au démarrage de l'interface."
+
+[codes.APP-38]
+titre = "Commande save_appearance"
+definition = "Enregistre activation, flou, opacité et assombrissement, bornés à des valeurs sûres."
+
+[codes.APP-39]
+titre = "Commande set_background"
+definition = "Copie l'image choisie dans le dossier de BLAST sous un nom unique, active le verre et supprime l'image précédente."
+
+[codes.APP-40]
+titre = "Commande clear_background"
+definition = "Retire l'image de fond ; le verre s'affiche alors sur un dégradé du thème."
+
+[codes.CFG-13]
+titre = "Réglages d'apparence"
+definition = "Verre dépoli activé ou non, flou, opacité des panneaux, assombrissement du fond et image de fond."
+
+[codes.HTM-21]
+titre = "Réglages : Apparence"
+definition = "Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement."
+
+[codes.STY-17]
+titre = "Verre dépoli"
+definition = "Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter)."
+
+[codes.UI-85]
+titre = "Couleur translucide"
+definition = "Convertit une couleur du thème en couleur avec transparence."
+
+[codes.UI-86]
+titre = "Fond du verre"
+definition = "Image choisie, servie par le protocole de fichiers de Tauri, ou dégradé aux couleurs du thème."
+
+[codes.UI-87]
+titre = "Application de l'apparence"
+definition = "Rend translucides les couleurs de fond du thème, règle flou et assombrissement, ou rétablit les couleurs pleines."
+
+[codes.UI-88]
+titre = "Réglage en direct"
+definition = "Applique chaque mouvement de curseur immédiatement et enregistre 300 ms après le dernier."
+
+[codes.UI-89]
+titre = "Choix de l'image de fond"
+definition = "Sélecteur d'image du système, puis copie dans le dossier de BLAST."
