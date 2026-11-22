@@ -14,9 +14,10 @@ use crossbeam_channel::{unbounded, Receiver, RecvTimeoutError, Sender};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::config::{AppConfig, SoundboardSettings, VoiceSettings, PAD_COUNT};
+use crate::config::{AppConfig, AutomationSettings, SoundboardSettings, VoiceSettings, PAD_COUNT};
 use crate::playlist::{self, Entry, Playlist};
 use crate::secrets::{output_key, Secrets, AURA_KEY};
+use blast_library::{HistoryRow, Library, LibraryStats, SeparationRules};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
@@ -156,6 +157,7 @@ pub enum UiCommand {
     },
     PadStopAll,
     Obs(ObsAction),
+    HistoryClear,
     #[serde(skip)]
     Config(Box<AppConfig>),
 }
@@ -281,6 +283,24 @@ struct CastView {
 }
 
 #[derive(Serialize, Clone)]
+struct HistoryView {
+    rows: Vec<HistoryRow>,
+    stats: Option<LibraryStats>,
+    current: Option<i64>,
+}
+
+struct CurrentPlay {
+    deck: usize,
+    path: PathBuf,
+    hist_id: Option<i64>,
+    started: std::time::Instant,
+}
+
+fn now_secs() -> i64 {
+    (now_ms() / 1000) as i64
+}
+
+#[derive(Serialize, Clone)]
 struct Notice {
     level: &'static str,
     message: String,
@@ -291,11 +311,12 @@ pub fn spawn(
     secrets: Arc<Secrets>,
     config: AppConfig,
     warning: Option<String>,
+    db_path: PathBuf,
 ) -> Sender<UiCommand> {
     let (tx, rx) = unbounded();
     thread::Builder::new()
         .name("blast-controller".into())
-        .spawn(move || Controller::new(app, rx, secrets, config, warning).run())
+        .spawn(move || Controller::new(app, rx, secrets, config, warning, db_path).run())
         .expect("controller thread");
     tx
 }
@@ -347,6 +368,11 @@ struct Controller {
     live_since: HashMap<String, u64>,
     session_peak: u32,
     last_stats: std::time::Instant,
+    library: Option<Library>,
+    automation: AutomationSettings,
+    current_play: Option<CurrentPlay>,
+    last_purge: std::time::Instant,
+    last_rules_refresh: std::time::Instant,
 }
 
 fn mic_input(v: &VoiceSettings) -> MicInput {
@@ -366,6 +392,7 @@ impl Controller {
         secrets: Arc<Secrets>,
         config: AppConfig,
         startup_warning: Option<String>,
+        db_path: PathBuf,
     ) -> Self {
         let wanted = config.audio.device.clone();
         let mic = mic_input(&config.voice);
@@ -398,6 +425,17 @@ impl Controller {
         let voice = config.voice.clone();
         let soundboard = config.soundboard.clone();
         let aura_settings = config.aura.clone();
+        let (library, startup_warning) = match Library::open(&db_path) {
+            Ok(l) => (Some(l), startup_warning),
+            Err(e) => (
+                None,
+                Some(format!(
+                    "Base de données indisponible ({}) : historique et règles de séparation désactivés. {}",
+                    e,
+                    startup_warning.unwrap_or_default()
+                )),
+            ),
+        };
         let mut c = Self {
             app,
             rx,
@@ -443,6 +481,11 @@ impl Controller {
             live_since: HashMap::new(),
             session_peak: 0,
             last_stats: std::time::Instant::now(),
+            library,
+            automation: config.automation.clone(),
+            current_play: None,
+            last_purge: std::time::Instant::now() - Duration::from_secs(7200),
+            last_rules_refresh: std::time::Instant::now(),
         };
         if c.aura_settings.auto_connect {
             c.obs_connect();
@@ -743,7 +786,7 @@ impl Controller {
             self.pending_fade = Some(to);
         } else if self.is_playing(o) || (self.meta[o].path.is_some() && !self.meta[o].finished) {
             self.crossfade_to(to);
-        } else if let Some(e) = self.playlist.take_next() {
+        } else if let Some(e) = self.take_next_auto() {
             self.request_load(to, e, false);
             self.pending_fade = Some(to);
             self.emit_playlist();
@@ -802,6 +845,7 @@ impl Controller {
                 self.emit_cast();
             }
             self.poll_listeners();
+            self.housekeeping();
         }
         self.caster.stop_all();
     }
@@ -887,6 +931,159 @@ impl Controller {
             *s = OutputStatus::Off;
         }
         self.emit_cast();
+    }
+
+    fn housekeeping(&mut self) {
+        if self.last_purge.elapsed() > Duration::from_secs(3600) {
+            self.last_purge = std::time::Instant::now();
+            let days = self.automation.history_days;
+            if days > 0 {
+                if let Some(lib) = &self.library {
+                    let cutoff = now_secs() - days as i64 * 86_400;
+                    if let Ok(n) = lib.purge_older_than(cutoff) {
+                        if n > 0 {
+                            self.emit_history();
+                        }
+                    }
+                }
+            }
+        }
+        if self.last_rules_refresh.elapsed() > Duration::from_secs(30) {
+            self.last_rules_refresh = std::time::Instant::now();
+            self.emit_playlist();
+        }
+    }
+
+    fn rules(&self) -> SeparationRules {
+        self.automation.rules
+    }
+
+    fn violation_for(&self, e: &Entry, now: i64) -> Option<String> {
+        if e.error.is_some() {
+            return None;
+        }
+        let rules = self.rules();
+        if !rules.enabled {
+            return None;
+        }
+        let artist = e.artist.trim();
+        if rules.artist_minutes > 0 && !artist.is_empty() {
+            for (i, m) in self.meta.iter().enumerate() {
+                let busy = m.loading.is_some() || (m.path.is_some() && !m.finished);
+                if busy && m.artist.trim().eq_ignore_ascii_case(artist) {
+                    return Some(format!(
+                        "même artiste déjà sur la platine {}",
+                        if i == 0 { "A" } else { "B" }
+                    ));
+                }
+            }
+        }
+        let lib = self.library.as_ref()?;
+        lib.check(&e.path.to_string_lossy(), &e.title, &e.artist, now, &rules)
+            .ok()
+            .flatten()
+            .map(|v| v.describe())
+    }
+
+    fn take_next_auto(&mut self) -> Option<Entry> {
+        let now = now_secs();
+        let mut pick = None;
+        let mut fallback = None;
+        for e in self.playlist.entries() {
+            if e.error.is_some() {
+                continue;
+            }
+            match self.violation_for(e, now) {
+                None => {
+                    pick = Some(e.id);
+                    break;
+                }
+                Some(why) => {
+                    if fallback.is_none() {
+                        fallback = Some((e.id, e.title.clone(), why));
+                    }
+                }
+            }
+        }
+        let id = match (pick, fallback) {
+            (Some(id), _) => id,
+            (None, Some((id, title, why))) => {
+                self.notice(
+                    "warn",
+                    format!("Aucun titre ne respecte les règles de séparation : « {title} » passe quand même ({why})."),
+                );
+                id
+            }
+            (None, None) => return None,
+        };
+        self.playlist.remove(id)
+    }
+
+    fn track_history(&mut self) {
+        let side = if self.crossfader < 0.5 { 0 } else { 1 };
+        let on_air = matches!(
+            self.status[side].state,
+            DeckState::Playing | DeckState::Paused
+        ) && !self.meta[side].finished;
+        let now_path = if on_air {
+            self.meta[side].path.clone()
+        } else {
+            None
+        };
+        let unchanged = matches!(
+            (&self.current_play, &now_path),
+            (Some(cp), Some(p)) if cp.deck == side && &cp.path == p
+        );
+        if unchanged {
+            return;
+        }
+        let mut changed = false;
+        if let Some(cp) = self.current_play.take() {
+            if let (Some(lib), Some(id)) = (&self.library, cp.hist_id) {
+                let _ = lib.finish_play(id, cp.started.elapsed().as_secs_f64());
+            }
+            changed = true;
+        }
+        if let Some(path) = now_path {
+            let m = &self.meta[side];
+            let hist_id = self.library.as_ref().and_then(|lib| {
+                lib.record_play(
+                    &path.to_string_lossy(),
+                    m.title.trim(),
+                    m.artist.trim(),
+                    now_secs(),
+                    self.casting,
+                    self.total_listeners(),
+                )
+                .ok()
+            });
+            self.current_play = Some(CurrentPlay {
+                deck: side,
+                path,
+                hist_id,
+                started: std::time::Instant::now(),
+            });
+            changed = true;
+        }
+        if changed {
+            self.emit_history();
+            self.emit_playlist();
+        }
+    }
+
+    fn emit_history(&self) {
+        let (rows, stats) = match &self.library {
+            Some(lib) => (lib.recent(300).unwrap_or_default(), lib.stats().ok()),
+            None => (Vec::new(), None),
+        };
+        let _ = self.app.emit(
+            "blast://history",
+            HistoryView {
+                rows,
+                stats,
+                current: self.current_play.as_ref().and_then(|c| c.hist_id),
+            },
+        );
     }
 
     fn poll_listeners(&mut self) {
@@ -1034,7 +1231,7 @@ impl Controller {
         }
         let mut changed = false;
         if !self.is_active(0) && !self.is_active(1) {
-            if let Some(e) = self.playlist.take_next() {
+            if let Some(e) = self.take_next_auto() {
                 let start = if self.crossfader < 0.5 {
                     Deck::A
                 } else {
@@ -1046,7 +1243,7 @@ impl Controller {
         }
         for i in 0..2 {
             if !self.is_active(i) && self.is_active(1 - i) {
-                if let Some(e) = self.playlist.take_next() {
+                if let Some(e) = self.take_next_auto() {
                     self.request_load(Deck::from_index(i), e, false);
                     changed = true;
                 }
@@ -1065,6 +1262,7 @@ impl Controller {
                 self.emit_cast();
                 self.emit_pads();
                 self.emit_obs();
+                self.emit_history();
                 if let Some(w) = self.startup_warning.take() {
                     self.notice("warn", w);
                 }
@@ -1077,7 +1275,7 @@ impl Controller {
                 if self.is_playing(i) {
                     self.fade_or_fetch(other);
                 } else if self.meta[i].loading.is_none() {
-                    match self.playlist.take_next() {
+                    match self.take_next_auto() {
                         Some(e) => {
                             self.request_load(deck, e, false);
                             self.emit_playlist();
@@ -1115,7 +1313,22 @@ impl Controller {
             }
             UiCommand::PadStopAll => self.send(Command::StopAllSfx),
             UiCommand::Obs(action) => self.handle_obs(action),
+            UiCommand::HistoryClear => {
+                if let Some(lib) = &self.library {
+                    let _ = lib.clear_history();
+                }
+                if let Some(cp) = self.current_play.as_mut() {
+                    cp.hist_id = None;
+                }
+                self.emit_history();
+                self.emit_playlist();
+            }
             UiCommand::Config(cfg) => {
+                if cfg.automation != self.automation {
+                    self.automation = cfg.automation.clone();
+                    self.last_purge = std::time::Instant::now() - Duration::from_secs(7200);
+                    self.emit_playlist();
+                }
                 if cfg.aura != self.aura_settings
                     || (self.aura.is_some() && self.obs.status == "error")
                 {
@@ -1258,6 +1471,14 @@ impl Controller {
                     return;
                 }
                 let errors = entries.iter().filter(|e| e.error.is_some()).count();
+                if let Some(lib) = self.library.as_mut() {
+                    let metas: Vec<_> = entries
+                        .iter()
+                        .filter(|e| e.error.is_none())
+                        .map(|e| e.to_meta())
+                        .collect();
+                    let _ = lib.upsert_tracks(&metas, now_secs());
+                }
                 if let Some(deck) = to_deck {
                     if self.is_playing(deck.index()) {
                         self.notice(
@@ -1389,6 +1610,7 @@ impl Controller {
                 self.peak = peak;
                 self.fill_automix();
                 self.update_song();
+                self.track_history();
                 self.emit_state();
             }
             Event::Ended(id) => {
@@ -1396,6 +1618,7 @@ impl Controller {
                 self.meta[i].finished = true;
                 self.status[i].state = DeckState::Finished;
                 self.status[i].position = self.status[i].frames;
+                self.track_history();
                 self.fill_automix();
                 self.emit_state();
             }
@@ -1461,10 +1684,20 @@ impl Controller {
     }
 
     fn emit_playlist(&self) {
+        let now = now_secs();
+        let entries: Vec<Entry> = self
+            .playlist
+            .entries()
+            .iter()
+            .map(|e| Entry {
+                blocked: self.violation_for(e, now),
+                ..e.clone()
+            })
+            .collect();
         let _ = self.app.emit(
             "blast://playlist",
             PlaylistView {
-                entries: self.playlist.entries(),
+                entries: &entries,
                 total: self.playlist.total_secs(),
             },
         );

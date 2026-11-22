@@ -149,6 +149,21 @@ commandes ↔ messages avec un délai de lecture de 50 ms. En cas de coupure, no
 Les événements `CurrentProgramSceneChanged`, `StreamStateChanged`, `RecordStateChanged`,
 `InputMuteStateChanged`, `InputVolumeChanged` tiennent l'interface à jour quand on agit directement dans OBS.
 
+## Bibliothèque et historique (M4)
+
+`blast-library` ouvre une base SQLite (`blast.db`, dossier de données de l'application) en mode WAL :
+
+| Table | Contenu |
+|---|---|
+| `tracks` | Chemin, titre, artiste, album, genre, année, durée, catégorie, nombre de passages, dernier passage |
+| `historique_diffusion` | Chaque passage à l'antenne : titre, artiste, heure de début, durée réellement diffusée, diffusion en direct ou non, auditeurs |
+
+Un titre est inscrit quand il devient le titre à l'antenne (côté du crossfader, en lecture) et clôturé
+quand il est remplacé ou arrêté. Les règles de séparation sont deux requêtes indexées sur l'historique
+(même fichier ou même titre+artiste ; même artiste, sans tenir compte des majuscules), plus une
+vérification de l'artiste déjà chargé sur l'autre platine. La purge (durée de conservation réglable)
+tourne toutes les heures dans le thread du contrôleur.
+
 ## Dépendances envisagées
 
 | Besoin | Crate / bibliothèque | Licence |
@@ -159,6 +174,8 @@ Les événements `CurrentProgramSceneChanged`, `StreamStateChanged`, `RecordStat
 | Rééchantillonnage | `rubato` | MIT |
 | Interface | Tauri 2, tauri-plugin-dialog | MIT / Apache-2.0 |
 | Thèmes | `toml`, `serde_json` | MIT / Apache-2.0 |
+| Base de données | `rusqlite` (SQLite intégré) | MIT, SQLite domaine public |
+| Dates de l'export | `chrono` | MIT / Apache-2.0 |
 | WebSocket (OBS, chat) | `tokio-tungstenite` | MIT |
 | Files temps réel | `crossbeam-channel`, `rtrb` | MIT / Apache-2.0 |
 | Encodage MP3 | `mp3lame-encoder` (LAME compilé avec le projet) | LGPL (LAME), MIT |

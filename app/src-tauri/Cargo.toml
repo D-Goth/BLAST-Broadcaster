@@ -17,6 +17,8 @@ tauri-build = { version = "2", features = [] }
 blast-core = { path = "../../crates/blast-core" }
 blast-cast = { path = "../../crates/blast-cast" }
 blast-aura = { path = "../../crates/blast-aura" }
+blast-library = { path = "../../crates/blast-library" }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }

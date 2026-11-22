@@ -81,15 +81,42 @@ impl From<SymError> for DecodeError {
     }
 }
 
-fn read_tags(rev: &MetadataRevision, title: &mut Option<String>, artist: &mut Option<String>) {
+#[derive(Debug, Clone, Default)]
+struct Tags {
+    title: Option<String>,
+    artist: Option<String>,
+    album: Option<String>,
+    genre: Option<String>,
+    year: Option<i32>,
+}
+
+fn parse_year(v: &str) -> Option<i32> {
+    let digits: String = v.chars().filter(|c| c.is_ascii_digit()).take(4).collect();
+    if digits.len() == 4 {
+        digits.parse().ok()
+    } else {
+        None
+    }
+}
+
+fn read_tags(rev: &MetadataRevision, t: &mut Tags) {
     for tag in rev.tags() {
+        let v = tag.value.to_string();
+        let v = v.trim();
+        if v.is_empty() {
+            continue;
+        }
         match tag.std_key {
-            Some(StandardTagKey::TrackTitle) if title.is_none() => {
-                *title = Some(tag.value.to_string());
+            Some(StandardTagKey::TrackTitle) if t.title.is_none() => t.title = Some(v.to_string()),
+            Some(StandardTagKey::Artist) if t.artist.is_none() => t.artist = Some(v.to_string()),
+            Some(StandardTagKey::AlbumArtist) if t.artist.is_none() => {
+                t.artist = Some(v.to_string())
             }
-            Some(StandardTagKey::Artist) if artist.is_none() => {
-                *artist = Some(tag.value.to_string());
-            }
+            Some(StandardTagKey::Album) if t.album.is_none() => t.album = Some(v.to_string()),
+            Some(StandardTagKey::Genre) if t.genre.is_none() => t.genre = Some(v.to_string()),
+            Some(
+                StandardTagKey::Date | StandardTagKey::ReleaseDate | StandardTagKey::OriginalDate,
+            ) if t.year.is_none() => t.year = parse_year(v),
             _ => {}
         }
     }
@@ -112,6 +139,9 @@ pub struct TrackInfo {
     pub path: PathBuf,
     pub title: Option<String>,
     pub artist: Option<String>,
+    pub album: Option<String>,
+    pub genre: Option<String>,
+    pub year: Option<i32>,
     pub duration_secs: Option<f64>,
     pub sample_rate: Option<u32>,
 }
@@ -142,25 +172,22 @@ fn open(path: &Path) -> Result<symphonia::core::probe::ProbeResult, DecodeError>
     )?)
 }
 
-fn collect_tags(
-    probed: &mut symphonia::core::probe::ProbeResult,
-) -> (Option<String>, Option<String>) {
-    let mut title = None;
-    let mut artist = None;
+fn collect_tags(probed: &mut symphonia::core::probe::ProbeResult) -> Tags {
+    let mut t = Tags::default();
     if let Some(meta) = probed.metadata.get() {
         if let Some(rev) = meta.current() {
-            read_tags(rev, &mut title, &mut artist);
+            read_tags(rev, &mut t);
         }
     }
     if let Some(rev) = probed.format.metadata().current() {
-        read_tags(rev, &mut title, &mut artist);
+        read_tags(rev, &mut t);
     }
-    (title, artist)
+    t
 }
 
 pub fn probe_file(path: &Path) -> Result<TrackInfo, DecodeError> {
     let mut probed = open(path)?;
-    let (title, artist) = collect_tags(&mut probed);
+    let tags = collect_tags(&mut probed);
     let track = probed
         .format
         .tracks()
@@ -175,8 +202,11 @@ pub fn probe_file(path: &Path) -> Result<TrackInfo, DecodeError> {
     };
     Ok(TrackInfo {
         path: path.to_path_buf(),
-        title,
-        artist,
+        title: tags.title,
+        artist: tags.artist,
+        album: tags.album,
+        genre: tags.genre,
+        year: tags.year,
         duration_secs,
         sample_rate: params.sample_rate,
     })
@@ -184,7 +214,7 @@ pub fn probe_file(path: &Path) -> Result<TrackInfo, DecodeError> {
 
 pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> {
     let mut probed = open(path)?;
-    let (title, artist) = collect_tags(&mut probed);
+    let Tags { title, artist, .. } = collect_tags(&mut probed);
     let mut format = probed.format;
 
     let track = format

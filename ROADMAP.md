@@ -12,7 +12,8 @@ L'interface (M3a) a été avancée avant la diffusion (M2) pour que la suite s'a
 | **M2** | Cast : encodage MP3 (LAME), Icecast, Shoutcast v1/v2, titre en cours, reconnexion automatique, panneau Réglages (Diffusion, Aura, Audio), mots de passe dans le trousseau | Une webradio écoutable dans un navigateur ✅ |
 | **M2b** | Compteurs façon SAM dans la barre du haut : auditeurs en cours, pic d'auditeurs (max peak), durée de diffusion (timer du stream), par sortie et au total | Suivre son audience en direct ✅ |
 | **M3b** | Interface : forme d'onde, raccourcis clavier, préférences (sortie audio, dossier par défaut), sauvegarde de la playlist | Confort d'utilisation au quotidien |
-| **M4** | Bibliothèque : import, tags, pochettes, file d'attente, auto-DJ simple | Laisser tourner la radio sans intervention |
+| **M4** | Pilier 1 — Bibliothèque SQLite (titres et tags), table `historique_diffusion`, règles de séparation artiste/titre appliquées par l'auto-mix, purge automatique, onglet Historique et export CSV | Laisser tourner la radio sans répétitions ✅ |
+| **M4b** | Pilier 2 — Clockwheels : catégories, grilles horaires, sélection pondérée (genre, année, BPM) dans la bibliothèque | Programmer une grille d'antenne |
 | **M5** | **Voice FX** (micro) et **Sound FX** (soundboard) — voir ci-dessous. Reste : noise gate, compresseur voix, modes boucle/maintien des pads, couleurs de pads, pré-écoute casque | Animer une émission en direct ✅ (base) |
 | **M5b** | Platines façon SAM : volume et VU par platine, boutons Air/Cue, pitch, pochette, format du fichier ; file d'attente et historique séparés ; dispositions d'écran (bureaux A/B/C) | Parité avec SAM Broadcaster |
 | **M6** | Traitement audio master : AGC, compresseur, limiteur, normalisation EBU R128 | Un « son radio » homogène |
