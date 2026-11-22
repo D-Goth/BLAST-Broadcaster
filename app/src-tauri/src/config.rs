@@ -62,12 +62,29 @@ pub struct SoundboardSettings {
 
 pub const PAD_COUNT: u16 = 36;
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AutomationSettings {
+    pub rules: blast_library::SeparationRules,
+    pub history_days: u32,
+}
+
+impl Default for AutomationSettings {
+    fn default() -> Self {
+        Self {
+            rules: blast_library::SeparationRules::default(),
+            history_days: 365,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
     pub audio: AudioSettings,
     pub voice: VoiceSettings,
     pub soundboard: SoundboardSettings,
+    pub automation: AutomationSettings,
     pub aura: AuraSettings,
     pub outputs: Vec<OutputConfig>,
 }

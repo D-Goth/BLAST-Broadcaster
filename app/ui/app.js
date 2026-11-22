@@ -130,12 +130,21 @@ function renderPlaylist(total) {
         <button class="btn ghost" data-remove title="Retirer de la playlist">&#10005;</button>
       </span>`;
     $(".title", row).textContent = e.title;
+    if (e.blocked && !e.error) {
+      row.classList.add("blocked");
+      const w = document.createElement("span");
+      w.className = "wait";
+      w.innerHTML = ico("clock");
+      w.title = `En attente : ${e.blocked}`;
+      $(".title", row).prepend(w);
+      row.title = `${row.title}\nEn attente (règles de séparation) : ${e.blocked}`;
+    }
     $(".artist", row).textContent = e.artist;
     rows.appendChild(row);
   });
   const n = entries.length;
   $("#playlist-info").textContent = n === 0 ? "0 titre" : `${n} titre${n > 1 ? "s" : ""} · ${fmt(total)}`;
-  $("#empty").classList.toggle("hidden", n > 0);
+  $("#empty").classList.toggle("hidden", n > 0 || $("#rows").hidden);
 }
 
 function freeDeck() {
@@ -550,6 +559,10 @@ function applySettings(view, keepSelection = true) {
     dev.appendChild(o);
   }
   dev.value = view.audio.device || "";
+  fillForm($("#automation-form"), { ...view.automation.rules, history_days: view.automation.history_days });
+  $("#library-info").textContent = view.library
+    ? `Bibliothèque : ${view.library.tracks} titres connus, ${view.library.plays} diffusions enregistrées. Base : ${view.db_path}`
+    : `Base : ${view.db_path}`;
   const mic = $("#mic-form").elements.device;
   mic.innerHTML = "";
   const mdef = document.createElement("option");
@@ -1003,7 +1016,7 @@ function hms(ms) {
 }
 
 function showFx(page) {
-  $$(".fx-tab").forEach((t) => t.classList.toggle("active", t.dataset.fx === page));
+  $$(".fx-tab[data-fx]").forEach((t) => t.classList.toggle("active", t.dataset.fx === page));
   $$("#soundfx [data-fxpage]").forEach((el) => (el.hidden = el.dataset.fxpage !== page));
   try { localStorage.setItem("blast.fxtab", page); } catch (_) {}
 }
@@ -1086,7 +1099,7 @@ function renderObs() {
   renderObsTimers();
 }
 
-$$(".fx-tab").forEach((t) => t.addEventListener("click", () => showFx(t.dataset.fx)));
+$$(".fx-tab[data-fx]").forEach((t) => t.addEventListener("click", () => showFx(t.dataset.fx)));
 $("#obs-pill").addEventListener("click", () => {
   showFx("obs");
   if (obs.status === "off" || obs.status === "error") send({ type: "obs", action: "connect" });
@@ -1116,6 +1129,93 @@ $("#obs-vol").addEventListener("input", (e) => {
 });
 setInterval(renderObsTimers, 500);
 
+
+let history = { rows: [], stats: null, current: null };
+
+function showPlaylistTab(tab) {
+  $$("[data-ptab]").forEach((t) => t.classList.toggle("active", t.dataset.ptab === tab));
+  $$("#playlist [data-ppage]").forEach((el) => (el.hidden = el.dataset.ppage !== tab));
+  if (tab === "playlist") $("#empty").classList.toggle("hidden", entries.length > 0);
+}
+
+function clockTime(secs) {
+  const d = new Date(secs * 1000);
+  const today = new Date();
+  const hm = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === today.toDateString() ? hm : `${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} ${hm}`;
+}
+
+function renderHistory() {
+  const box = $("#hrows");
+  box.innerHTML = "";
+  if (!history.rows.length) {
+    const e = document.createElement("div");
+    e.className = "hempty";
+    e.textContent = "Aucune diffusion enregistrée pour l'instant : chaque titre passé à l'antenne apparaîtra ici.";
+    box.appendChild(e);
+  }
+  for (const r of history.rows) {
+    const el = document.createElement("div");
+    el.className = "hrow hrow-grid" + (r.id === history.current ? " current" : "");
+    el.title = r.path;
+    el.innerHTML = `<span class="t"></span><span class="ti"></span><span class="ar muted"></span><span class="d"></span><span class="a"><span class="air-dot"></span></span><span class="n"></span>`;
+    $(".t", el).textContent = clockTime(r.started_at);
+    $(".ti", el).textContent = r.title || "—";
+    $(".ar", el).textContent = r.artist;
+    $(".d", el).textContent = r.id === history.current ? "en cours" : r.duration_played != null ? fmt(r.duration_played) : "--:--";
+    $(".air-dot", el).classList.toggle("on", r.on_air);
+    $(".air-dot", el).title = r.on_air ? "Diffusé pendant une diffusion en direct" : "Joué hors diffusion";
+    $(".n", el).textContent = r.listeners != null ? r.listeners : "–";
+    box.appendChild(el);
+  }
+  const s = history.stats;
+  $("#history-info").textContent = s ? `${s.plays} diffusion${s.plays > 1 ? "s" : ""} · ${s.tracks} titre${s.tracks > 1 ? "s" : ""} en bibliothèque` : "";
+}
+
+$$("[data-ptab]").forEach((t) => t.addEventListener("click", () => showPlaylistTab(t.dataset.ptab)));
+$("#history-export").addEventListener("click", async () => {
+  const d = new Date();
+  const name = `blast-historique-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}.csv`;
+  const path = await T.dialog.save({ title: "Exporter l'historique", defaultPath: name, filters: [{ name: "CSV", extensions: ["csv"] }] });
+  if (!path) return;
+  try {
+    const n = await invoke("export_history", { path });
+    toast("info", `${n} diffusion${n > 1 ? "s" : ""} exportée${n > 1 ? "s" : ""} : ${path}`);
+  } catch (e) {
+    toast("error", String(e));
+  }
+});
+$("#history-clear").addEventListener("click", () => {
+  const b = $("#history-clear");
+  if (b.dataset.confirm !== "1") {
+    b.dataset.confirm = "1";
+    b.textContent = "Confirmer l'effacement";
+    setTimeout(() => {
+      b.dataset.confirm = "";
+      b.textContent = "Effacer";
+    }, 4000);
+    return;
+  }
+  b.dataset.confirm = "";
+  b.textContent = "Effacer";
+  send({ type: "history_clear" });
+});
+
+$("#automation-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const v = formValues($("#automation-form"));
+  const automation = {
+    rules: { enabled: v.enabled, artist_minutes: Math.max(0, v.artist_minutes | 0), title_minutes: Math.max(0, v.title_minutes | 0) },
+    history_days: Math.max(0, v.history_days | 0),
+  };
+  try {
+    applySettings(await invoke("save_automation", { automation }));
+    setResult("#automation-result", "ok", "Enregistré.");
+  } catch (err) {
+    setResult("#automation-result", "err", String(err));
+  }
+});
+
 window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 (async () => {
@@ -1132,6 +1232,10 @@ window.addEventListener("contextmenu", (e) => e.preventDefault());
     obs = e.payload;
     renderObs();
   });
+  await listen("blast://history", (e) => {
+    history = e.payload;
+    renderHistory();
+  });
   await listen("blast://pads", (e) => {
     padsData = e.payload;
     renderPads();
@@ -1145,6 +1249,7 @@ window.addEventListener("contextmenu", (e) => e.preventDefault());
   renderPads();
   renderObs();
   showFx(localStorageGet("blast.fxtab") === "obs" ? "obs" : "pads");
+  showPlaylistTab("playlist");
   await setupOsDrop();
   renderPlaylist(0);
   send({ type: "refresh" });

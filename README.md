@@ -119,6 +119,8 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 | Retour micro | **Réglages → Audio** : le micro part toujours vers la diffusion ; « Entendre mon micro » le renvoie aussi vers les enceintes/le casque (désactivé par défaut, pas d'écho ni de Larsen) |
 | Ducking | **AUTO** : la musique baisse automatiquement (niveau réglable, -12 dB par défaut) quand le micro est ouvert |
 | Égaliseur micro | Grave, médium, aigu (±12 dB) et coupe-bas ; volume micro et volume musique séparés |
+| Historique | Onglet **HISTORIQUE** de la playlist : chaque titre passé à l'antenne avec l'heure, la durée réellement diffusée, l'état de la diffusion et le nombre d'auditeurs ; **Exporter CSV** (pour les déclarations de droits) |
+| Règles de séparation | **Réglages → Automation** : pas le même artiste avant 120 min, pas le même titre avant 240 min (réglables). L'auto-mix et le bouton Suivant sautent les titres en attente, marqués d'une horloge dans la playlist |
 | Soundboard | 36 pads sur 3 pages ; clic ou **F1 à F12** pour jouer (re-clic = stop), **STOP** coupe tout ; glisser un fichier (ou un titre de la playlist) sur un pad pour l'assigner ; clic droit : choisir, renommer, vider |
 | Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |
 | Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut |

@@ -11,7 +11,10 @@ use std::sync::{Arc, Mutex};
 
 use blast_aura::AuraSettings;
 use blast_cast::OutputConfig;
-use config::{AppConfig, AudioSettings, PadConfig, SoundboardSettings, VoiceSettings, PAD_COUNT};
+use config::{
+    AppConfig, AudioSettings, AutomationSettings, PadConfig, SoundboardSettings, VoiceSettings,
+    PAD_COUNT,
+};
 use crossbeam_channel::Sender;
 use secrets::{output_key, Secrets, Stored, AURA_KEY};
 use serde::Serialize;
@@ -21,6 +24,7 @@ struct App {
     tx: Sender<controller::UiCommand>,
     config: Mutex<AppConfig>,
     config_path: PathBuf,
+    db_path: PathBuf,
     secrets: Arc<Secrets>,
 }
 
@@ -37,6 +41,9 @@ struct SettingsView {
     aura: AuraSettings,
     aura_has_password: bool,
     audio: AudioSettings,
+    automation: AutomationSettings,
+    library: Option<blast_library::LibraryStats>,
+    db_path: String,
     voice: VoiceSettings,
     soundboard: SoundboardSettings,
     devices: Vec<String>,
@@ -63,6 +70,11 @@ impl App {
             aura_has_password: self.secrets.has(AURA_KEY),
             aura: cfg.aura,
             audio: cfg.audio,
+            automation: cfg.automation,
+            library: blast_library::Library::open(&self.db_path)
+                .ok()
+                .and_then(|l| l.stats().ok()),
+            db_path: self.db_path.display().to_string(),
             voice: cfg.voice,
             soundboard: cfg.soundboard,
             devices: blast_core::engine::list_output_devices().unwrap_or_default(),
@@ -289,6 +301,36 @@ fn save_sfx_volume(state: tauri::State<'_, App>, volume_db: f32) -> Result<(), S
     state.commit(move |cfg| cfg.soundboard.volume_db = volume_db.clamp(-60.0, 6.0))
 }
 
+#[tauri::command]
+fn save_automation(
+    state: tauri::State<'_, App>,
+    automation: AutomationSettings,
+) -> Result<SettingsView, String> {
+    state.commit(move |cfg| cfg.automation = automation)?;
+    Ok(state.view(None))
+}
+
+#[tauri::command]
+fn export_history(state: tauri::State<'_, App>, path: String) -> Result<usize, String> {
+    let lib = blast_library::Library::open(&state.db_path).map_err(|e| e.to_string())?;
+    let rows = lib.recent(u32::MAX).map_err(|e| e.to_string())?;
+    let csv = blast_library::history_csv(&rows, |t| {
+        chrono::DateTime::from_timestamp(t, 0)
+            .map(|d| {
+                d.with_timezone(&chrono::Local)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string()
+            })
+            .unwrap_or_default()
+    });
+    let mut path = PathBuf::from(path);
+    if path.extension().is_none() {
+        path.set_extension("csv");
+    }
+    std::fs::write(&path, csv).map_err(|e| e.to_string())?;
+    Ok(rows.len())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -300,7 +342,18 @@ fn main() {
                 .unwrap_or_else(|_| PathBuf::from("blast-config.toml"));
             let (cfg, warning) = config::load(&config_path);
             let secrets = Arc::new(Secrets::default());
-            let tx = controller::spawn(app.handle().clone(), secrets.clone(), cfg.clone(), warning);
+            let db_path = app
+                .path()
+                .app_data_dir()
+                .map(|d| d.join("blast.db"))
+                .unwrap_or_else(|_| PathBuf::from("blast.db"));
+            let tx = controller::spawn(
+                app.handle().clone(),
+                secrets.clone(),
+                cfg.clone(),
+                warning,
+                db_path.clone(),
+            );
             let paths: Vec<PathBuf> = std::env::args_os()
                 .skip(1)
                 .map(PathBuf::from)
@@ -313,6 +366,7 @@ fn main() {
                 tx,
                 config: Mutex::new(cfg),
                 config_path,
+                db_path,
                 secrets,
             });
             Ok(())
@@ -332,7 +386,9 @@ fn main() {
             save_input,
             save_pad,
             clear_pad,
-            save_sfx_volume
+            save_sfx_volume,
+            save_automation,
+            export_history
         ])
         .run(tauri::generate_context!())
         .expect("BLAST Broadcaster");

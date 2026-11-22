@@ -3,14 +3,32 @@ use std::path::{Path, PathBuf};
 use blast_core::{is_audio_path, probe_file};
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct Entry {
     pub id: u64,
     pub path: PathBuf,
     pub title: String,
     pub artist: String,
+    pub album: String,
+    pub genre: String,
+    pub year: Option<i32>,
     pub duration: Option<f64>,
     pub error: Option<String>,
+    pub blocked: Option<String>,
+}
+
+impl Entry {
+    pub fn to_meta(&self) -> blast_library::TrackMeta {
+        blast_library::TrackMeta {
+            path: self.path.to_string_lossy().into_owned(),
+            title: self.title.clone(),
+            artist: self.artist.clone(),
+            album: self.album.clone(),
+            genre: self.genre.clone(),
+            year: self.year,
+            duration: self.duration,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -56,6 +74,7 @@ impl Playlist {
         self.entries.clear();
     }
 
+    #[cfg(test)]
     pub fn take_next(&mut self) -> Option<Entry> {
         let pos = self.entries.iter().position(|e| e.error.is_none())?;
         Some(self.entries.remove(pos))
@@ -96,8 +115,12 @@ pub fn make_entry(path: &Path) -> Entry {
             path: path.to_path_buf(),
             title: info.display_title(),
             artist: info.artist.unwrap_or_default(),
+            album: info.album.unwrap_or_default(),
+            genre: info.genre.unwrap_or_default(),
+            year: info.year,
             duration: info.duration_secs,
             error: None,
+            blocked: None,
         },
         Err(e) => Entry {
             id: 0,
@@ -106,9 +129,8 @@ pub fn make_entry(path: &Path) -> Entry {
                 .file_name()
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-            artist: String::new(),
-            duration: None,
             error: Some(e.to_string()),
+            ..Default::default()
         },
     }
 }
@@ -119,12 +141,10 @@ mod tests {
 
     fn e(t: &str) -> Entry {
         Entry {
-            id: 0,
             path: PathBuf::from(t),
             title: t.into(),
-            artist: String::new(),
             duration: Some(1.0),
-            error: None,
+            ..Default::default()
         }
     }
 

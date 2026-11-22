@@ -21,6 +21,7 @@
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3.5 8h3.5l2-3h6l2 3h3.5v11.5h-17z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13.2" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
     <symbol id="i-mute" viewBox="0 0 24 24"><path d="M3.5 9h4l5-4.5v15l-5-4.5h-4z"/><path d="M16 9l5.5 6M21.5 9L16 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.2"/><path d="M3.8 21a8.2 8.2 0 0 1 16.4 0z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="6.5" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="17.5" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
   </svg>
   <header class="topbar">
@@ -132,18 +133,28 @@
     <section class="bottom">
     <section class="playlist" id="playlist">
       <div class="playlist-bar">
-        <span class="playlist-title">PLAYLIST</span>
-        <span id="playlist-info" class="muted">0 titre</span>
+        <div class="fx-tabs ptabs">
+          <button class="fx-tab active" data-ptab="playlist">PLAYLIST</button>
+          <button class="fx-tab" data-ptab="history">HISTORIQUE</button>
+        </div>
+        <span id="playlist-info" class="muted" data-ppage="playlist">0 titre</span>
+        <span id="history-info" class="muted" data-ppage="history" hidden></span>
         <div class="spacer"></div>
-        <button id="add-files" class="btn small">+ Fichiers</button>
-        <button id="add-folder" class="btn small">+ Dossier</button>
-        <button id="clear" class="btn ghost small">Vider</button>
+        <button id="add-files" class="btn small" data-ppage="playlist">+ Fichiers</button>
+        <button id="add-folder" class="btn small" data-ppage="playlist">+ Dossier</button>
+        <button id="clear" class="btn ghost small" data-ppage="playlist">Vider</button>
+        <button id="history-export" class="btn small" data-ppage="history" hidden>Exporter CSV</button>
+        <button id="history-clear" class="btn ghost small danger" data-ppage="history" hidden>Effacer</button>
       </div>
-      <div class="playlist-head row-grid">
+      <div class="history-head hrow-grid" data-ppage="history" hidden>
+        <span>Heure</span><span>Titre</span><span>Artiste</span><span class="right">Diffusé</span><span class="right">Antenne</span><span class="right">Auditeurs</span>
+      </div>
+      <div id="hrows" class="rows" data-ppage="history" hidden></div>
+      <div class="playlist-head row-grid" data-ppage="playlist">
         <span>#</span><span>Titre</span><span>Artiste</span><span class="right">Durée</span><span class="right">Charger</span>
       </div>
-      <div id="rows" class="rows"></div>
-      <div id="empty" class="empty">
+      <div id="rows" class="rows" data-ppage="playlist"></div>
+      <div id="empty" class="empty" data-ppage="playlist">
         <p>Glisse ici des fichiers ou des dossiers depuis ton explorateur,</p>
         <p>ou utilise <b>+ Fichiers</b> / <b>+ Dossier</b>.</p>
         <p class="muted">Double-clic sur un titre : chargement dans la platine libre. Glisser un titre sur une platine : chargement direct.</p>
@@ -243,6 +254,7 @@
         <button class="tab active" data-tab="cast">Diffusion</button>
         <button class="tab" data-tab="aura">Aura / OBS</button>
         <button class="tab" data-tab="audio">Audio</button>
+        <button class="tab" data-tab="automation">Automation</button>
         <div class="spacer"></div>
         <div class="store-info muted" id="store-info"></div>
         <button class="btn ghost small" id="settings-close">Fermer</button>
@@ -314,6 +326,24 @@
             <span class="spacer"></span>
             <span class="form-result" id="aura-result"></span>
             <button type="button" class="btn small" id="aura-test">Tester la connexion</button>
+            <button type="submit" class="btn accent small">Enregistrer</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="tab-page hidden" data-page="automation">
+        <form class="form" id="automation-form">
+          <p class="muted">Règles de séparation appliquées quand BLAST choisit lui-même le titre suivant (auto-mix, bouton Suivant, FONDU vers une platine vide). Les titres concernés sont marqués d'une horloge dans la playlist et passés en attendant leur tour. Si aucun titre ne respecte les règles, le premier passe quand même et BLAST te prévient.</p>
+          <div class="grid2">
+            <label class="check span2"><input type="checkbox" name="enabled"> Activer les règles de séparation</label>
+            <label>Même artiste : pas avant (minutes)<input type="number" name="artist_minutes" min="0" max="1440" step="5"></label>
+            <label>Même titre : pas avant (minutes)<input type="number" name="title_minutes" min="0" max="10080" step="5"></label>
+            <label>Conserver l'historique (jours, 0 = toujours)<input type="number" name="history_days" min="0" max="3650"></label>
+          </div>
+          <p class="muted" id="library-info"></p>
+          <div class="form-actions">
+            <span class="spacer"></span>
+            <span class="form-result" id="automation-result"></span>
             <button type="submit" class="btn accent small">Enregistrer</button>
           </div>
         </form>
