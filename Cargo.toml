@@ -11,7 +11,8 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
+rust-version = "1.82"
 edition = "2021"
 authors = ["Loïc HERAUDEAU (D-Goth)"]
 license-file = "LICENSE"
