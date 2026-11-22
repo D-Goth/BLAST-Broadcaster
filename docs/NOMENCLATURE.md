@@ -29,7 +29,7 @@ ne pas le modifier à la main.
 | [`ENG`](#eng) | Moteur audio et périphériques (blast-core) | 19 |
 | [`CAST`](#cast) | Sorties de diffusion, encodage MP3 et fils d'envoi (blast-cast) | 18 |
 | [`PROT`](#prot) | Protocoles Icecast / Shoutcast et statistiques (blast-cast) | 23 |
-| [`AURA`](#aura) | Pilotage d'OBS par obs-websocket (blast-aura) | 20 |
+| [`AURA`](#aura) | Pilotage d'OBS par obs-websocket (blast-aura) | 21 |
 | [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 20 |
 | [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 4 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
@@ -2132,7 +2132,7 @@ const EVENTS_ALL: u32 = 2047;
 
 Types de sources traités comme audio.
 
-`crates/blast-aura/src/client.rs` ligne 21
+`crates/blast-aura/src/client.rs` ligne 23
 
 ```rust
 const AUDIO_KINDS: &[&str] = &[
@@ -2154,7 +2154,7 @@ const AUDIO_KINDS: &[&str] = &[
 
 Scène, stream, enregistrement, pause, replay, capture, volume, muet, texte et rafraîchissement.
 
-`crates/blast-aura/src/client.rs` ligne 37
+`crates/blast-aura/src/client.rs` ligne 39
 
 ```rust
 #[derive(Debug, Clone, PartialEq)]
@@ -2176,7 +2176,7 @@ pub enum ObsCommand {
 
 Nom et type d'une source audio.
 
-`crates/blast-aura/src/client.rs` ligne 52
+`crates/blast-aura/src/client.rs` ligne 54
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -2190,7 +2190,7 @@ pub struct ObsInput {
 
 Connexion, scènes, stream, enregistrement, sources, volume, informations et erreurs.
 
-`crates/blast-aura/src/client.rs` ligne 59
+`crates/blast-aura/src/client.rs` ligne 61
 
 ```rust
 #[derive(Debug, Clone, PartialEq)]
@@ -2212,7 +2212,7 @@ pub enum ObsEvent {
 
 Fil de connexion persistant, piloté par commandes, qui remonte des événements.
 
-`crates/blast-aura/src/client.rs` ligne 98
+`crates/blast-aura/src/client.rs` ligne 100
 
 ```rust
 pub struct AuraClient {
@@ -2226,7 +2226,7 @@ pub struct AuraClient {
 
 Arrêt demandé ou coupure.
 
-`crates/blast-aura/src/client.rs` ligne 136
+`crates/blast-aura/src/client.rs` ligne 138
 
 ```rust
 enum End {
@@ -2240,7 +2240,7 @@ enum End {
 
 Se reconnecte avec un délai croissant de 2 à 30 secondes.
 
-`crates/blast-aura/src/client.rs` ligne 143
+`crates/blast-aura/src/client.rs` ligne 145
 
 ```rust
 fn run(
@@ -2262,7 +2262,7 @@ fn run(
 
 Reconnaît une attente sans données sur la socket.
 
-`crates/blast-aura/src/client.rs` ligne 187
+`crates/blast-aura/src/client.rs` ligne 189
 
 ```rust
 fn would_block(e: &tungstenite::Error) -> bool {
@@ -2274,7 +2274,7 @@ fn would_block(e: &tungstenite::Error) -> bool {
 
 État d'une connexion : requêtes en attente par requestId et sources suivies.
 
-`crates/blast-aura/src/client.rs` ligne 192
+`crates/blast-aura/src/client.rs` ligne 194
 
 ```rust
 struct Session<'a> {
@@ -2291,7 +2291,7 @@ struct Session<'a> {
 
 Envoi des requêtes, lecture des réponses et des événements, conversion en ObsEvent.
 
-`crates/blast-aura/src/client.rs` ligne 202
+`crates/blast-aura/src/client.rs` ligne 204
 
 ```rust
 impl Session<'_> {
@@ -2313,7 +2313,7 @@ impl Session<'_> {
 
 Hello, Identify avec authentification et attente de Identified.
 
-`crates/blast-aura/src/client.rs` ligne 427
+`crates/blast-aura/src/client.rs` ligne 434
 
 ```rust
 fn handshake(
@@ -2335,7 +2335,7 @@ fn handshake(
 
 Ouvre la WebSocket, s'identifie et fait tourner la session.
 
-`crates/blast-aura/src/client.rs` ligne 487
+`crates/blast-aura/src/client.rs` ligne 495
 
 ```rust
 fn session(
@@ -2351,6 +2351,16 @@ fn session(
             return End::Fatal(e.to_string())
         }
 …
+```
+
+### [AURA-21] Pause de la boucle OBS
+
+Attente quand la socket non bloquante n'a rien à lire ; évite les lectures à délai, dont l'état est indéterminé sous Windows après expiration.
+
+`crates/blast-aura/src/client.rs` ligne 21
+
+```rust
+const IDLE: Duration = Duration::from_millis(15);
 ```
 
 
