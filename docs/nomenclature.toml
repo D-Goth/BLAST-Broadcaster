@@ -3326,3 +3326,47 @@ definition = "Ne redemande la pochette que si son identifiant change ; libère l
 [codes.UI-144]
 titre = "Agrandissement de la pochette"
 definition = "Clic sur la vignette : pochette en grand ; clic ou Échap pour fermer."
+
+[codes.MIX-18]
+titre = "Plage de vitesse d'une platine"
+definition = "Vitesse de lecture acceptée par le mixeur, de ×0,5 à ×2 ; une valeur invalide revient à ×1."
+
+[codes.MIX-19]
+titre = "Temps restant à la vitesse courante"
+definition = "Frames de sortie restantes, vitesse comprise ; sert au déclenchement de l'auto-mix."
+
+[codes.MIX-20]
+titre = "Lecture à vitesse variable"
+definition = "Interpolation linéaire entre deux échantillons et avance fractionnaire de la tête de lecture."
+
+[codes.CTL-191]
+titre = "Pitch d'une platine"
+definition = "Borne le pitch à ±16 %, l'arrondit au dixième et envoie la vitesse au mixeur s'il a changé."
+
+[codes.CTL-192]
+titre = "Pitch maximal"
+definition = "Écart maximal de vitesse autorisé depuis l'interface (±16 %)."
+
+[codes.HTM-44]
+titre = "Pitch de la platine A"
+definition = "Curseur PITCH (−16 à +16 %) et valeur cliquable pour revenir à 0 %."
+
+[codes.HTM-45]
+titre = "Pitch de la platine B"
+definition = "Curseur PITCH (−16 à +16 %) et valeur cliquable pour revenir à 0 %."
+
+[codes.STY-23]
+titre = "Pitch des platines"
+definition = "Curseur aligné à droite des boutons ; valeur encadrée en orange quand le pitch n'est pas à 0 %."
+
+[codes.UI-145]
+titre = "État du pitch"
+definition = "Curseur tenu et format du pourcentage (virgule, signe moins typographique)."
+
+[codes.UI-146]
+titre = "Affichage du pitch"
+definition = "Met à jour le curseur et la valeur depuis l'état, sauf pendant que l'utilisateur le tient."
+
+[codes.UI-147]
+titre = "Commandes du pitch"
+definition = "Glisser envoie le pitch ; double-clic sur le curseur ou clic sur la valeur le remet à 0 %."

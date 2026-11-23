@@ -42,6 +42,7 @@ pub enum Command {
     Stop(DeckId),
     Seek(DeckId, usize),
     SetDeckGain(DeckId, f32),
+    SetDeckRate(DeckId, f64),
     SetCrossfader(f32),
     StartCrossfade {
         to: DeckId,
@@ -130,7 +131,12 @@ struct Slot {
     pos: usize,
     playing: bool,
     gain: f32,
+    rate: f64,
+    frac: f64,
 }
+
+// [MIX-18]
+pub const DECK_RATE_RANGE: (f64, f64) = (0.5, 2.0);
 
 impl Slot {
     fn frames(&self) -> usize {
@@ -139,6 +145,11 @@ impl Slot {
 
     fn remaining(&self) -> usize {
         self.frames().saturating_sub(self.pos)
+    }
+
+    // [MIX-19]
+    fn remaining_out(&self) -> usize {
+        (self.remaining() as f64 / self.rate) as usize
     }
 
     fn status(&self) -> DeckStatus {
@@ -151,8 +162,8 @@ impl Slot {
         };
         DeckStatus {
             state,
-            position: self.pos,
-            frames: self.frames(),
+            position: (self.pos as f64 / self.rate) as usize,
+            frames: (self.frames() as f64 / self.rate) as usize,
         }
     }
 }
@@ -208,6 +219,7 @@ impl Mixer {
         let mut decks: [Slot; 2] = Default::default();
         for d in decks.iter_mut() {
             d.gain = 1.0;
+            d.rate = 1.0;
         }
         Self {
             sample_rate,
@@ -300,6 +312,7 @@ impl Mixer {
             Command::Load(id, track) => {
                 let slot = &mut self.decks[id.index()];
                 slot.pos = 0;
+                slot.frac = 0.0;
                 slot.playing = false;
                 return slot.track.replace(track);
             }
@@ -320,12 +333,18 @@ impl Mixer {
                 let slot = &mut self.decks[id.index()];
                 slot.playing = false;
                 slot.pos = 0;
+                slot.frac = 0.0;
             }
             Command::Seek(id, frame) => {
                 let slot = &mut self.decks[id.index()];
-                slot.pos = frame.min(slot.frames());
+                slot.pos = ((frame as f64 * slot.rate) as usize).min(slot.frames());
+                slot.frac = 0.0;
             }
             Command::SetDeckGain(id, g) => self.decks[id.index()].gain = g.max(0.0),
+            Command::SetDeckRate(id, r) => {
+                let (lo, hi) = DECK_RATE_RANGE;
+                self.decks[id.index()].rate = if r.is_finite() { r.clamp(lo, hi) } else { 1.0 };
+            }
             Command::SetCrossfader(p) => {
                 self.fade = None;
                 self.crossfader = p.clamp(0.0, 1.0);
@@ -420,7 +439,7 @@ impl Mixer {
         }
         let cur = self.on_air();
         let next = 1 - cur;
-        let remaining = self.decks[cur].remaining();
+        let remaining = self.decks[cur].remaining_out();
         if !self.decks[cur].playing
             && self.decks[cur].track.is_some()
             && remaining == 0
@@ -495,9 +514,25 @@ impl Mixer {
             emit(Event::Ended(DeckId::from_index(i)));
             return (0.0, 0.0);
         }
-        let l = track.samples[2 * slot.pos];
-        let r = track.samples[2 * slot.pos + 1];
-        slot.pos += 1;
+        let (l, r) = if slot.rate == 1.0 && slot.frac == 0.0 {
+            let lr = (track.samples[2 * slot.pos], track.samples[2 * slot.pos + 1]);
+            slot.pos += 1;
+            lr
+        } else {
+            // [MIX-20]
+            let n = (slot.pos + 1).min(frames - 1);
+            let t = slot.frac as f32;
+            let s = &track.samples;
+            let lr = (
+                s[2 * slot.pos] + (s[2 * n] - s[2 * slot.pos]) * t,
+                s[2 * slot.pos + 1] + (s[2 * n + 1] - s[2 * slot.pos + 1]) * t,
+            );
+            slot.frac += slot.rate;
+            let step = slot.frac.floor();
+            slot.frac -= step;
+            slot.pos += step as usize;
+            lr
+        };
         if slot.pos >= frames {
             slot.playing = false;
             emit(Event::Ended(DeckId::from_index(i)));
@@ -935,6 +970,73 @@ mod tests {
             "retour de la musique : {}",
             out[2 * 1499]
         );
+    }
+
+    fn ramp(frames: usize) -> Arc<Track> {
+        let mut samples = Vec::with_capacity(frames * 2);
+        for i in 0..frames {
+            let v = i as f32 * 0.001;
+            samples.push(v);
+            samples.push(v);
+        }
+        Arc::new(Track {
+            source: PathBuf::from("ramp"),
+            samples,
+            sample_rate: 1000,
+            source_rate: 1000,
+            title: None,
+            artist: None,
+            format: None,
+            cover: None,
+        })
+    }
+
+    #[test]
+    fn pitch_changes_speed_and_reported_times() {
+        let mut m = Mixer::new(1000);
+        m.apply(Command::Load(DeckId::A, ramp(400)));
+        m.apply(Command::SetDeckRate(DeckId::A, 0.5));
+        m.apply(Command::Play(DeckId::A));
+        let (out, _) = run(&mut m, 5);
+        for k in 0..5 {
+            assert!(
+                (out[2 * k] - 0.0005 * k as f32).abs() < 1e-5,
+                "{k}: {}",
+                out[2 * k]
+            );
+        }
+        assert_eq!(m.decks[0].status().frames, 800);
+
+        m.apply(Command::SetDeckRate(DeckId::A, 2.0));
+        m.apply(Command::Seek(DeckId::A, 100));
+        assert_eq!(m.decks[0].pos, 200);
+        assert_eq!(m.decks[0].status().position, 100);
+        let (_, ev) = run(&mut m, 99);
+        assert!(ev.is_empty());
+        let (_, ev) = run(&mut m, 1);
+        assert_eq!(ev, vec![Event::Ended(DeckId::A)]);
+
+        m.apply(Command::SetDeckRate(DeckId::B, f64::NAN));
+        assert_eq!(m.decks[1].rate, 1.0);
+        m.apply(Command::SetDeckRate(DeckId::B, 9.0));
+        assert_eq!(m.decks[1].rate, DECK_RATE_RANGE.1);
+    }
+
+    #[test]
+    fn automix_starts_on_time_with_pitch() {
+        let mut m = Mixer::new(1000);
+        m.apply(Command::SetAutoMix {
+            enabled: true,
+            fade_frames: 100,
+        });
+        m.apply(Command::Load(DeckId::A, tone(1000, 0.5)));
+        m.apply(Command::Load(DeckId::B, tone(1000, 0.5)));
+        m.apply(Command::SetDeckRate(DeckId::A, 1.25));
+        m.apply(Command::Play(DeckId::A));
+        let (_, ev) = run(&mut m, 699);
+        assert!(ev.is_empty(), "{ev:?}");
+        let (_, ev) = run(&mut m, 2);
+        assert!(matches!(ev[..], [Event::AutoTransition { .. }]), "{ev:?}");
     }
 
     #[test]

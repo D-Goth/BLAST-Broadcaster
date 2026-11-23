@@ -51,6 +51,8 @@ use voice::MicState;
 // [CTL-189]
 const DECK_GAIN_MIN_DB: f32 = -60.0;
 const DECK_GAIN_MAX_DB: f32 = 6.0;
+// [CTL-192]
+const DECK_PITCH_MAX: f32 = 16.0;
 
 // [CTL-01]
 pub trait Ui: Send + 'static {
@@ -251,6 +253,7 @@ struct Controller {
     peak: [f32; 2],
     deck_peak: [[f32; 2]; 2],
     deck_gain_db: [f32; 2],
+    deck_pitch: [f32; 2],
     reduction: f32,
     automix: bool,
     fade: f32,
@@ -300,6 +303,7 @@ impl Controller {
             peak: [0.0; 2],
             deck_peak: [[0.0; 2]; 2],
             deck_gain_db: [f32::NAN; 2],
+            deck_pitch: [0.0; 2],
             reduction: 0.0,
             automix: false,
             fade: 6.0,
@@ -477,6 +481,7 @@ impl Controller {
                 gains[deck.index()] = db;
                 self.apply_deck_gains(gains);
             }
+            UiCommand::DeckPitch { deck, percent } => self.set_pitch(deck, percent),
             UiCommand::FadeSeconds { value } => {
                 self.fade = value.clamp(0.0, 30.0);
                 self.send_automix();
@@ -500,6 +505,30 @@ impl Controller {
             };
             self.send(Command::SetDeckGain(deck.id(), gain));
         }
+    }
+
+    // [CTL-191]
+    fn set_pitch(&mut self, deck: Deck, percent: f32) {
+        let p = if percent.is_finite() {
+            (percent.clamp(-DECK_PITCH_MAX, DECK_PITCH_MAX) * 10.0).round() / 10.0
+        } else {
+            0.0
+        };
+        let i = deck.index();
+        if self.deck_pitch[i] == p {
+            return;
+        }
+        let old = self.deck_rate(i);
+        self.deck_pitch[i] = p;
+        let new = self.deck_rate(i);
+        let st = &mut self.decks[i].status;
+        st.frames = (st.frames as f64 * old / new) as usize;
+        st.position = (st.position as f64 * old / new) as usize;
+        self.send(Command::SetDeckRate(deck.id(), new));
+    }
+
+    pub(super) fn deck_rate(&self, i: usize) -> f64 {
+        1.0 + self.deck_pitch[i] as f64 / 100.0
     }
 
     // [CTL-19]

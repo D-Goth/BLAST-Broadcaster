@@ -129,6 +129,7 @@ impl Controller {
         self.decks[i].meta.loading = None;
         match result {
             Ok(track) => {
+                let rate = self.deck_rate(i);
                 let side = &mut self.decks[i];
                 if let Some(t) = &track.title {
                     side.meta.title = t.clone();
@@ -140,7 +141,7 @@ impl Controller {
                 side.status = DeckStatus {
                     state: DeckState::Loaded,
                     position: 0,
-                    frames: track.frames(),
+                    frames: (track.frames() as f64 / rate) as usize,
                 };
                 self.send(Command::Load(deck.id(), Arc::new(track)));
                 if play {
@@ -367,6 +368,7 @@ impl Controller {
             peak: self.peak,
             deck_peak: self.deck_peak,
             deck_gain_db: self.deck_gain_db,
+            deck_pitch: self.deck_pitch,
             automix: self.automix,
             fade: self.fade,
             on_air: self.is_playing(side).then(|| Deck::from_index(side)),

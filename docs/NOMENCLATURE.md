@@ -25,7 +25,7 @@ ne pas le modifier à la main.
 | [`CORE`](#core) | Types communs du moteur audio (blast-core) | 3 |
 | [`DEC`](#dec) | Décodage, tags et rééchantillonnage (blast-core) | 18 |
 | [`DSP`](#dsp) | Traitement du signal : filtres, dynamique, chaîne antenne, effets de voix (blast-core) | 20 |
-| [`MIX`](#mix) | Mixeur temps réel (blast-core) | 17 |
+| [`MIX`](#mix) | Mixeur temps réel (blast-core) | 20 |
 | [`ENG`](#eng) | Moteur audio et périphériques (blast-core) | 19 |
 | [`CAST`](#cast) | Sorties de diffusion, encodage MP3 et fils d'envoi (blast-cast) | 18 |
 | [`PROT`](#prot) | Protocoles Icecast / Shoutcast et statistiques (blast-cast) | 23 |
@@ -42,10 +42,10 @@ ne pas le modifier à la main.
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
 | [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 180 |
-| [`UI`](#ui) | Interface : modules JavaScript | 143 |
-| [`STY`](#sty) | Interface : feuille de style | 22 |
-| [`HTM`](#htm) | Interface : structure de la page | 43 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 182 |
+| [`UI`](#ui) | Interface : modules JavaScript | 146 |
+| [`STY`](#sty) | Interface : feuille de style | 23 |
+| [`HTM`](#htm) | Interface : structure de la page | 45 |
 
 ## CORE
 
@@ -856,9 +856,9 @@ pub enum Command {
     Stop(DeckId),
     Seek(DeckId, usize),
     SetDeckGain(DeckId, f32),
+    SetDeckRate(DeckId, f64),
     SetCrossfader(f32),
     StartCrossfade {
-        to: DeckId,
 …
 ```
 
@@ -866,7 +866,7 @@ pub enum Command {
 
 État, position et durée en trames, renvoyés à chaque tick.
 
-`crates/blast-core/src/mixer.rs` ligne 78
+`crates/blast-core/src/mixer.rs` ligne 79
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -881,7 +881,7 @@ pub struct DeckStatus {
 
 Fin de titre, transition automatique, fin de fondu, fin d'un son de pad et tick de mesure (niveaux de sortie et de chaque platine après son volume, micro, ducking, réduction).
 
-`crates/blast-core/src/mixer.rs` ligne 86
+`crates/blast-core/src/mixer.rs` ligne 87
 
 ```rust
 #[derive(Debug, Clone, PartialEq)]
@@ -903,7 +903,7 @@ pub enum Event {
 
 Son de pad en cours de lecture et sa position.
 
-`crates/blast-core/src/mixer.rs` ligne 111
+`crates/blast-core/src/mixer.rs` ligne 112
 
 ```rust
 struct Voice {
@@ -917,7 +917,7 @@ struct Voice {
 
 File d'entrée, filtres, gain et effets du micro avant le mélange.
 
-`crates/blast-core/src/mixer.rs` ligne 118
+`crates/blast-core/src/mixer.rs` ligne 119
 
 ```rust
 struct MicChain {
@@ -932,7 +932,7 @@ struct MicChain {
 
 Titre chargé, position, état et gain d'une platine dans le fil audio.
 
-`crates/blast-core/src/mixer.rs` ligne 126
+`crates/blast-core/src/mixer.rs` ligne 127
 
 ```rust
 #[derive(Debug, Default)]
@@ -941,6 +941,8 @@ struct Slot {
     pos: usize,
     playing: bool,
     gain: f32,
+    rate: f64,
+    frac: f64,
 }
 ```
 
@@ -948,7 +950,7 @@ struct Slot {
 
 Positions de départ et d'arrivée du crossfader et durée du fondu.
 
-`crates/blast-core/src/mixer.rs` ligne 160
+`crates/blast-core/src/mixer.rs` ligne 171
 
 ```rust
 #[derive(Debug, Clone, Copy)]
@@ -965,7 +967,7 @@ struct Fade {
 
 Mélange les deux platines, les sons de pads et le micro, sans aucune allocation dans le fil audio.
 
-`crates/blast-core/src/mixer.rs` ligne 170
+`crates/blast-core/src/mixer.rs` ligne 181
 
 ```rust
 pub struct Mixer {
@@ -987,7 +989,7 @@ pub struct Mixer {
 
 Exécute une commande de l'interface ; les titres remplacés partent dans une corbeille vidée hors du fil audio.
 
-`crates/blast-core/src/mixer.rs` ligne 297
+`crates/blast-core/src/mixer.rs` ligne 309
 
 ```rust
 pub fn apply(&mut self, cmd: Command) -> Option<Arc<Track>> {
@@ -995,13 +997,13 @@ pub fn apply(&mut self, cmd: Command) -> Option<Arc<Track>> {
         Command::Load(id, track) => {
             let slot = &mut self.decks[id.index()];
             slot.pos = 0;
+            slot.frac = 0.0;
             slot.playing = false;
             return slot.track.replace(track);
         }
         Command::Eject(id) => {
             let slot = &mut self.decks[id.index()];
             slot.pos = 0;
-            slot.playing = false;
 …
 ```
 
@@ -1009,7 +1011,7 @@ pub fn apply(&mut self, cmd: Command) -> Option<Arc<Track>> {
 
 Produit un bloc de mélange sans séparer antenne et écoute locale.
 
-`crates/blast-core/src/mixer.rs` ligne 554
+`crates/blast-core/src/mixer.rs` ligne 589
 
 ```rust
 pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], emit: F) {
@@ -1021,7 +1023,7 @@ pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], emit: F) {
 
 Produit le mélange antenne (avec micro) et le mélange local (micro seulement si le retour est activé), applique ducking, auto-mix et traitement antenne.
 
-`crates/blast-core/src/mixer.rs` ligne 559
+`crates/blast-core/src/mixer.rs` ligne 594
 
 ```rust
 pub fn render_split<F: FnMut(Event)>(
@@ -1043,7 +1045,7 @@ pub fn render_split<F: FnMut(Event)>(
 
 Lit le micro dans sa file, limite le retard, filtre et applique les effets de voix.
 
-`crates/blast-core/src/mixer.rs` ligne 658
+`crates/blast-core/src/mixer.rs` ligne 693
 
 ```rust
 impl MicChain {
@@ -1072,12 +1074,44 @@ pub const CART_BASE: u16 = 1000;
 
 Variation de gain par échantillon pour que la musique parcoure toute la profondeur du ducking dans le temps réglé (descente ou remontée).
 
-`crates/blast-core/src/mixer.rs` ligne 670
+`crates/blast-core/src/mixer.rs` ligne 705
 
 ```rust
 fn duck_step(depth: f32, secs: f32, sample_rate: u32) -> f32 {
     depth / (sample_rate as f32 * secs.max(0.005))
 }
+```
+
+### [MIX-18] Plage de vitesse d'une platine
+
+Vitesse de lecture acceptée par le mixeur, de ×0,5 à ×2 ; une valeur invalide revient à ×1.
+
+`crates/blast-core/src/mixer.rs` ligne 138
+
+```rust
+pub const DECK_RATE_RANGE: (f64, f64) = (0.5, 2.0);
+```
+
+### [MIX-19] Temps restant à la vitesse courante
+
+Frames de sortie restantes, vitesse comprise ; sert au déclenchement de l'auto-mix.
+
+`crates/blast-core/src/mixer.rs` ligne 150
+
+```rust
+fn remaining_out(&self) -> usize {
+    (self.remaining() as f64 / self.rate) as usize
+}
+```
+
+### [MIX-20] Lecture à vitesse variable
+
+Interpolation linéaire entre deux échantillons et avance fractionnaire de la tête de lecture.
+
+`crates/blast-core/src/mixer.rs` ligne 522
+
+```rust
+let n = (slot.pos + 1).min(frames - 1);
 ```
 
 
@@ -7978,7 +8012,7 @@ Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliot
 
 Ce dont le contrôleur a besoin côté interface : émettre un événement et connaître le dossier des images. Remplaçable dans les tests.
 
-`app/src-tauri/src/controller/mod.rs` ligne 55
+`app/src-tauri/src/controller/mod.rs` ligne 57
 
 ```rust
 pub trait Ui: Send + 'static {
@@ -7991,7 +8025,7 @@ pub trait Ui: Send + 'static {
 
 Implémentation réelle : émet vers la fenêtre, journalise les échecs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 61
+`app/src-tauri/src/controller/mod.rs` ligne 63
 
 ```rust
 struct TauriUi(AppHandle);
@@ -8001,7 +8035,7 @@ struct TauriUi(AppHandle);
 
 Moteur démarré (ou erreur), nom de la sortie et fréquence.
 
-`app/src-tauri/src/controller/mod.rs` ligne 79
+`app/src-tauri/src/controller/mod.rs` ligne 81
 
 ```rust
 pub struct Audio {
@@ -8016,7 +8050,7 @@ pub struct Audio {
 
 Démarre le moteur sur la sortie choisie, se replie sur la sortie par défaut et journalise l'échec.
 
-`app/src-tauri/src/controller/mod.rs` ligne 87
+`app/src-tauri/src/controller/mod.rs` ligne 89
 
 ```rust
 impl Audio {
@@ -8038,7 +8072,7 @@ impl Audio {
 
 Résultats rendus par les fils de fond : scan, décodage d'un titre ou d'un pad, relevé d'auditeurs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 130
+`app/src-tauri/src/controller/mod.rs` ligne 132
 
 ```rust
 enum Work {
@@ -8060,7 +8094,7 @@ enum Work {
 
 Horodatage Unix en millisecondes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 168
+`app/src-tauri/src/controller/mod.rs` ligne 170
 
 ```rust
 pub fn now_ms() -> u64 {
@@ -8075,7 +8109,7 @@ pub fn now_ms() -> u64 {
 
 Horodatage Unix en secondes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 176
+`app/src-tauri/src/controller/mod.rs` ligne 178
 
 ```rust
 pub fn now_secs() -> i64 {
@@ -8087,7 +8121,7 @@ pub fn now_secs() -> i64 {
 
 Démarre le fil du contrôleur avec audio et bibliothèque, renvoie le canal de commandes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 181
+`app/src-tauri/src/controller/mod.rs` ligne 183
 
 ```rust
 pub fn spawn(
@@ -8109,7 +8143,7 @@ pub fn spawn(
 
 Ouvre la base ; en cas d'échec, désactive historique et règles et prévient l'utilisateur.
 
-`app/src-tauri/src/controller/mod.rs` ligne 214
+`app/src-tauri/src/controller/mod.rs` ligne 216
 
 ```rust
 fn open_library(
@@ -8131,7 +8165,7 @@ fn open_library(
 
 État central : platines, playlist, diffusion, pads, micro, OBS et automation.
 
-`app/src-tauri/src/controller/mod.rs` ligne 237
+`app/src-tauri/src/controller/mod.rs` ligne 239
 
 ```rust
 struct Controller {
@@ -8153,7 +8187,7 @@ struct Controller {
 
 Applique les réglages au moteur, connecte OBS si demandé, charge les pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 274
+`app/src-tauri/src/controller/mod.rs` ligne 277
 
 ```rust
 fn new(
@@ -8175,7 +8209,7 @@ fn new(
 
 Toutes les 15 ms : commandes de l'interface, travaux de fond, événements du moteur, prise antenne, OBS, sorties, statistiques et entretien.
 
-`app/src-tauri/src/controller/mod.rs` ligne 335
+`app/src-tauri/src/controller/mod.rs` ligne 339
 
 ```rust
 fn run(mut self) {
@@ -8197,7 +8231,7 @@ fn run(mut self) {
 
 Applique les résultats des fils de fond.
 
-`app/src-tauri/src/controller/mod.rs` ligne 361
+`app/src-tauri/src/controller/mod.rs` ligne 365
 
 ```rust
 fn drain_work(&mut self) {
@@ -8211,7 +8245,7 @@ fn drain_work(&mut self) {
 
 Lit jusqu'à 64 événements par tour et ne garde que le dernier tick.
 
-`app/src-tauri/src/controller/mod.rs` ligne 368
+`app/src-tauri/src/controller/mod.rs` ligne 372
 
 ```rust
 fn pump_engine(&mut self) {
@@ -8233,7 +8267,7 @@ fn pump_engine(&mut self) {
 
 Transmet une commande au mixeur si le moteur tourne.
 
-`app/src-tauri/src/controller/mod.rs` ligne 388
+`app/src-tauri/src/controller/mod.rs` ligne 392
 
 ```rust
 fn send(&self, cmd: Command) {
@@ -8247,7 +8281,7 @@ fn send(&self, cmd: Command) {
 
 Sérialise une vue et l'envoie à l'interface.
 
-`app/src-tauri/src/controller/mod.rs` ligne 395
+`app/src-tauri/src/controller/mod.rs` ligne 399
 
 ```rust
 fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
@@ -8262,7 +8296,7 @@ fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
 
 Affiche un message à l'utilisateur et journalise avertissements et erreurs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 403
+`app/src-tauri/src/controller/mod.rs` ligne 407
 
 ```rust
 fn notice(&self, level: &'static str, message: impl Into<String>) {
@@ -8278,7 +8312,7 @@ fn notice(&self, level: &'static str, message: impl Into<String>) {
 
 Dirige chaque commande de l'interface vers son traitement, puis publie l'état.
 
-`app/src-tauri/src/controller/mod.rs` ligne 412
+`app/src-tauri/src/controller/mod.rs` ligne 416
 
 ```rust
 fn handle(&mut self, cmd: UiCommand) {
@@ -8300,7 +8334,7 @@ fn handle(&mut self, cmd: UiCommand) {
 
 Republie toutes les vues et l'avertissement de démarrage éventuel.
 
-`app/src-tauri/src/controller/mod.rs` ligne 505
+`app/src-tauri/src/controller/mod.rs` ligne 534
 
 ```rust
 fn refresh(&mut self) {
@@ -8322,7 +8356,7 @@ fn refresh(&mut self) {
 
 Applique traitement antenne, automation, OBS, voix, pads et sorties modifiés.
 
-`app/src-tauri/src/controller/mod.rs` ligne 521
+`app/src-tauri/src/controller/mod.rs` ligne 550
 
 ```rust
 fn apply_config(&mut self, cfg: AppConfig) {
@@ -8344,7 +8378,7 @@ fn apply_config(&mut self, cfg: AppConfig) {
 
 Dirige chaque résultat de fond vers son traitement.
 
-`app/src-tauri/src/controller/mod.rs` ligne 544
+`app/src-tauri/src/controller/mod.rs` ligne 573
 
 ```rust
 fn on_work(&mut self, w: Work) {
@@ -8366,7 +8400,7 @@ fn on_work(&mut self, w: Work) {
 
 Met à jour platines, vumètres et micro à chaque tick ; gère fin de titre, fondus et fin des sons de pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 579
+`app/src-tauri/src/controller/mod.rs` ligne 608
 
 ```rust
 fn on_event(&mut self, e: Event) {
@@ -8388,7 +8422,7 @@ fn on_event(&mut self, e: Event) {
 
 Platine désignée par la position du crossfader.
 
-`app/src-tauri/src/controller/mod.rs` ligne 625
+`app/src-tauri/src/controller/mod.rs` ligne 654
 
 ```rust
 fn on_air_side(&self) -> usize {
@@ -8603,7 +8637,7 @@ Platines, crossfader, vumètres, auto-mix, platine à l'antenne, sortie audio, m
 
 Entrées avec motif d'attente et durée totale.
 
-`app/src-tauri/src/controller/views.rs` ligne 155
+`app/src-tauri/src/controller/views.rs` ligne 156
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -8617,7 +8651,7 @@ pub struct PlaylistView<'a> {
 
 État, cible, auditeurs, pic et heure de passage en direct.
 
-`app/src-tauri/src/controller/views.rs` ligne 162
+`app/src-tauri/src/controller/views.rs` ligne 163
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -8638,7 +8672,7 @@ pub struct CastOutputView {
 
 Diffusion en cours, titre, sorties, auditeurs, pic de session et début.
 
-`app/src-tauri/src/controller/views.rs` ligne 176
+`app/src-tauri/src/controller/views.rs` ligne 177
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -8656,7 +8690,7 @@ pub struct CastView {
 
 Tampons mémoire envoyés à l'interface : flux global, morceaux, jingles et pubs, avec statistiques, passage en cours et taille des tampons.
 
-`app/src-tauri/src/controller/views.rs` ligne 187
+`app/src-tauri/src/controller/views.rs` ligne 188
 
 ```rust
 #[derive(Serialize, Clone, Default)]
@@ -8790,7 +8824,7 @@ pub(super) fn on_decoded(
 
 Marque la platine comme terminée.
 
-`app/src-tauri/src/controller/decks.rs` ligne 174
+`app/src-tauri/src/controller/decks.rs` ligne 175
 
 ```rust
 pub(super) fn on_ended(&mut self, i: usize) {
@@ -8805,7 +8839,7 @@ pub(super) fn on_ended(&mut self, i: usize) {
 
 Remet au début une platine terminée avant de la relancer.
 
-`app/src-tauri/src/controller/decks.rs` ligne 182
+`app/src-tauri/src/controller/decks.rs` ligne 183
 
 ```rust
 fn rewind_if_finished(&mut self, deck: Deck) {
@@ -8821,7 +8855,7 @@ fn rewind_if_finished(&mut self, deck: Deck) {
 
 Lance la platine cible et le fondu du crossfader vers elle.
 
-`app/src-tauri/src/controller/decks.rs` ligne 191
+`app/src-tauri/src/controller/decks.rs` ligne 192
 
 ```rust
 pub(super) fn crossfade_to(&mut self, to: Deck) {
@@ -8841,7 +8875,7 @@ pub(super) fn crossfade_to(&mut self, to: Deck) {
 
 Fait le fondu si la platine cible a un titre, sinon charge le suivant de la playlist puis fait le fondu.
 
-`app/src-tauri/src/controller/decks.rs` ligne 204
+`app/src-tauri/src/controller/decks.rs` ligne 205
 
 ```rust
 pub(super) fn fade_or_fetch(&mut self, to: Deck) {
@@ -8863,7 +8897,7 @@ pub(super) fn fade_or_fetch(&mut self, to: Deck) {
 
 Sur une platine en lecture : fondu vers l'autre. Sur une platine arrêtée : charge le titre suivant.
 
-`app/src-tauri/src/controller/decks.rs` ligne 220
+`app/src-tauri/src/controller/decks.rs` ligne 221
 
 ```rust
 pub(super) fn next(&mut self, deck: Deck) {
@@ -8885,7 +8919,7 @@ pub(super) fn next(&mut self, deck: Deck) {
 
 Remet en tête de playlist un titre chargé mais jamais lu qu'on remplace.
 
-`app/src-tauri/src/controller/decks.rs` ligne 236
+`app/src-tauri/src/controller/decks.rs` ligne 237
 
 ```rust
 pub(super) fn return_cued(&mut self, deck: Deck) {
@@ -8904,7 +8938,7 @@ pub(super) fn return_cued(&mut self, deck: Deck) {
 
 Garde les deux platines garnies : démarre la première, prépare la suivante.
 
-`app/src-tauri/src/controller/decks.rs` ligne 248
+`app/src-tauri/src/controller/decks.rs` ligne 249
 
 ```rust
 pub(super) fn fill_automix(&mut self) {
@@ -8926,7 +8960,7 @@ pub(super) fn fill_automix(&mut self) {
 
 Charge une entrée sur une platine, sauf si celle-ci est à l'antenne ou le fichier illisible.
 
-`app/src-tauri/src/controller/decks.rs` ligne 275
+`app/src-tauri/src/controller/decks.rs` ligne 276
 
 ```rust
 pub(super) fn load_entry(&mut self, id: u64, deck: Deck) {
@@ -8948,7 +8982,7 @@ pub(super) fn load_entry(&mut self, id: u64, deck: Deck) {
 
 Lance une platine prête.
 
-`app/src-tauri/src/controller/decks.rs` ligne 299
+`app/src-tauri/src/controller/decks.rs` ligne 300
 
 ```rust
 pub(super) fn play(&mut self, deck: Deck) {
@@ -8963,7 +8997,7 @@ pub(super) fn play(&mut self, deck: Deck) {
 
 Arrête une platine et la remet au début.
 
-`app/src-tauri/src/controller/decks.rs` ligne 307
+`app/src-tauri/src/controller/decks.rs` ligne 308
 
 ```rust
 pub(super) fn stop(&mut self, deck: Deck) {
@@ -8976,7 +9010,7 @@ pub(super) fn stop(&mut self, deck: Deck) {
 
 Vide une platine qui n'est pas en lecture.
 
-`app/src-tauri/src/controller/decks.rs` ligne 313
+`app/src-tauri/src/controller/decks.rs` ligne 314
 
 ```rust
 pub(super) fn eject(&mut self, deck: Deck) {
@@ -8992,7 +9026,7 @@ pub(super) fn eject(&mut self, deck: Deck) {
 
 Place la lecture à une fraction du titre.
 
-`app/src-tauri/src/controller/decks.rs` ligne 322
+`app/src-tauri/src/controller/decks.rs` ligne 323
 
 ```rust
 pub(super) fn seek(&mut self, deck: Deck, fraction: f32) {
@@ -9014,7 +9048,7 @@ pub(super) fn seek(&mut self, deck: Deck, fraction: f32) {
 
 Transmet l'activation et la durée de fondu au mixeur.
 
-`app/src-tauri/src/controller/decks.rs` ligne 337
+`app/src-tauri/src/controller/decks.rs` ligne 338
 
 ```rust
 pub(super) fn send_automix(&self) {
@@ -9029,7 +9063,7 @@ pub(super) fn send_automix(&self) {
 
 Convertit trames en secondes pour l'interface.
 
-`app/src-tauri/src/controller/decks.rs` ligne 345
+`app/src-tauri/src/controller/decks.rs` ligne 346
 
 ```rust
 fn deck_view(&self, i: usize) -> DeckView {
@@ -9051,7 +9085,7 @@ fn deck_view(&self, i: usize) -> DeckView {
 
 Envoie la vue d'état à l'interface.
 
-`app/src-tauri/src/controller/decks.rs` ligne 361
+`app/src-tauri/src/controller/decks.rs` ligne 362
 
 ```rust
 pub(super) fn emit_state(&self) {
@@ -9062,10 +9096,10 @@ pub(super) fn emit_state(&self) {
         peak: self.peak,
         deck_peak: self.deck_peak,
         deck_gain_db: self.deck_gain_db,
+        deck_pitch: self.deck_pitch,
         automix: self.automix,
         fade: self.fade,
         on_air: self.is_playing(side).then(|| Deck::from_index(side)),
-        device: self.device.clone(),
 …
 ```
 
@@ -10056,7 +10090,7 @@ pub(super) fn finish_play(&mut self, id: i64, duration: f64) {
 
 Nom, fichier, durée, prêt, en erreur ou en cours de lecture.
 
-`app/src-tauri/src/controller/views.rs` ligne 200
+`app/src-tauri/src/controller/views.rs` ligne 201
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -10075,7 +10109,7 @@ pub struct JingleView {
 
 Jingles du dossier, dossier choisi et lecture en cours du dossier.
 
-`app/src-tauri/src/controller/views.rs` ligne 212
+`app/src-tauri/src/controller/views.rs` ligne 213
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -11257,7 +11291,7 @@ pub(super) fn chat_broadcast(&mut self, text: &str) {
 
 Applique le volume de chaque platine en dB (de -60, coupé, à +6) quand il change, à la reprise des réglages comme pendant un glissement du curseur.
 
-`app/src-tauri/src/controller/mod.rs` ligne 488
+`app/src-tauri/src/controller/mod.rs` ligne 493
 
 ```rust
 fn apply_deck_gains(&mut self, gains: [f32; 2]) {
@@ -11289,7 +11323,7 @@ const DECK_GAIN_MIN_DB: f32 = -60.0;
 
 Texte affiché sous la platine : codec · bits · kHz · kbps · mono/stéréo.
 
-`app/src-tauri/src/controller/decks.rs` ligne 392
+`app/src-tauri/src/controller/decks.rs` ligne 394
 
 ```rust
 pub fn format_label(f: &AudioFormat) -> String {
@@ -11305,6 +11339,38 @@ pub fn format_label(f: &AudioFormat) -> String {
     });
     if let Some(k) = f.kbps {
 …
+```
+
+### [CTL-191] Pitch d'une platine
+
+Borne le pitch à ±16 %, l'arrondit au dixième et envoie la vitesse au mixeur s'il a changé.
+
+`app/src-tauri/src/controller/mod.rs` ligne 510
+
+```rust
+fn set_pitch(&mut self, deck: Deck, percent: f32) {
+    let p = if percent.is_finite() {
+        (percent.clamp(-DECK_PITCH_MAX, DECK_PITCH_MAX) * 10.0).round() / 10.0
+    } else {
+        0.0
+    };
+    let i = deck.index();
+    if self.deck_pitch[i] == p {
+        return;
+    }
+    let old = self.deck_rate(i);
+    self.deck_pitch[i] = p;
+…
+```
+
+### [CTL-192] Pitch maximal
+
+Écart maximal de vitesse autorisé depuis l'interface (±16 %).
+
+`app/src-tauri/src/controller/mod.rs` ligne 54
+
+```rust
+const DECK_PITCH_MAX: f32 = 16.0;
 ```
 
 
@@ -11670,7 +11736,7 @@ const STATE_LABEL = {
 
 Titre, temps, progression, zone de fondu et boutons disponibles.
 
-`app/ui/js/decks.js` ligne 99
+`app/ui/js/decks.js` ligne 111
 
 ```js
 function renderDeck(id, d) {
@@ -11692,7 +11758,7 @@ function renderDeck(id, d) {
 
 Vumètres L/R avec retombée, réduction du traitement et témoin CLIP.
 
-`app/ui/js/decks.js` ligne 132
+`app/ui/js/decks.js` ligne 145
 
 ```js
 function renderMeters(st) {
@@ -11713,7 +11779,7 @@ function renderMeters(st) {
 
 Platines, ON AIR, crossfader, auto-mix, vumètres, sortie audio, micro et pads.
 
-`app/ui/js/decks.js` ligne 146
+`app/ui/js/decks.js` ligne 159
 
 ```js
 
@@ -11723,7 +11789,7 @@ Platines, ON AIR, crossfader, auto-mix, vumètres, sortie audio, micro et pads.
 
 Platine à utiliser pour un double-clic dans la playlist.
 
-`app/ui/js/decks.js` ligne 185
+`app/ui/js/decks.js` ligne 198
 
 ```js
 export function freeDeck() {
@@ -13066,7 +13132,7 @@ async function save() {
 
 Affiche le nom et la couleur de la grille ou de l'émission (précédée de ▶) de l'heure à côté du titre MIX.
 
-`app/ui/js/decks.js` ligne 147
+`app/ui/js/decks.js` ligne 160
 
 ```js
 function renderClock(clock) {
@@ -13844,7 +13910,7 @@ const deckHold = { A: [0, 0], B: [0, 0] };
 
 Met à jour le VU-mètre de la platine et, hors glissement, le curseur et la valeur du volume.
 
-`app/ui/js/decks.js` ligne 24
+`app/ui/js/decks.js` ligne 36
 
 ```js
 function renderDeckLevel(id, el, st) {
@@ -13866,7 +13932,7 @@ function renderDeckLevel(id, el, st) {
 
 Envoie les volumes des deux platines aux réglages.
 
-`app/ui/js/decks.js` ligne 40
+`app/ui/js/decks.js` ligne 52
 
 ```js
 function saveDeckGains() {
@@ -13879,7 +13945,7 @@ function saveDeckGains() {
 
 Identifiant de pochette affiché et URL blob en cours, par platine.
 
-`app/ui/js/decks.js` ligne 46
+`app/ui/js/decks.js` ligne 58
 
 ```js
 const coverShown = { A: undefined, B: undefined };
@@ -13889,7 +13955,7 @@ const coverShown = { A: undefined, B: undefined };
 
 Ne redemande la pochette que si son identifiant change ; libère l'ancienne URL blob.
 
-`app/ui/js/decks.js` ligne 50
+`app/ui/js/decks.js` ligne 62
 
 ```js
 function renderCover(id, el, d) {
@@ -13911,7 +13977,7 @@ function renderCover(id, el, d) {
 
 Clic sur la vignette : pochette en grand ; clic ou Échap pour fermer.
 
-`app/ui/js/decks.js` ligne 76
+`app/ui/js/decks.js` ligne 88
 
 ```js
 function zoomCover(id) {
@@ -13927,6 +13993,42 @@ function zoomCover(id) {
   };
   const onKey = (e) => {
 …
+```
+
+### [UI-145] État du pitch
+
+Curseur tenu et format du pourcentage (virgule, signe moins typographique).
+
+`app/ui/js/decks.js` ligne 23
+
+```js
+const pitchHeld = { A: false, B: false };
+```
+
+### [UI-146] Affichage du pitch
+
+Met à jour le curseur et la valeur depuis l'état, sauf pendant que l'utilisateur le tient.
+
+`app/ui/js/decks.js` ligne 27
+
+```js
+function renderPitch(id, el, st) {
+  const p = st.deck_pitch ? st.deck_pitch[id === "A" ? 0 : 1] : 0;
+  el.classList.toggle("pitched", p !== 0);
+  if (pitchHeld[id] || !Number.isFinite(p)) return;
+  $(".pitch", el).value = p;
+  $(".pitch-v", el).textContent = pitchText(p);
+}
+```
+
+### [UI-147] Commandes du pitch
+
+Glisser envoie le pitch ; double-clic sur le curseur ou clic sur la valeur le remet à 0 %.
+
+`app/ui/js/decks.js` ligne 238
+
+```js
+const pitch = $(".pitch", el);
 ```
 
 
@@ -14235,6 +14337,16 @@ Vignette 60 px avec note de remplacement, ligne de format en police fixe, agrand
 .deck-id { display: grid; grid-template-columns: 60px minmax(0, 1fr); gap: 12px; align-items: center; }
 ```
 
+### [STY-23] Pitch des platines
+
+Curseur aligné à droite des boutons ; valeur encadrée en orange quand le pitch n'est pas à 0 %.
+
+`app/ui/style.css` ligne 939
+
+```css
+.deck-pitch { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 210px; }
+```
+
 
 ## HTM
 
@@ -14288,7 +14400,7 @@ Titre, temps, progression et commandes de la platine A.
 
 Crossfader, fondu, auto-mix, préréglage antenne et vumètres.
 
-`app/ui/index.html` ligne 109
+`app/ui/index.html` ligne 115
 
 ```html
 <section class="mixer">
@@ -14303,7 +14415,7 @@ Crossfader, fondu, auto-mix, préréglage antenne et vumètres.
 
 Titre, temps, progression et commandes de la platine B.
 
-`app/ui/index.html` ligne 135
+`app/ui/index.html` ligne 141
 
 ```html
 <article class="deck" data-deck="B">
@@ -14317,7 +14429,7 @@ Titre, temps, progression et commandes de la platine B.
 
 Barre d'outils, lignes de playlist et historique de diffusion.
 
-`app/ui/index.html` ligne 181
+`app/ui/index.html` ligne 193
 
 ```html
 <section class="playlist" id="playlist">
@@ -14332,7 +14444,7 @@ Barre d'outils, lignes de playlist et historique de diffusion.
 
 Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
-`app/ui/index.html` ligne 240
+`app/ui/index.html` ligne 252
 
 ```html
 <section class="fx voicefx" id="voicefx">
@@ -14347,7 +14459,7 @@ Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
 Pads et panneau de pilotage d'OBS.
 
-`app/ui/index.html` ligne 280
+`app/ui/index.html` ligne 292
 
 ```html
 <section class="fx soundfx" id="soundfx">
@@ -14362,7 +14474,7 @@ Pads et panneau de pilotage d'OBS.
 
 Renommer, choisir un son, vider.
 
-`app/ui/index.html` ligne 334
+`app/ui/index.html` ligne 346
 
 ```html
 <div id="pad-menu" class="pad-menu hidden">
@@ -14377,7 +14489,7 @@ Renommer, choisir un son, vider.
 
 Sortie audio et résumé de diffusion.
 
-`app/ui/index.html` ligne 366
+`app/ui/index.html` ligne 378
 
 ```html
 <footer class="statusbar">
@@ -14392,7 +14504,7 @@ Sortie audio et résumé de diffusion.
 
 Fenêtre des réglages et ses onglets.
 
-`app/ui/index.html` ligne 374
+`app/ui/index.html` ligne 386
 
 ```html
 <div id="settings" class="modal hidden" role="dialog" aria-modal="true">
@@ -14407,7 +14519,7 @@ Fenêtre des réglages et ses onglets.
 
 Liste et formulaire des sorties Icecast / Shoutcast.
 
-`app/ui/index.html` ligne 393
+`app/ui/index.html` ligne 405
 
 ```html
 <section class="tab-page" data-page="cast">
@@ -14422,7 +14534,7 @@ Liste et formulaire des sorties Icecast / Shoutcast.
 
 Connexion à obs-websocket et source « Now Playing ».
 
-`app/ui/index.html` ligne 446
+`app/ui/index.html` ligne 458
 
 ```html
 <section class="tab-page hidden" data-page="aura">
@@ -14437,7 +14549,7 @@ Connexion à obs-websocket et source « Now Playing ».
 
 Règles de séparation et conservation de l'historique.
 
-`app/ui/index.html` ligne 502
+`app/ui/index.html` ligne 514
 
 ```html
 <section class="tab-page hidden" data-page="automation">
@@ -14452,7 +14564,7 @@ Règles de séparation et conservation de l'historique.
 
 Micro, retour et sortie audio.
 
-`app/ui/index.html` ligne 536
+`app/ui/index.html` ligne 548
 
 ```html
 <section class="tab-page hidden" data-page="audio">
@@ -14467,7 +14579,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 705
+`app/ui/index.html` ligne 717
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -14482,7 +14594,7 @@ Version, mises à jour et diagnostic.
 
 Dossier, relecture, volume, arrêt et grille des jingles.
 
-`app/ui/index.html` ligne 287
+`app/ui/index.html` ligne 299
 
 ```html
 <div class="fx-head" data-fxpage="jingles" hidden>
@@ -14497,7 +14609,7 @@ Dossier, relecture, volume, arrêt et grille des jingles.
 
 Tout, Morceaux, Jingles, Pubs.
 
-`app/ui/index.html` ligne 192
+`app/ui/index.html` ligne 204
 
 ```html
 <div class="hfilters" data-ppage="history" hidden>
@@ -14512,7 +14624,7 @@ Tout, Morceaux, Jingles, Pubs.
 
 Catégorie et période de l'export CSV de l'historique.
 
-`app/ui/index.html` ligne 342
+`app/ui/index.html` ligne 354
 
 ```html
 <div id="export-menu" class="pad-menu export-menu hidden">
@@ -14527,7 +14639,7 @@ Catégorie et période de l'export CSV de l'historique.
 
 Mots-clés de dossier des jingles et des pubs.
 
-`app/ui/index.html` ligne 521
+`app/ui/index.html` ligne 533
 
 ```html
 <form class="form" id="categories-form">
@@ -14542,7 +14654,7 @@ Mots-clés de dossier des jingles et des pubs.
 
 Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement.
 
-`app/ui/index.html` ligne 680
+`app/ui/index.html` ligne 692
 
 ```html
 <section class="tab-page hidden" data-page="appearance">
@@ -14557,7 +14669,7 @@ Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissemen
 
 Bibliothèque, catégories, grilles et planning de la semaine.
 
-`app/ui/index.html` ligne 569
+`app/ui/index.html` ligne 581
 
 ```html
 <section class="tab-page hidden" data-page="rotation">
@@ -14572,7 +14684,7 @@ Bibliothèque, catégories, grilles et planning de la semaine.
 
 Actions de mélange et de nettoyage de la playlist.
 
-`app/ui/index.html` ligne 359
+`app/ui/index.html` ligne 371
 
 ```html
 <div id="shuffle-menu" class="pad-menu shuffle-menu hidden">
@@ -14586,7 +14698,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Émissions des grilles : nom, couleur, fichier M3U, explications.
 
-`app/ui/index.html` ligne 648
+`app/ui/index.html` ligne 660
 
 ```html
 <div class="rot-page rot-split" data-rotpage="programs" hidden>
@@ -14601,7 +14713,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Égaliseur micro et temps du ducking ; repliés sur une même ligne, une section ouverte prend toute la largeur.
 
-`app/ui/index.html` ligne 259
+`app/ui/index.html` ligne 271
 
 ```html
 <div class="vfx-more">
@@ -14616,7 +14728,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi à droite.
 
-`app/ui/index.html` ligne 731
+`app/ui/index.html` ligne 743
 
 ```html
 <section class="tab-page hidden ice-tab" data-page="icecast">
@@ -14631,7 +14743,7 @@ Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi �
 
 Présentation, installations détectées et ajout d'un serveur local ou distant.
 
-`app/ui/index.html` ligne 739
+`app/ui/index.html` ligne 751
 
 ```html
 <div class="ice-welcome" id="ice-welcome">
@@ -14646,7 +14758,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 État, nom, adresse, version, boutons page web, Redémarrer, Arrêter et Démarrer.
 
-`app/ui/index.html` ligne 752
+`app/ui/index.html` ligne 764
 
 ```html
 <header class="ice-head">
@@ -14661,7 +14773,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints ; sans flux, explication du point de montage et bouton de sortie vers /live.
 
-`app/ui/index.html` ligne 774
+`app/ui/index.html` ligne 786
 
 ```html
 <div class="ice-page" data-ipage="dash">
@@ -14676,7 +14788,7 @@ Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des audi
 
 Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute, limites, chemins, journalisation.
 
-`app/ui/index.html` ligne 801
+`app/ui/index.html` ligne 813
 
 ```html
 <div class="ice-page hidden" data-ipage="config">
@@ -14691,7 +14803,7 @@ Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute,
 
 Explication (onglet facultatif), liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST.
 
-`app/ui/index.html` ligne 866
+`app/ui/index.html` ligne 878
 
 ```html
 <div class="ice-page hidden" data-ipage="mounts">
@@ -14706,7 +14818,7 @@ Explication (onglet facultatif), liste des mountpoints déclarés et formulaire 
 
 Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
-`app/ui/index.html` ligne 917
+`app/ui/index.html` ligne 929
 
 ```html
 <div class="ice-page hidden" data-ipage="listeners">
@@ -14721,7 +14833,7 @@ Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
 Erreurs, accès ou console, suivi en direct.
 
-`app/ui/index.html` ligne 934
+`app/ui/index.html` ligne 946
 
 ```html
 <div class="ice-page hidden" data-ipage="log">
@@ -14736,7 +14848,7 @@ Erreurs, accès ou console, suivi en direct.
 
 Profil : emplacement, installation, configuration, accès admin et démarrage.
 
-`app/ui/index.html` ligne 947
+`app/ui/index.html` ligne 959
 
 ```html
 <div class="ice-page hidden" data-ipage="profile">
@@ -14751,7 +14863,7 @@ Profil : emplacement, installation, configuration, accès admin et démarrage.
 
 Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer et redémarrer.
 
-`app/ui/index.html` ligne 985
+`app/ui/index.html` ligne 997
 
 ```html
 <footer class="ice-savebar hidden" id="ice-savebar">
@@ -14766,7 +14878,7 @@ Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer e
 
 Menu flottant des actions sur un mountpoint.
 
-`app/ui/index.html` ligne 1013
+`app/ui/index.html` ligne 1025
 
 ```html
 <div id="ice-menu" class="pad-menu ice-menu hidden"></div>
@@ -14781,7 +14893,7 @@ Menu flottant des actions sur un mountpoint.
 
 Panneau flottant sous le bouton DIFFUSER : en-tête, titre, sorties, total et boutons.
 
-`app/ui/index.html` ligne 1000
+`app/ui/index.html` ligne 1012
 
 ```html
 <div id="cast-panel" class="pad-menu cast-panel hidden">
@@ -14796,7 +14908,7 @@ Panneau flottant sous le bouton DIFFUSER : en-tête, titre, sorties, total et bo
 
 Messages, champ d'envoi et file des demandes, à côté de la playlist et de l'historique.
 
-`app/ui/index.html` ligne 218
+`app/ui/index.html` ligne 230
 
 ```html
 <div class="chat-page" data-ppage="chat" hidden>
@@ -14811,7 +14923,7 @@ Messages, champ d'envoi et file des demandes, à côté de la playlist et de l'h
 
 Sources (Twitch direct : chaîne, compte, jeton ; Social Stream Ninja : identifiant de session), connexion au démarrage, commandes des viewers.
 
-`app/ui/index.html` ligne 465
+`app/ui/index.html` ligne 477
 
 ```html
 <section class="tab-page hidden" data-page="chat">
@@ -14826,7 +14938,7 @@ Sources (Twitch direct : chaîne, compte, jeton ; Social Stream Ninja : identifi
 
 Curseur VOL, valeur en dB et VU-mètre gauche/droite de la platine A.
 
-`app/ui/index.html` ligne 96
+`app/ui/index.html` ligne 102
 
 ```html
 <div class="deck-level">
@@ -14841,7 +14953,7 @@ Curseur VOL, valeur en dB et VU-mètre gauche/droite de la platine A.
 
 Curseur VOL, valeur en dB et VU-mètre gauche/droite de la platine B.
 
-`app/ui/index.html` ligne 166
+`app/ui/index.html` ligne 178
 
 ```html
 <div class="deck-level">
@@ -14871,7 +14983,7 @@ Pochette, titre, artiste et format du titre chargé sur la platine A.
 
 Pochette, titre, artiste et format du titre chargé sur la platine B.
 
-`app/ui/index.html` ligne 141
+`app/ui/index.html` ligne 147
 
 ```html
 <div class="deck-id">
@@ -14880,4 +14992,34 @@ Pochette, titre, artiste et format du titre chargé sur la platine B.
     <div class="deck-title">—</div>
     <div class="deck-artist">&nbsp;</div>
     <div class="deck-format">&nbsp;</div>
+```
+
+### [HTM-44] Pitch de la platine A
+
+Curseur PITCH (−16 à +16 %) et valeur cliquable pour revenir à 0 %.
+
+`app/ui/index.html` ligne 95
+
+```html
+  <div class="deck-pitch" title="Pitch : accélère ou ralentit le titre (vitesse et tonalité ensemble, comme une platine vinyle). Double-clic ou clic sur la valeur : 0 %">
+    <span class="deck-level-label">PITCH</span>
+    <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0">
+    <button type="button" class="pitch-v">0,0 %</button>
+  </div>
+</div>
+```
+
+### [HTM-45] Pitch de la platine B
+
+Curseur PITCH (−16 à +16 %) et valeur cliquable pour revenir à 0 %.
+
+`app/ui/index.html` ligne 171
+
+```html
+  <div class="deck-pitch" title="Pitch : accélère ou ralentit le titre (vitesse et tonalité ensemble, comme une platine vinyle). Double-clic ou clic sur la valeur : 0 %">
+    <span class="deck-level-label">PITCH</span>
+    <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0">
+    <button type="button" class="pitch-v">0,0 %</button>
+  </div>
+</div>
 ```

@@ -237,6 +237,40 @@ fn a_loaded_deck_shows_its_format_and_folder_cover() {
 }
 
 #[test]
+fn pitch_is_clamped_and_shortens_the_shown_duration() {
+    let mut h = Harness::new("pitch");
+    h.c.handle(UiCommand::DeckPitch {
+        deck: Deck::B,
+        percent: 40.0,
+    });
+    h.c.handle(UiCommand::DeckPitch {
+        deck: Deck::A,
+        percent: 25.04,
+    });
+    assert_eq!(h.c.deck_pitch, [16.0, 16.0]);
+    h.c.handle(UiCommand::DeckPitch {
+        deck: Deck::A,
+        percent: 4.96,
+    });
+    let a = h.wav("a.wav");
+    h.c.handle(UiCommand::LoadPaths {
+        deck: Deck::A,
+        paths: vec![a],
+    });
+    h.work(2);
+    let st = h.last(EV_STATE);
+    assert_eq!(st["deck_pitch"][0].as_f64().unwrap(), 5.0);
+    let d = st["decks"][0]["duration"].as_f64().unwrap();
+    assert!((d - 0.5 / 1.05).abs() < 0.01, "{d}");
+    h.c.handle(UiCommand::DeckPitch {
+        deck: Deck::A,
+        percent: 0.0,
+    });
+    let d = h.last(EV_STATE)["decks"][0]["duration"].as_f64().unwrap();
+    assert!((d - 0.5).abs() < 0.01, "{d}");
+}
+
+#[test]
 fn format_labels_read_naturally() {
     let f = |codec: &str, rate, channels, bits, kbps| {
         super::decks::format_label(&blast_core::AudioFormat {

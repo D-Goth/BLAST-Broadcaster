@@ -128,6 +128,10 @@ pub enum UiCommand {
         deck: Deck,
         db: f32,
     },
+    DeckPitch {
+        deck: Deck,
+        percent: f32,
+    },
     FadeSeconds {
         value: f32,
     },

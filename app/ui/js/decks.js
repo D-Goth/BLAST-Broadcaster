@@ -20,6 +20,18 @@ const deckHold = { A: [0, 0], B: [0, 0] };
 const volHeld = { A: false, B: false };
 const dbText = (db) => (db <= -60 ? "−∞" : `${db > 0 ? "+" : ""}${Number(db).toFixed(db % 1 ? 1 : 0)} dB`);
 let crossfaderHeld = false;
+// [UI-145]
+const pitchHeld = { A: false, B: false };
+const pitchText = (p) => `${p > 0 ? "+" : p < 0 ? "−" : ""}${Math.abs(p).toFixed(1).replace(".", ",")} %`;
+
+// [UI-146]
+function renderPitch(id, el, st) {
+  const p = st.deck_pitch ? st.deck_pitch[id === "A" ? 0 : 1] : 0;
+  el.classList.toggle("pitched", p !== 0);
+  if (pitchHeld[id] || !Number.isFinite(p)) return;
+  $(".pitch", el).value = p;
+  $(".pitch-v", el).textContent = pitchText(p);
+}
 
 // [UI-140]
 function renderDeckLevel(id, el, st) {
@@ -111,6 +123,7 @@ function renderDeck(id, d) {
   $(".deck-format", el).textContent = d.format || "\u00a0";
   renderCover(id, el, d);
   renderDeckLevel(id, el, st);
+  renderPitch(id, el, st);
   const remaining = Math.max(0, d.duration - d.position);
   $(".elapsed", el).textContent = fmt(d.position);
   $(".duration", el).textContent = fmt(Math.round(d.duration));
@@ -222,6 +235,21 @@ export function init() {
       send({ type: "deck_gain", deck: id, db: 0 });
       saveDeckGains();
     });
+    // [UI-147]
+    const pitch = $(".pitch", el);
+    const setPitch = (p) => {
+      $(".pitch-v", el).textContent = pitchText(p);
+      send({ type: "deck_pitch", deck: id, percent: p });
+    };
+    const resetPitch = () => {
+      pitch.value = 0;
+      setPitch(0);
+    };
+    pitch.addEventListener("pointerdown", () => (pitchHeld[id] = true));
+    pitch.addEventListener("input", () => setPitch(Number(pitch.value)));
+    pitch.addEventListener("change", () => (pitchHeld[id] = false));
+    pitch.addEventListener("dblclick", resetPitch);
+    $(".pitch-v", el).addEventListener("click", resetPitch);
     $(".deck-cover", el).addEventListener("click", () => zoomCover(id));
     $(".progress", el).addEventListener("click", (e) => {
       const r = e.currentTarget.getBoundingClientRect();

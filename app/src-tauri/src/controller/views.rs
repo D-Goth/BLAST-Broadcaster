@@ -139,6 +139,7 @@ pub struct StateView {
     pub peak: [f32; 2],
     pub deck_peak: [[f32; 2]; 2],
     pub deck_gain_db: [f32; 2],
+    pub deck_pitch: [f32; 2],
     pub automix: bool,
     pub fade: f32,
     pub on_air: Option<Deck>,
