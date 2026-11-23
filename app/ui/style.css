@@ -347,12 +347,13 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
 .fade-field input { width: 64px; text-align: right; }
 .meters { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
 .meter { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); font-weight: 700; }
-.meter-bar { flex: 1; height: 10px; background: var(--panel-alt); border-radius: 5px; overflow: hidden; border: 1px solid var(--border); }
+.meter-bar { flex: 1; height: 10px; background: var(--panel-alt); border-radius: 5px; overflow: hidden; border: 1px solid var(--border); container-type: inline-size; }
 .meter-fill {
   height: 100%;
   width: 0;
   background: linear-gradient(90deg, var(--meter-low) 0 65%, var(--meter-mid) 65% 85%, var(--meter-high) 85% 100%);
-  background-size: var(--meter-width, 200px) 100%;
+  background-size: 100cqw 100%;
+  background-repeat: no-repeat;
   transition: width 60ms linear;
 }
 .clip {

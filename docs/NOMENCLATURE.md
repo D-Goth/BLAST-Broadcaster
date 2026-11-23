@@ -14392,7 +14392,7 @@ Crossfader, fondu, préréglage antenne, vumètres et témoin CLIP.
 
 Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
-`app/ui/style.css` ligne 380
+`app/ui/style.css` ligne 381
 
 ```css
 .playlist {
@@ -14410,7 +14410,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Étiquette qui suit le pointeur et curseur pendant le glisser.
 
-`app/ui/style.css` ligne 501
+`app/ui/style.css` ligne 502
 
 ```css
 .drag-ghost {
@@ -14432,7 +14432,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
-`app/ui/style.css` ligne 520
+`app/ui/style.css` ligne 521
 
 ```css
 .fx { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -14442,7 +14442,7 @@ Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
 VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
-`app/ui/style.css` ligne 538
+`app/ui/style.css` ligne 539
 
 ```css
 .vfx-main { display: grid; grid-template-columns: 78px 1fr 60px; gap: 8px; height: 48px; }
@@ -14452,7 +14452,7 @@ VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
 Grille de pads, état de lecture et menu de pad.
 
-`app/ui/style.css` ligne 577
+`app/ui/style.css` ligne 578
 
 ```css
 .soundfx { flex: 1 0 196px; min-height: 196px; overflow: hidden; }
@@ -14462,7 +14462,7 @@ Grille de pads, état de lecture et menu de pad.
 
 Boutons matériels, scènes et sources audio.
 
-`app/ui/style.css` ligne 619
+`app/ui/style.css` ligne 620
 
 ```css
 .obs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -14472,7 +14472,7 @@ Boutons matériels, scènes et sources audio.
 
 Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos.
 
-`app/ui/style.css` ligne 647
+`app/ui/style.css` ligne 648
 
 ```css
 .about-head { display: flex; flex-direction: column; gap: 4px; }
@@ -14482,7 +14482,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 843
+`app/ui/style.css` ligne 844
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -14492,7 +14492,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 862
+`app/ui/style.css` ligne 863
 
 ```css
 .statusbar {
@@ -14510,7 +14510,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 897
+`app/ui/style.css` ligne 898
 
 ```css
 .hidden { display: none !important; }
@@ -14520,7 +14520,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 873
+`app/ui/style.css` ligne 874
 
 ```css
 html.glass body {
@@ -14534,7 +14534,7 @@ html.glass body {
 
 Mise en page de l'onglet dans les Réglages : liste des serveurs, en-tête, tuiles, graphique, tableaux, formulaires, journal et barre d'enregistrement.
 
-`app/ui/style.css` ligne 752
+`app/ui/style.css` ligne 753
 
 ```css
 .tab-page.ice-tab { padding: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr); overflow: hidden; }
@@ -14554,7 +14554,7 @@ Bouton « + » accolé à DIFFUSER et panneau de détail des sorties.
 
 Pastille de messages non lus, état, messages, plateformes, badges, dons, annonces, champ d'envoi et cartes de demandes.
 
-`app/ui/style.css` ligne 404
+`app/ui/style.css` ligne 405
 
 ```css
 .tab-badge { margin-left: 6px; min-width: 16px; padding: 0 5px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0; line-height: 16px; display: inline-block; text-align: center; }
@@ -14574,7 +14574,7 @@ Ligne VOL sous les boutons d'une platine : curseur à la couleur de la platine, 
 
 Vignette 60 px avec note de remplacement, ligne de format en police fixe, agrandissement plein écran.
 
-`app/ui/style.css` ligne 900
+`app/ui/style.css` ligne 901
 
 ```css
 .deck-id { display: grid; grid-template-columns: 60px minmax(0, 1fr); gap: 12px; align-items: center; }
@@ -14584,7 +14584,7 @@ Vignette 60 px avec note de remplacement, ligne de format en police fixe, agrand
 
 Curseur aligné à droite des boutons ; valeur encadrée en orange quand le pitch n'est pas à 0 %.
 
-`app/ui/style.css` ligne 939
+`app/ui/style.css` ligne 940
 
 ```css
 .deck-pitch { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 210px; }
@@ -14594,7 +14594,7 @@ Curseur aligné à droite des boutons ; valeur encadrée en orange quand le pitc
 
 Pastille dans l'en-tête de la platine, jaune quand la pré-écoute est active.
 
-`app/ui/style.css` ligne 957
+`app/ui/style.css` ligne 958
 
 ```css
 .deck-head .cue-btn {
