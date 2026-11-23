@@ -401,6 +401,7 @@ dependencies = [
  "blast-aura",
  "blast-cast",
  "blast-core",
+ "blast-ice",
  "blast-library",
  "chrono",
  "crossbeam-channel",
@@ -456,6 +457,19 @@ dependencies = [
  "rtrb",
  "rubato",
  "symphonia",
+]
+
+[[package]]
+name = "blast-ice"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "getrandom 0.3.4",
+ "serde",
+ "serde_json",
+ "ureq",
+ "xmltree",
 ]
 
 [[package]]
@@ -4054,7 +4068,7 @@ dependencies = [
  "security-framework 3.7.0",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6624,6 +6638,22 @@ checksum = "ec1cdab258fb55c0da61328dc52c8764709b249011b2cad0454c72f0bf10a1f6"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "xml-rs"
+version = "0.8.29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
+
+[[package]]
+name = "xmltree"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b619f8c85654798007fb10afa5125590b43b088c225a25fc2fec100a9fad0fc6"
+dependencies = [
+ "indexmap 2.14.2",
+ "xml-rs",
 ]
 
 [[package]]

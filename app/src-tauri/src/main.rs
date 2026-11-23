@@ -3,6 +3,7 @@
 mod api;
 mod config;
 mod controller;
+mod icecast;
 mod journal;
 mod playlist;
 mod secrets;
@@ -55,13 +56,23 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             index: None,
         });
     }
+    let data_dir = db_path
+        .parent()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let config_dir = config_path
+        .parent()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
     app.manage(api::App {
         tx,
         config: Mutex::new(cfg),
         config_path,
         db_path,
         secrets,
+        ice: icecast::IceManager::new(data_dir, config_dir),
     });
+    icecast::autostart(app.handle());
     Ok(())
 }
 
@@ -102,7 +113,22 @@ fn main() {
             api::clear_background,
             api::save_library_dirs,
             api::save_rotation,
-            api::rotation_counts
+            api::rotation_counts,
+            icecast::ice_list,
+            icecast::ice_detect,
+            icecast::ice_save_server,
+            icecast::ice_delete_server,
+            icecast::ice_status,
+            icecast::ice_power,
+            icecast::ice_get_config,
+            icecast::ice_save_config,
+            icecast::ice_adopt_config,
+            icecast::ice_new_config,
+            icecast::ice_listeners,
+            icecast::ice_admin,
+            icecast::ice_log,
+            icecast::ice_link_output,
+            icecast::ice_open_web
         ])
         .build(tauri::generate_context!());
     match result {
@@ -123,6 +149,12 @@ fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
     let Some(state) = handle.try_state::<api::App>() else {
         return;
     };
+    let servers = state
+        .config
+        .lock()
+        .map(|c| c.icecast.servers.clone())
+        .unwrap_or_default();
+    state.ice.stop_on_exit(&servers);
     let (done, wait) = crossbeam_channel::bounded(1);
     if state
         .tx

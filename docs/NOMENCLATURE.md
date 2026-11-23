@@ -32,18 +32,20 @@ ne pas le modifier à la main.
 | [`AURA`](#aura) | Pilotage d'OBS par obs-websocket (blast-aura) | 21 |
 | [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 60 |
 | [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 4 |
+| [`ICE`](#ice) | Serveur Icecast : configuration icecast.xml, statistiques, administration et processus (blast-ice) | 43 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
 | [`APP`](#app) | Démarrage de l'application et commandes Tauri | 44 |
-| [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 14 |
-| [`SEC`](#sec) | Mots de passe dans le trousseau du système | 6 |
+| [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 16 |
+| [`SEC`](#sec) | Mots de passe dans le trousseau du système | 7 |
+| [`ICM`](#icm) | Gestion des serveurs Icecast côté application | 30 |
 | [`JRN`](#jrn) | Journal de diagnostic (blast.log) | 8 |
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
 | [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
 | [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 157 |
-| [`UI`](#ui) | Interface : modules JavaScript | 107 |
-| [`STY`](#sty) | Interface : feuille de style | 17 |
-| [`HTM`](#htm) | Interface : structure de la page | 25 |
+| [`UI`](#ui) | Interface : modules JavaScript | 129 |
+| [`STY`](#sty) | Interface : feuille de style | 18 |
+| [`HTM`](#htm) | Interface : structure de la page | 36 |
 
 ## CORE
 
@@ -3541,6 +3543,868 @@ pub fn parse_command(text: &str) -> Option<ChatCommand> {
 ```
 
 
+## ICE
+
+Serveur Icecast : configuration icecast.xml, statistiques, administration et processus (blast-ice)
+
+### [ICE-01] Erreurs Icecast
+
+Serveur injoignable, identifiants admin refusés, statut HTTP inattendu, réponse illisible, action refusée par Icecast ou erreur de fichier, avec un message en français.
+
+`crates/blast-ice/src/lib.rs` ligne 13
+
+```rust
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IceError {
+    Unreachable(String),
+    Unauthorized,
+    Http(u16),
+    Invalid(String),
+    Refused(String),
+    Io(String),
+}
+```
+
+### [ICE-02] Mot de passe aléatoire
+
+Caractères alphanumériques sans les signes ambigus (0, O, 1, l, I), tirés par le générateur aléatoire du système.
+
+`crates/blast-ice/src/lib.rs` ligne 46
+
+```rust
+pub fn random_password(len: usize) -> String {
+    const ALPHABET: &[u8] = b"abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let mut bytes = vec![0u8; len];
+    if getrandom::fill(&mut bytes).is_err() {
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        for (i, b) in bytes.iter_mut().enumerate() {
+            *b = (seed >> ((i % 16) * 8)) as u8 ^ (i as u8).wrapping_mul(97);
+        }
+    }
+…
+```
+
+### [ICE-03] Limites du serveur
+
+Clients, sources, taille de file par auditeur, délais client, en-têtes et source, rafale à la connexion ; valeurs par défaut d'Icecast.
+
+`crates/blast-ice/src/config.rs` ligne 7
+
+```rust
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ServerLimits {
+    pub clients: u32,
+    pub sources: u32,
+    pub queue_size: u32,
+    pub client_timeout: u32,
+    pub header_timeout: u32,
+    pub source_timeout: u32,
+    pub burst_size: u32,
+}
+```
+
+### [ICE-04] Authentification du serveur
+
+Mots de passe des sources et des relais, identifiant et mot de passe admin.
+
+`crates/blast-ice/src/config.rs` ligne 34
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ServerAuth {
+    pub source_password: String,
+    pub relay_password: String,
+    pub admin_user: String,
+    pub admin_password: String,
+}
+```
+
+### [ICE-05] Port d'écoute
+
+Port, adresse d'écoute, compatibilité Shoutcast (qui occupe aussi le port suivant) et HTTPS. `key` désigne la balise d'origine pour en garder les options non gérées.
+
+`crates/blast-ice/src/config.rs` ligne 44
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ListenSocket {
+    pub key: Option<usize>,
+    pub port: u16,
+    pub bind_address: String,
+    pub shoutcast_mount: String,
+    pub ssl: bool,
+}
+```
+
+### [ICE-06] Mountpoint déclaré
+
+Nom, identifiant et mot de passe propres, limite d'auditeurs, secours et retour automatique, présentation imposée, annuaire (laisser la source décider, toujours, jamais) et masquage.
+
+`crates/blast-ice/src/config.rs` ligne 55
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Mount {
+    pub key: Option<usize>,
+    pub mount_name: String,
+    pub username: String,
+    pub password: String,
+    pub max_listeners: u32,
+    pub fallback_mount: String,
+    pub fallback_override: bool,
+    pub public: Option<bool>,
+    pub stream_name: String,
+…
+```
+
+### [ICE-07] Chemins
+
+basedir, logdir, webroot, adminroot, fichier PID et certificat TLS.
+
+`crates/blast-ice/src/config.rs` ligne 75
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Paths {
+    pub basedir: String,
+    pub logdir: String,
+    pub webroot: String,
+    pub adminroot: String,
+    pub pidfile: String,
+    pub ssl_certificate: String,
+}
+```
+
+### [ICE-08] Journalisation
+
+Fichiers d'accès et d'erreurs, niveau de 1 à 4, taille maximale et archivage.
+
+`crates/blast-ice/src/config.rs` ligne 87
+
+```rust
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Logging {
+    pub accesslog: String,
+    pub errorlog: String,
+    pub loglevel: u8,
+    pub logsize: u32,
+    pub logarchive: bool,
+}
+```
+
+### [ICE-09] Configuration éditable
+
+Partie de icecast.xml présentée dans l'interface : serveur, sécurité, ports, limites, mountpoints, chemins et journaux.
+
+`crates/blast-ice/src/config.rs` ligne 110
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct IceConfig {
+    pub location: String,
+    pub admin: String,
+    pub hostname: String,
+    pub limits: ServerLimits,
+    pub auth: ServerAuth,
+    pub sockets: Vec<ListenSocket>,
+    pub mounts: Vec<Mount>,
+    pub paths: Paths,
+    pub logging: Logging,
+…
+```
+
+### [ICE-10] Modèle de configuration neuve
+
+icecast.xml minimal : un port 8000, en-tête CORS, alias de la page d'état, chroot désactivé.
+
+`crates/blast-ice/src/config.rs` ligne 125
+
+```rust
+const STARTER: &str = r#"<icecast>
+    <location>Terre</location>
+    <admin>icemaster@localhost</admin>
+    <hostname>localhost</hostname>
+    <limits></limits>
+    <authentication></authentication>
+    <listen-socket><port>8000</port></listen-socket>
+    <http-headers>
+        <header name="Access-Control-Allow-Origin" value="*" />
+    </http-headers>
+    <fileserve>1</fileserve>
+    <paths>
+…
+```
+
+### [ICE-11] Document icecast.xml
+
+Arbre XML complet du fichier. Seules les balises gérées sont modifiées : commentaires, relais, authentification des mountpoints, en-têtes et sécurité sont conservés.
+
+`crates/blast-ice/src/config.rs` ligne 149
+
+```rust
+#[derive(Debug, Clone, PartialEq)]
+pub struct IceDocument {
+    root: Element,
+}
+```
+
+### [ICE-12] Lecture de la configuration
+
+Extrait la configuration éditable ; une balise absente prend la valeur par défaut d'Icecast, une limite d'auditeurs négative signifie « sans limite ».
+
+`crates/blast-ice/src/config.rs` ligne 258
+
+```rust
+pub fn read(&self) -> IceConfig {
+    let r = &self.root;
+    let empty = Element::new("");
+    let limits = r.get_child("limits").unwrap_or(&empty);
+    let auth = r.get_child("authentication").unwrap_or(&empty);
+    let paths = r.get_child("paths").unwrap_or(&empty);
+    let logging = r.get_child("logging").unwrap_or(&empty);
+    let d = ServerLimits::default();
+    let ld = Logging::default();
+    IceConfig {
+        location: text(r, "location"),
+        admin: text(r, "admin"),
+…
+```
+
+### [ICE-13] Application de la configuration
+
+Réécrit les balises gérées ; une valeur vide retire la balise. Ports et mountpoints sont reconstruits à l'emplacement des anciens, à partir de leur balise d'origine.
+
+`crates/blast-ice/src/config.rs` ligne 338
+
+```rust
+pub fn apply(&mut self, cfg: &IceConfig) {
+    let r = &mut self.root;
+    set(r, "location", &cfg.location);
+    set(r, "admin", &cfg.admin);
+    set(r, "hostname", &cfg.hostname);
+
+    let l = child_mut(r, "limits");
+    let lim = &cfg.limits;
+    for (name, v) in [
+        ("clients", lim.clients),
+        ("sources", lim.sources),
+        ("queue-size", lim.queue_size),
+…
+```
+
+### [ICE-14] Écriture du XML
+
+Indentation de quatre espaces, sans déclaration XML, comme le fichier fourni avec Icecast.
+
+`crates/blast-ice/src/config.rs` ligne 450
+
+```rust
+pub fn to_xml(&self) -> String {
+    let mut out = Vec::new();
+    let config = EmitterConfig::new()
+        .perform_indent(true)
+        .indent_string("    ")
+        .write_document_declaration(false);
+    if self.root.write_with_config(&mut out, config).is_err() {
+        return String::new();
+    }
+    let mut text = String::from_utf8(out).unwrap_or_default();
+    text.push('\n');
+    text
+…
+```
+
+### [ICE-15] Validation
+
+Refuse un hostname vide, l'absence de port, un port en double (compatibilité Shoutcast comprise), un mot de passe vide, des limites nulles, un niveau de journal hors de 1 à 4, un mountpoint mal nommé ou en double, un secours qui pointe sur lui-même. Avertit pour un mot de passe « hackme » ou un secours non déclaré.
+
+`crates/blast-ice/src/config.rs` ligne 466
+
+```rust
+impl IceConfig {
+    pub fn validate(&self) -> Result<Vec<String>, String> {
+        let mut warnings = Vec::new();
+        if self.hostname.trim().is_empty() {
+            return Err("Indique le nom d'hôte du serveur (hostname).".into());
+        }
+        if self.sockets.is_empty() {
+            return Err("Il faut au moins un port d'écoute.".into());
+        }
+        let mut taken: Vec<(u16, &str)> = Vec::new();
+        for s in &self.sockets {
+            if s.port == 0 {
+…
+```
+
+### [ICE-16] Chemins absolus
+
+Rend webroot, adminroot, basedir et le certificat absolus par rapport au dossier d'installation, et place journaux et fichier PID dans le dossier indiqué. Sert quand la configuration est copiée hors du dossier d'Icecast.
+
+`crates/blast-ice/src/config.rs` ligne 567
+
+```rust
+pub fn rebase(&mut self, base: &Path, log_dir: &Path) {
+    let absolute = |p: &str| -> String {
+        let trimmed = p.trim();
+        if trimmed.is_empty() || Path::new(trimmed).is_absolute() {
+            return trimmed.to_string();
+        }
+        let rel = trimmed.trim_start_matches("./").trim_start_matches(".\\");
+        base.join(rel).display().to_string()
+    };
+    self.paths.basedir = absolute(&self.paths.basedir);
+    self.paths.webroot = absolute(&self.paths.webroot);
+    self.paths.adminroot = absolute(&self.paths.adminroot);
+…
+```
+
+### [ICE-17] Résolution des chemins
+
+Chemin relatif au dossier de travail (ou à basedir), chemin complet d'un journal et premier port d'écoute.
+
+`crates/blast-ice/src/config.rs` ligne 591
+
+```rust
+pub fn resolve(&self, workdir: &Path, value: &str) -> PathBuf {
+    let p = Path::new(value.trim());
+    if p.is_absolute() {
+        return p.to_path_buf();
+    }
+    let base = if self.paths.basedir.trim().is_empty() {
+        workdir.to_path_buf()
+    } else {
+        workdir.join(self.paths.basedir.trim())
+    };
+    base.join(value.trim().trim_start_matches("./"))
+}
+```
+
+### [ICE-18] Test d'écriture
+
+Ouvre le fichier en ajout sans le modifier, ou crée un fichier témoin dans le dossier s'il n'existe pas encore.
+
+`crates/blast-ice/src/config.rs` ligne 622
+
+```rust
+pub fn is_writable(path: &Path) -> bool {
+    if path.exists() {
+        return std::fs::OpenOptions::new().append(true).open(path).is_ok();
+    }
+    let Some(dir) = path.parent() else {
+        return false;
+    };
+    let probe = dir.join(format!(".blast-probe-{}", std::process::id()));
+    let ok = std::fs::write(&probe, b"").is_ok();
+    let _ = std::fs::remove_file(&probe);
+    ok
+}
+```
+
+### [ICE-19] Écriture avec sauvegarde
+
+Copie l'ancien fichier en .bak-<horodatage>, écrit un fichier temporaire puis le renomme, et ne garde que les dernières sauvegardes.
+
+`crates/blast-ice/src/config.rs` ligne 636
+
+```rust
+pub fn write_file(path: &Path, xml: &str, keep: usize) -> Result<Option<PathBuf>, String> {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .ok_or("chemin de configuration invalide")?;
+    let dir = path.parent().map(PathBuf::from).unwrap_or_default();
+    if !dir.as_os_str().is_empty() {
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+    let mut backup = None;
+    if path.exists() {
+        let secs = std::time::SystemTime::now()
+…
+```
+
+### [ICE-20] Liste des sauvegardes
+
+Sauvegardes d'un fichier de configuration, de la plus ancienne à la plus récente.
+
+`crates/blast-ice/src/config.rs` ligne 666
+
+```rust
+pub fn backups(path: &Path) -> Vec<PathBuf> {
+    let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
+        return Vec::new();
+    };
+    let prefix = format!("{}.bak-", name.to_string_lossy());
+    let mut list: Vec<PathBuf> = std::fs::read_dir(dir)
+        .map(|rd| {
+            rd.flatten()
+                .map(|e| e.path())
+                .filter(|p| {
+                    p.file_name()
+                        .is_some_and(|n| n.to_string_lossy().starts_with(&prefix))
+…
+```
+
+### [ICE-21] Statistiques d'un mountpoint
+
+Auditeurs, pic, limite, débit, nom, genre, titre en cours (artiste ajouté s'il est séparé), type, adresse et logiciel de la source, début de diffusion, octets envoyés.
+
+`crates/blast-ice/src/stats.rs` ligne 6
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct MountStats {
+    pub mount: String,
+    pub listeners: u32,
+    pub listener_peak: u32,
+    pub max_listeners: Option<u32>,
+    pub slow_listeners: u32,
+    pub bitrate: String,
+    pub server_name: String,
+    pub server_description: String,
+    pub genre: String,
+    pub title: String,
+…
+```
+
+### [ICE-22] Statistiques du serveur
+
+Version, hôte, date de lancement, auditeurs, sources, clients, compteurs de connexions et mountpoints actifs.
+
+`crates/blast-ice/src/stats.rs` ligne 30
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct ServerStats {
+    pub server_id: String,
+    pub host: String,
+    pub location: String,
+    pub admin: String,
+    pub server_start: String,
+    pub started_at: Option<i64>,
+    pub listeners: u32,
+    pub sources: u32,
+    pub clients: u32,
+    pub client_connections: u64,
+…
+```
+
+### [ICE-23] Auditeur
+
+Identifiant Icecast, adresse IP, lecteur utilisé et durée de connexion en secondes.
+
+`crates/blast-ice/src/stats.rs` ligne 49
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct Listener {
+    pub id: u64,
+    pub ip: String,
+    pub user_agent: String,
+    pub connected_secs: u64,
+}
+```
+
+### [ICE-24] Lecture des dates
+
+Date ISO 8601 d'Icecast (décalage +0100 ou +01:00), sinon format RFC 2822 ; renvoie un horodatage Unix.
+
+`crates/blast-ice/src/stats.rs` ligne 76
+
+```rust
+pub fn parse_time(iso: &str, rfc: &str) -> Option<i64> {
+    let iso = iso.trim();
+    if !iso.is_empty() {
+        for f in ["%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S%:z"] {
+            if let Ok(t) = chrono::DateTime::parse_from_str(iso, f) {
+                return Some(t.timestamp());
+            }
+        }
+    }
+    chrono::DateTime::parse_from_rfc2822(rfc.trim())
+        .ok()
+        .map(|t| t.timestamp())
+…
+```
+
+### [ICE-25] Lecture de /admin/stats
+
+Transforme la réponse XML des statistiques admin en statistiques du serveur.
+
+`crates/blast-ice/src/stats.rs` ligne 102
+
+```rust
+pub fn parse_stats(xml: &str) -> Result<ServerStats, IceError> {
+    let r = parse_root(xml)?;
+    let mounts = children(&r, "source")
+        .map(|s| {
+            let title = text(s, "title");
+            let artist = text(s, "artist");
+            MountStats {
+                mount: s.attributes.get("mount").cloned().unwrap_or_default(),
+                listeners: num(s, "listeners"),
+                listener_peak: num(s, "listener_peak"),
+                max_listeners: text(s, "max_listeners").parse().ok(),
+                slow_listeners: num(s, "slow_listeners"),
+…
+```
+
+### [ICE-26] Lecture de /admin/listclients
+
+Transforme la liste XML des auditeurs d'un mountpoint.
+
+`crates/blast-ice/src/stats.rs` ligne 164
+
+```rust
+pub fn parse_listeners(xml: &str) -> Result<Vec<Listener>, IceError> {
+    let r = parse_root(xml)?;
+    Ok(children(&r, "source")
+        .flat_map(|s| children(s, "listener"))
+        .map(|l| Listener {
+            id: {
+                let id: u64 = num(l, "ID");
+                if id == 0 {
+                    l.attributes
+                        .get("id")
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0)
+…
+```
+
+### [ICE-27] Réponse d'une action admin
+
+Lit <iceresponse> : return vaut 1 en cas de succès, sinon le message est renvoyé comme refus.
+
+`crates/blast-ice/src/stats.rs` ligne 188
+
+```rust
+pub fn parse_response(xml: &str) -> Result<String, IceError> {
+    let r = Element::parse(xml.as_bytes()).map_err(|e| IceError::Invalid(e.to_string()))?;
+    let message = text(&r, "message");
+    if text(&r, "return") == "1" {
+        Ok(message)
+    } else {
+        Err(IceError::Refused(if message.is_empty() {
+            "sans précision".into()
+        } else {
+            message
+        }))
+    }
+…
+```
+
+### [ICE-28] Actions admin
+
+Déconnecter un auditeur, couper une source, déplacer les auditeurs vers un autre mountpoint, changer le titre affiché.
+
+`crates/blast-ice/src/client.rs` ligne 9
+
+```rust
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum AdminAction {
+    KillClient { mount: String, id: u64 },
+    KillSource { mount: String },
+    MoveClients { mount: String, destination: String },
+    Metadata { mount: String, song: String },
+}
+```
+
+### [ICE-29] Point d'accès admin
+
+Hôte, port, HTTPS, identifiant et mot de passe admin, logiciel annoncé. Une adresse IPv6 est mise entre crochets.
+
+`crates/blast-ice/src/client.rs` ligne 19
+
+```rust
+#[derive(Debug, Clone, PartialEq)]
+pub struct Endpoint {
+    pub host: String,
+    pub port: u16,
+    pub https: bool,
+    pub user: String,
+    pub password: String,
+    pub user_agent: String,
+}
+```
+
+### [ICE-30] Encodage d'URL
+
+Encode un paramètre de requête en pourcentages, « / » compris dans les caractères gardés.
+
+`crates/blast-ice/src/client.rs` ligne 30
+
+```rust
+pub fn encode(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for b in value.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
+                out.push(b as char)
+            }
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+```
+
+### [ICE-31] Requête HTTP
+
+GET avec authentification Basic, délai de 5 s, certificats du système, 401 ou 403 : identifiants refusés, 400 : message de la page d'erreur d'Icecast, corps limité à 8 Mo.
+
+`crates/blast-ice/src/client.rs` ligne 92
+
+```rust
+fn get(&self, path: &str, admin: bool) -> Result<String, IceError> {
+    let url = format!("{}{path}", self.base());
+    let mut req = Self::agent(Duration::from_secs(5))
+        .get(&url)
+        .header("User-Agent", &self.user_agent);
+    if admin {
+        let auth = base64::engine::general_purpose::STANDARD
+            .encode(format!("{}:{}", self.user, self.password));
+        req = req.header("Authorization", &format!("Basic {auth}"));
+    }
+    let mut resp = req
+        .call()
+…
+```
+
+### [ICE-32] Sonde
+
+Interroge /status-json.xsl sans authentification pour savoir si le serveur répond et lire sa version.
+
+`crates/blast-ice/src/client.rs` ligne 124
+
+```rust
+pub fn probe(&self) -> Result<String, IceError> {
+    let body = self.get("/status-json.xsl", false)?;
+    let id = serde_json::from_str::<serde_json::Value>(&body)
+        .ok()
+        .and_then(|v| v["icestats"]["server_id"].as_str().map(String::from));
+    Ok(id.unwrap_or_else(|| "Icecast".into()))
+}
+```
+
+### [ICE-33] Statistiques admin
+
+Lit /admin/stats avec les identifiants admin.
+
+`crates/blast-ice/src/client.rs` ligne 133
+
+```rust
+pub fn stats(&self) -> Result<ServerStats, IceError> {
+    parse_stats(&self.get("/admin/stats", true)?)
+}
+```
+
+### [ICE-34] Liste des auditeurs
+
+Lit /admin/listclients pour un mountpoint.
+
+`crates/blast-ice/src/client.rs` ligne 138
+
+```rust
+pub fn listeners(&self, mount: &str) -> Result<Vec<Listener>, IceError> {
+    parse_listeners(&self.get(&format!("/admin/listclients?mount={}", encode(mount)), true)?)
+}
+```
+
+### [ICE-35] Exécution d'une action admin
+
+Appelle killclient, killsource, moveclients ou metadata (mode updinfo) et renvoie le message d'Icecast.
+
+`crates/blast-ice/src/client.rs` ligne 143
+
+```rust
+pub fn run(&self, action: &AdminAction) -> Result<String, IceError> {
+    let path = match action {
+        AdminAction::KillClient { mount, id } => {
+            format!("/admin/killclient?mount={}&id={id}", encode(mount))
+        }
+        AdminAction::KillSource { mount } => {
+            format!("/admin/killsource?mount={}", encode(mount))
+        }
+        AdminAction::MoveClients { mount, destination } => format!(
+            "/admin/moveclients?mount={}&destination={}",
+            encode(mount),
+            encode(destination)
+…
+```
+
+### [ICE-36] Installation détectée
+
+Dossier, exécutable, fichier de configuration, dossiers web et admin d'une installation d'Icecast.
+
+`crates/blast-ice/src/process.rs` ligne 8
+
+```rust
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Install {
+    pub dir: PathBuf,
+    pub exe: PathBuf,
+    pub config: Option<PathBuf>,
+    pub web: Option<PathBuf>,
+    pub admin: Option<PathBuf>,
+}
+```
+
+### [ICE-37] Recherche dans un dossier
+
+Cherche icecast.exe, icecast2.exe, icecast ou icecast2 à la racine ou dans bin, puis icecast.xml et les dossiers web et admin.
+
+`crates/blast-ice/src/process.rs` ligne 26
+
+```rust
+pub fn find_in(dir: &Path) -> Option<Install> {
+    let names = ["icecast.exe", "icecast2.exe", "icecast", "icecast2"];
+    let exes: Vec<PathBuf> = names
+        .iter()
+        .flat_map(|n| [dir.join("bin").join(n), dir.join(n)])
+        .collect();
+    let exe = first_file(&exes)?;
+    Some(Install {
+        dir: dir.to_path_buf(),
+        exe,
+        config: first_file(&[
+            dir.join("icecast.xml"),
+…
+```
+
+### [ICE-38] Détection
+
+Sous Windows, les dossiers de Program Files dont le nom contient « icecast » ; ailleurs, les paquets icecast2, icecast, /usr/local et Homebrew.
+
+`crates/blast-ice/src/process.rs` ligne 53
+
+```rust
+pub fn detect() -> Vec<Install> {
+    let mut found = Vec::new();
+    if cfg!(windows) {
+        for var in ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"] {
+            let Some(root) = std::env::var_os(var).map(PathBuf::from) else {
+                continue;
+            };
+            let Ok(entries) = std::fs::read_dir(&root) else {
+                continue;
+            };
+            for e in entries.flatten() {
+                let name = e.file_name().to_string_lossy().to_lowercase();
+…
+```
+
+### [ICE-39] Processus Icecast
+
+Lance l'exécutable avec -c dans son dossier de travail, sortie vers console.log, sans fenêtre de console sous Windows ; échec si Icecast s'arrête dans les 1,2 s. Reprend un PID existant. Arrêt par SIGTERM puis arrêt forcé, ou TerminateProcess sous Windows.
+
+`crates/blast-ice/src/process.rs` ligne 115
+
+```rust
+pub struct Process {
+    child: Option<Child>,
+    pub pid: u32,
+}
+```
+
+### [ICE-40] Arrêt par PID
+
+taskkill /F sous Windows, kill -KILL ailleurs, pour un Icecast lancé lors d'une session précédente de BLAST.
+
+`crates/blast-ice/src/process.rs` ligne 211
+
+```rust
+pub fn stop_pid(pid: u32) -> Result<(), String> {
+    let status = if cfg!(windows) {
+        quiet(&mut Command::new("taskkill"))
+            .args(["/PID", &pid.to_string(), "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+    } else {
+        quiet(&mut Command::new("kill"))
+            .args(["-KILL", &pid.to_string()])
+            .status()
+    };
+…
+```
+
+### [ICE-41] Vérification d'un PID
+
+Le nom du processus contient « icecast » (/proc sous Linux, tasklist sous Windows, ps sinon), pour ne jamais arrêter un autre programme qui aurait repris le même numéro.
+
+`crates/blast-ice/src/process.rs` ligne 231
+
+```rust
+pub fn pid_is_icecast(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    let name = if cfg!(target_os = "linux") {
+        std::fs::read_to_string(format!("/proc/{pid}/comm")).unwrap_or_default()
+    } else if cfg!(windows) {
+        quiet(&mut Command::new("tasklist"))
+            .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+            .unwrap_or_default()
+…
+```
+
+### [ICE-42] Fin d'un fichier
+
+Dernières lignes d'un journal, en lisant au plus les 256 derniers Ko.
+
+`crates/blast-ice/src/process.rs` ligne 254
+
+```rust
+pub fn tail(path: &Path, lines: usize) -> Result<String, String> {
+    let mut f = std::fs::File::open(path).map_err(|e| format!("{} : {e}", path.display()))?;
+    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+    let window = 256 * 1024;
+    let start = len.saturating_sub(window);
+    f.seek(SeekFrom::Start(start)).map_err(|e| e.to_string())?;
+    let mut buf = Vec::new();
+    f.read_to_end(&mut buf).map_err(|e| e.to_string())?;
+    let text = String::from_utf8_lossy(&buf);
+    let all: Vec<&str> = text.lines().collect();
+    let skip = usize::from(start > 0);
+    let from = all.len().saturating_sub(lines).max(skip.min(all.len()));
+…
+```
+
+### [ICE-43] Message d'une page d'erreur
+
+Texte d'une page d'erreur HTML d'Icecast, sans le code HTTP placé devant.
+
+`crates/blast-ice/src/client.rs` ligne 44
+
+```rust
+pub fn error_message(body: &str) -> Option<String> {
+    let inner = body.split_once("<body>").map(|(_, b)| b).unwrap_or(body);
+    let mut text = String::new();
+    let mut in_tag = false;
+    for c in inner.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => text.push(c),
+            _ => {}
+        }
+    }
+…
+```
+
+
 ## CLI
 
 Outil en ligne de commande « blast » (blast-cli)
@@ -3811,7 +4675,7 @@ Démarrage de l'application et commandes Tauri
 
 Ouvre le journal, charge les réglages, lance le contrôleur et ajoute les fichiers passés en argument.
 
-`app/src-tauri/src/main.rs` ligne 17
+`app/src-tauri/src/main.rs` ligne 18
 
 ```rust
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -3833,7 +4697,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 Construit l'application Tauri, déclare les commandes et journalise un arrêt anormal.
 
-`app/src-tauri/src/main.rs` ligne 68
+`app/src-tauri/src/main.rs` ligne 79
 
 ```rust
 fn main() {
@@ -3864,6 +4728,7 @@ pub struct App {
     pub config_path: PathBuf,
     pub db_path: PathBuf,
     pub secrets: Arc<Secrets>,
+    pub ice: crate::icecast::IceManager,
 }
 ```
 
@@ -3871,7 +4736,7 @@ pub struct App {
 
 Réglages d'une sortie et présence d'un mot de passe enregistré.
 
-`app/src-tauri/src/api.rs` ligne 28
+`app/src-tauri/src/api.rs` ligne 29
 
 ```rust
 #[derive(Serialize)]
@@ -3886,7 +4751,7 @@ pub struct OutputView {
 
 Tout ce qu'affiche la fenêtre Réglages : sorties, OBS, audio, voix, pads, automation et périphériques.
 
-`app/src-tauri/src/api.rs` ligne 36
+`app/src-tauri/src/api.rs` ligne 37
 
 ```rust
 #[derive(Serialize)]
@@ -3908,7 +4773,7 @@ pub struct SettingsView {
 
 Construit la vue des réglages, enregistre une modification puis la transmet au contrôleur, range un mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 63
+`app/src-tauri/src/api.rs` ligne 64
 
 ```rust
 impl App {
@@ -3930,7 +4795,7 @@ impl App {
 
 Transmet une commande de l'interface au contrôleur.
 
-`app/src-tauri/src/api.rs` ligne 121
+`app/src-tauri/src/api.rs` ligne 122
 
 ```rust
 #[tauri::command]
@@ -3943,7 +4808,7 @@ pub fn blast(state: tauri::State<'_, App>, cmd: UiCommand) -> Result<(), String>
 
 Liste les thèmes intégrés et ceux de l'utilisateur.
 
-`app/src-tauri/src/api.rs` ligne 127
+`app/src-tauri/src/api.rs` ligne 128
 
 ```rust
 #[tauri::command]
@@ -3957,7 +4822,7 @@ pub fn themes(app: tauri::AppHandle) -> Vec<serde_json::Value> {
 
 Crée et renvoie le dossier des thèmes de l'utilisateur.
 
-`app/src-tauri/src/api.rs` ligne 134
+`app/src-tauri/src/api.rs` ligne 135
 
 ```rust
 #[tauri::command]
@@ -3972,7 +4837,7 @@ pub fn themes_dir(app: tauri::AppHandle) -> Option<String> {
 
 Renvoie la vue des réglages.
 
-`app/src-tauri/src/api.rs` ligne 142
+`app/src-tauri/src/api.rs` ligne 143
 
 ```rust
 #[tauri::command]
@@ -3985,7 +4850,7 @@ pub fn get_settings(state: tauri::State<'_, App>) -> SettingsView {
 
 Valide et enregistre une sortie, range son mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 148
+`app/src-tauri/src/api.rs` ligne 149
 
 ```rust
 #[tauri::command]
@@ -4007,7 +4872,7 @@ pub fn save_output(
 
 Supprime une sortie et son mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 174
+`app/src-tauri/src/api.rs` ligne 175
 
 ```rust
 #[tauri::command]
@@ -4022,7 +4887,7 @@ pub fn delete_output(state: tauri::State<'_, App>, id: String) -> Result<Setting
 
 Teste une sortie sans l'enregistrer.
 
-`app/src-tauri/src/api.rs` ligne 182
+`app/src-tauri/src/api.rs` ligne 183
 
 ```rust
 #[tauri::command]
@@ -4044,7 +4909,7 @@ pub async fn test_output(
 
 Enregistre les réglages OBS et leur mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 201
+`app/src-tauri/src/api.rs` ligne 202
 
 ```rust
 #[tauri::command]
@@ -4066,7 +4931,7 @@ pub fn save_aura(
 
 Teste la connexion à OBS.
 
-`app/src-tauri/src/api.rs` ligne 216
+`app/src-tauri/src/api.rs` ligne 217
 
 ```rust
 #[tauri::command]
@@ -4088,7 +4953,7 @@ pub async fn test_aura(
 
 Enregistre la sortie audio, prise en compte au redémarrage.
 
-`app/src-tauri/src/api.rs` ligne 246
+`app/src-tauri/src/api.rs` ligne 247
 
 ```rust
 #[tauri::command]
@@ -4108,7 +4973,7 @@ pub fn save_audio(
 
 Enregistre les réglages de Voice FX en conservant le choix du micro.
 
-`app/src-tauri/src/api.rs` ligne 259
+`app/src-tauri/src/api.rs` ligne 260
 
 ```rust
 #[tauri::command]
@@ -4130,7 +4995,7 @@ pub fn save_voice(state: tauri::State<'_, App>, voice: VoiceSettings) -> Result<
 
 Enregistre le micro et son activation, pris en compte au redémarrage.
 
-`app/src-tauri/src/api.rs` ligne 276
+`app/src-tauri/src/api.rs` ligne 277
 
 ```rust
 #[tauri::command]
@@ -4152,7 +5017,7 @@ pub fn save_input(
 
 Affecte un son à un pad.
 
-`app/src-tauri/src/api.rs` ligne 293
+`app/src-tauri/src/api.rs` ligne 294
 
 ```rust
 #[tauri::command]
@@ -4174,7 +5039,7 @@ pub fn save_pad(state: tauri::State<'_, App>, pad: PadConfig) -> Result<(), Stri
 
 Vide un pad.
 
-`app/src-tauri/src/api.rs` ligne 317
+`app/src-tauri/src/api.rs` ligne 318
 
 ```rust
 #[tauri::command]
@@ -4187,7 +5052,7 @@ pub fn clear_pad(state: tauri::State<'_, App>, index: u16) -> Result<(), String>
 
 Enregistre le volume de la Sound FX.
 
-`app/src-tauri/src/api.rs` ligne 323
+`app/src-tauri/src/api.rs` ligne 324
 
 ```rust
 #[tauri::command]
@@ -4200,7 +5065,7 @@ pub fn save_sfx_volume(state: tauri::State<'_, App>, volume_db: f32) -> Result<(
 
 Choisit le préréglage du traitement antenne.
 
-`app/src-tauri/src/api.rs` ligne 329
+`app/src-tauri/src/api.rs` ligne 330
 
 ```rust
 #[tauri::command]
@@ -4219,7 +5084,7 @@ pub fn save_master_preset(state: tauri::State<'_, App>, preset: String) -> Resul
 
 Enregistre les règles de séparation et la durée de conservation.
 
-`app/src-tauri/src/api.rs` ligne 341
+`app/src-tauri/src/api.rs` ligne 342
 
 ```rust
 #[tauri::command]
@@ -4241,7 +5106,7 @@ pub fn save_automation(
 
 Exporte en CSV l'historique complet de la base, filtré par catégorie et par période.
 
-`app/src-tauri/src/api.rs` ligne 398
+`app/src-tauri/src/api.rs` ligne 399
 
 ```rust
 #[tauri::command]
@@ -4263,7 +5128,7 @@ pub fn export_history(
 
 Version, dépôt, journal, dossier de réglages et préférences de mise à jour.
 
-`app/src-tauri/src/api.rs` ligne 432
+`app/src-tauri/src/api.rs` ligne 433
 
 ```rust
 #[derive(Serialize)]
@@ -4282,7 +5147,7 @@ pub struct AppInfo {
 
 Renvoie les informations de l'onglet À propos.
 
-`app/src-tauri/src/api.rs` ligne 444
+`app/src-tauri/src/api.rs` ligne 445
 
 ```rust
 #[tauri::command]
@@ -4304,7 +5169,7 @@ pub fn app_info(state: tauri::State<'_, App>) -> AppInfo {
 
 Interroge GitHub ; au démarrage, ne signale que les versions plus récentes et non ignorées.
 
-`app/src-tauri/src/api.rs` ligne 463
+`app/src-tauri/src/api.rs` ligne 464
 
 ```rust
 #[tauri::command]
@@ -4326,7 +5191,7 @@ pub async fn check_update(
 
 Enregistre la vérification au démarrage et la version ignorée.
 
-`app/src-tauri/src/api.rs` ligne 498
+`app/src-tauri/src/api.rs` ligne 499
 
 ```rust
 #[tauri::command]
@@ -4348,7 +5213,7 @@ pub fn save_updates(
 
 Ouvre dans le navigateur un lien du dépôt GitHub, et seulement celui-ci.
 
-`app/src-tauri/src/api.rs` ligne 515
+`app/src-tauri/src/api.rs` ligne 516
 
 ```rust
 #[tauri::command]
@@ -4365,7 +5230,7 @@ pub fn open_link(url: String) -> Result<(), String> {
 
 Ouvre le dossier du journal ou des réglages.
 
-`app/src-tauri/src/api.rs` ligne 525
+`app/src-tauri/src/api.rs` ligne 526
 
 ```rust
 #[tauri::command]
@@ -4385,7 +5250,7 @@ pub fn open_folder(state: tauri::State<'_, App>, which: String) -> Result<(), St
 
 Enregistre les mots-clés de dossier des jingles et des pubs ; la playlist est reclassée aussitôt.
 
-`app/src-tauri/src/api.rs` ligne 356
+`app/src-tauri/src/api.rs` ligne 357
 
 ```rust
 #[tauri::command]
@@ -4407,7 +5272,7 @@ pub fn save_categories(
 
 Enregistre le dossier des jingles (vérifié) et leur volume.
 
-`app/src-tauri/src/api.rs` ligne 376
+`app/src-tauri/src/api.rs` ligne 377
 
 ```rust
 #[tauri::command]
@@ -4429,7 +5294,7 @@ pub fn save_jingles(
 
 JPEG, PNG, WebP et AVIF.
 
-`app/src-tauri/src/api.rs` ligne 538
+`app/src-tauri/src/api.rs` ligne 539
 
 ```rust
 const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
@@ -4439,7 +5304,7 @@ const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
 
 40 Mo.
 
-`app/src-tauri/src/api.rs` ligne 540
+`app/src-tauri/src/api.rs` ligne 541
 
 ```rust
 const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
@@ -4449,7 +5314,7 @@ const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
 
 Réglages du verre dépoli et chemin de l'image de fond copiée.
 
-`app/src-tauri/src/api.rs` ligne 543
+`app/src-tauri/src/api.rs` ligne 544
 
 ```rust
 #[derive(Serialize)]
@@ -4463,7 +5328,7 @@ pub struct AppearanceView {
 
 Lit les réglages et vérifie que l'image de fond existe encore ; gère le dossier de BLAST où l'image est copiée et le ménage des anciennes images.
 
-`app/src-tauri/src/api.rs` ligne 558
+`app/src-tauri/src/api.rs` ligne 559
 
 ```rust
 fn appearance_view(&self) -> AppearanceView {
@@ -4485,7 +5350,7 @@ fn appearance_view(&self) -> AppearanceView {
 
 Renvoie l'apparence au démarrage de l'interface.
 
-`app/src-tauri/src/api.rs` ligne 587
+`app/src-tauri/src/api.rs` ligne 588
 
 ```rust
 #[tauri::command]
@@ -4498,7 +5363,7 @@ pub fn get_appearance(state: tauri::State<'_, App>) -> AppearanceView {
 
 Enregistre activation, flou, opacité et assombrissement, bornés à des valeurs sûres.
 
-`app/src-tauri/src/api.rs` ligne 593
+`app/src-tauri/src/api.rs` ligne 594
 
 ```rust
 #[tauri::command]
@@ -4520,7 +5385,7 @@ pub fn save_appearance(
 
 Copie l'image choisie dans le dossier de BLAST sous un nom unique, active le verre et supprime l'image précédente.
 
-`app/src-tauri/src/api.rs` ligne 609
+`app/src-tauri/src/api.rs` ligne 610
 
 ```rust
 #[tauri::command]
@@ -4542,7 +5407,7 @@ pub fn set_background(
 
 Retire l'image de fond ; le verre s'affiche alors sur un dégradé du thème.
 
-`app/src-tauri/src/api.rs` ligne 637
+`app/src-tauri/src/api.rs` ligne 638
 
 ```rust
 #[tauri::command]
@@ -4557,7 +5422,7 @@ pub fn clear_background(state: tauri::State<'_, App>) -> Result<AppearanceView, 
 
 Enregistre les dossiers de la bibliothèque (vérifiés) ; le contrôleur les relit aussitôt.
 
-`app/src-tauri/src/api.rs` ligne 645
+`app/src-tauri/src/api.rs` ligne 646
 
 ```rust
 #[tauri::command]
@@ -4577,7 +5442,7 @@ pub fn save_library_dirs(
 
 Valide puis enregistre catégories, grilles, planning et grille hors planning.
 
-`app/src-tauri/src/api.rs` ligne 658
+`app/src-tauri/src/api.rs` ligne 659
 
 ```rust
 #[tauri::command]
@@ -4599,7 +5464,7 @@ pub fn save_rotation(
 
 Compte les titres de la bibliothèque qui correspondent à des règles de catégorie, pour l'aperçu en direct.
 
-`app/src-tauri/src/api.rs` ligne 673
+`app/src-tauri/src/api.rs` ligne 674
 
 ```rust
 #[tauri::command]
@@ -4621,7 +5486,7 @@ pub async fn rotation_counts(
 
 À la sortie, demande au contrôleur d'écrire la playlist et attend jusqu'à 5 s.
 
-`app/src-tauri/src/main.rs` ligne 118
+`app/src-tauri/src/main.rs` ligne 144
 
 ```rust
 fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
@@ -4631,11 +5496,11 @@ fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
     let Some(state) = handle.try_state::<api::App>() else {
         return;
     };
-    let (done, wait) = crossbeam_channel::bounded(1);
-    if state
-        .tx
-        .send(controller::UiCommand::Shutdown { done })
-        .is_ok()
+    let servers = state
+        .config
+        .lock()
+        .map(|c| c.icecast.servers.clone())
+        .unwrap_or_default();
 …
 ```
 
@@ -4768,7 +5633,7 @@ Contenu de config.toml ; aucun mot de passe n'y figure.
 
 Lit config.toml ; un fichier illisible est mis de côté et remplacé par les valeurs par défaut.
 
-`app/src-tauri/src/config.rs` ligne 213
+`app/src-tauri/src/config.rs` ligne 258
 
 ```rust
 pub fn load(path: &Path) -> (AppConfig, Option<String>) {
@@ -4790,7 +5655,7 @@ pub fn load(path: &Path) -> (AppConfig, Option<String>) {
 
 Écrit config.toml via un fichier temporaire renommé, pour ne jamais laisser de fichier à moitié écrit.
 
-`app/src-tauri/src/config.rs` ligne 234
+`app/src-tauri/src/config.rs` ligne 279
 
 ```rust
 pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
@@ -4866,6 +5731,42 @@ pub struct LibrarySettings {
 }
 ```
 
+### [CFG-15] Profil d'un serveur Icecast
+
+Nom, local ou distant, dossier d'installation, exécutable, fichier de configuration, adresse, port, HTTPS, identifiant admin, lancement au démarrage et arrêt à la fermeture. Le mot de passe admin est dans le trousseau.
+
+`app/src-tauri/src/config.rs` ligne 196
+
+```rust
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct IceServerProfile {
+    pub id: String,
+    pub name: String,
+    pub remote: bool,
+    pub install_dir: Option<PathBuf>,
+    pub exe: Option<PathBuf>,
+    pub config_path: Option<PathBuf>,
+    pub host: String,
+    pub port: u16,
+    pub https: bool,
+…
+```
+
+### [CFG-16] Serveurs Icecast
+
+Liste des profils de serveurs Icecast.
+
+`app/src-tauri/src/config.rs` ligne 233
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct IcecastSettings {
+    pub servers: Vec<IceServerProfile>,
+}
+```
+
 
 ## SEC
 
@@ -4934,7 +5835,7 @@ pub const AURA_KEY: &str = "aura";
 
 Lire, tester, écrire, supprimer et décrire le lieu de rangement.
 
-`app/src-tauri/src/secrets.rs` ligne 28
+`app/src-tauri/src/secrets.rs` ligne 33
 
 ```rust
 impl Secrets {
@@ -4949,6 +5850,608 @@ impl Secrets {
 
     pub fn has(&self, key: &str) -> bool {
         self.get(key).is_some_and(|p| !p.is_empty())
+…
+```
+
+### [SEC-07] Clé d'un serveur Icecast
+
+Nom du mot de passe admin d'un serveur Icecast dans le trousseau.
+
+`app/src-tauri/src/secrets.rs` ligne 28
+
+```rust
+pub fn ice_key(id: &str) -> String {
+    format!("icecast:{id}")
+}
+```
+
+
+## ICM
+
+Gestion des serveurs Icecast côté application
+
+### [ICM-01] Sauvegardes gardées
+
+Nombre de copies .bak gardées pour chaque icecast.xml modifié par BLAST.
+
+`app/src-tauri/src/icecast.rs` ligne 18
+
+```rust
+const BACKUPS_KEPT: usize = 10;
+```
+
+### [ICM-02] Gestionnaire des serveurs
+
+Processus Icecast suivis par BLAST, dossier de données (PID, console, journaux des copies) et dossier de réglages (copies de icecast.xml).
+
+`app/src-tauri/src/icecast.rs` ligne 21
+
+```rust
+pub struct IceManager {
+    running: Mutex<HashMap<String, Process>>,
+    data_dir: PathBuf,
+    config_dir: PathBuf,
+}
+```
+
+### [ICM-03] Identifiant sûr
+
+Lettres, chiffres, tirets et soulignés seulement : l'identifiant sert de nom de dossier.
+
+`app/src-tauri/src/icecast.rs` ligne 28
+
+```rust
+fn safe_id(id: &str) -> Result<&str, String> {
+    if id.is_empty()
+        || id.len() > 64
+        || !id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err("Identifiant de serveur invalide.".into());
+    }
+    Ok(id)
+}
+```
+
+### [ICM-04] Dossier de travail
+
+Dossier d'installation s'il existe, sinon le dossier de l'exécutable (son parent s'il s'appelle bin). Les chemins relatifs de icecast.xml en partent.
+
+`app/src-tauri/src/icecast.rs` ligne 41
+
+```rust
+fn workdir(p: &IceServerProfile) -> Option<PathBuf> {
+    if let Some(d) = p.install_dir.as_ref().filter(|d| d.is_dir()) {
+        return Some(d.clone());
+    }
+    let parent = p.exe.as_ref()?.parent()?;
+    let is_bin = parent
+        .file_name()
+        .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case("bin"));
+    Some(if is_bin {
+        parent.parent().unwrap_or(parent).to_path_buf()
+    } else {
+        parent.to_path_buf()
+…
+```
+
+### [ICM-05] État d'un serveur local
+
+En marche et lancé par BLAST ou non ; reprend le processus noté dans icecast.pid après un redémarrage de BLAST.
+
+`app/src-tauri/src/icecast.rs` ligne 86
+
+```rust
+pub fn state(&self, id: &str) -> (bool, bool) {
+    let Ok(mut map) = self.running.lock() else {
+        return (false, false);
+    };
+    if let Some(p) = map.get_mut(id) {
+        if p.alive() {
+            return (true, p.owned());
+        }
+        map.remove(id);
+        let _ = std::fs::remove_file(self.pid_file(id));
+    }
+    let pid = std::fs::read_to_string(self.pid_file(id))
+…
+```
+
+### [ICM-06] Lancement
+
+Vérifie l'exécutable et la configuration, la valide, crée le dossier des journaux, lance Icecast et note son PID. Refusé pour un serveur distant.
+
+`app/src-tauri/src/icecast.rs` ligne 108
+
+```rust
+pub fn start(&self, p: &IceServerProfile) -> Result<String, String> {
+    if p.remote {
+        return Err(
+            "Le lancement d'un serveur distant demandera une connexion SSH (prochaine étape)."
+                .into(),
+        );
+    }
+    if self.state(&p.id).0 {
+        return Ok("Icecast tourne déjà.".into());
+    }
+    let exe = p
+        .exe
+…
+```
+
+### [ICM-07] Arrêt
+
+Arrête le processus lancé ou repris par BLAST ; un Icecast lancé comme service Windows n'est pas touché.
+
+`app/src-tauri/src/icecast.rs` ligne 153
+
+```rust
+pub fn stop(&self, id: &str) -> Result<String, String> {
+    let _ = self.state(id);
+    let proc = self.running.lock().ok().and_then(|mut m| m.remove(id));
+    let _ = std::fs::remove_file(self.pid_file(id));
+    match proc {
+        Some(mut p) => {
+            p.stop()?;
+            journal::info(format!("icecast {id} : arrêté"));
+            Ok("Icecast arrêté.".into())
+        }
+        None => Err("BLAST ne trouve pas de processus Icecast lancé par lui. S'il tourne comme service Windows, arrête-le depuis les Services.".into()),
+    }
+…
+```
+
+### [ICM-08] Arrêt à la fermeture
+
+À la fermeture de BLAST, arrête les serveurs locaux réglés ainsi et lancés par BLAST.
+
+`app/src-tauri/src/icecast.rs` ligne 168
+
+```rust
+pub fn stop_on_exit(&self, profiles: &[IceServerProfile]) {
+    for p in profiles.iter().filter(|p| p.stop_on_exit && !p.remote) {
+        if self.state(&p.id) == (true, true) {
+            let _ = self.stop(&p.id);
+        }
+    }
+}
+```
+
+### [ICM-09] Vue d'un serveur
+
+Profil, présence d'un mot de passe admin et indication d'une configuration copiée dans BLAST.
+
+`app/src-tauri/src/icecast.rs` ligne 178
+
+```rust
+#[derive(Serialize)]
+pub struct ServerView {
+    #[serde(flatten)]
+    profile: IceServerProfile,
+    has_password: bool,
+    managed: bool,
+}
+```
+
+### [ICM-10] Vue de la fenêtre Icecast
+
+Serveurs, installations détectées, emplacement des mots de passe et avertissement éventuel.
+
+`app/src-tauri/src/icecast.rs` ligne 187
+
+```rust
+#[derive(Serialize)]
+pub struct IceView {
+    servers: Vec<ServerView>,
+    detected: Vec<Install>,
+    secret_store: String,
+    warning: Option<String>,
+}
+```
+
+### [ICM-11] État renvoyé à l'interface
+
+Processus en marche, lancé par BLAST, serveur joignable, version, statistiques et message d'erreur.
+
+`app/src-tauri/src/icecast.rs` ligne 196
+
+```rust
+#[derive(Serialize, Default)]
+pub struct StatusView {
+    running: bool,
+    owned: bool,
+    reachable: bool,
+    server_id: Option<String>,
+    stats: Option<ServerStats>,
+    error: Option<String>,
+    checked_at: u64,
+}
+```
+
+### [ICM-12] Vue de la configuration
+
+Configuration, chemin, droit d'écriture, copie gérée par BLAST, nombre de sauvegardes, avertissements et message.
+
+`app/src-tauri/src/icecast.rs` ligne 208
+
+```rust
+#[derive(Serialize)]
+pub struct ConfigView {
+    config: IceConfig,
+    path: String,
+    writable: bool,
+    managed: bool,
+    backups: usize,
+    warnings: Vec<String>,
+    message: Option<String>,
+}
+```
+
+### [ICM-13] Construction de la vue
+
+Assemble la vue de la fenêtre Icecast à partir des réglages et du trousseau.
+
+`app/src-tauri/src/icecast.rs` ligne 267
+
+```rust
+fn ice_view(&self, warning: Option<String>) -> IceView {
+    let servers = self
+        .config
+        .lock()
+        .map(|c| c.icecast.servers.clone())
+        .unwrap_or_default();
+    IceView {
+        servers: servers
+            .into_iter()
+            .map(|p| ServerView {
+                has_password: self.secrets.has(&ice_key(&p.id)),
+                managed: p
+…
+```
+
+### [ICM-14] Construction de la vue de configuration
+
+Charge icecast.xml d'un serveur local ; un serveur distant demandera SSH.
+
+`app/src-tauri/src/icecast.rs` ligne 292
+
+```rust
+fn ice_config_view(
+    &self,
+    p: &IceServerProfile,
+    warnings: Vec<String>,
+    message: Option<String>,
+) -> Result<ConfigView, String> {
+    if p.remote {
+        return Err("La configuration d'un serveur distant se modifiera par SSH (prochaine étape). Le tableau de bord, les auditeurs et les actions admin fonctionnent déjà.".into());
+    }
+    let path = p
+        .config_path
+        .clone()
+…
+```
+
+### [ICM-15] Commande ice_list
+
+Renvoie la vue de la fenêtre Icecast.
+
+`app/src-tauri/src/icecast.rs` ligne 345
+
+```rust
+#[tauri::command]
+pub fn ice_list(state: tauri::State<'_, App>) -> IceView {
+    state.ice_view(None)
+}
+```
+
+### [ICM-16] Commande ice_detect
+
+Cherche une installation dans un dossier donné, ou aux emplacements habituels.
+
+`app/src-tauri/src/icecast.rs` ligne 351
+
+```rust
+#[tauri::command]
+pub fn ice_detect(dir: Option<PathBuf>) -> Vec<Install> {
+    match dir {
+        Some(d) => blast_ice::find_in(&d).into_iter().collect(),
+        None => blast_ice::detect(),
+    }
+}
+```
+
+### [ICM-17] Commande ice_save_server
+
+Valide le profil, crée son identifiant, cherche l'exécutable, reprend port, identifiant et mot de passe admin dans icecast.xml, range le mot de passe dans le trousseau, prévient si l'admin d'un hôte distant passe en HTTP.
+
+`app/src-tauri/src/icecast.rs` ligne 360
+
+```rust
+#[tauri::command]
+pub fn ice_save_server(
+    state: tauri::State<'_, App>,
+    server: IceServerProfile,
+    password: Option<String>,
+) -> Result<IceView, String> {
+    let mut server = server;
+    server.name = server.name.trim().to_string();
+    server.host = server.host.trim().to_string();
+    if server.name.is_empty() {
+        return Err("Donne un nom à ce serveur.".into());
+    }
+…
+```
+
+### [ICM-18] Commande ice_delete_server
+
+Arrête le serveur s'il a été lancé par BLAST, efface son mot de passe et son profil ; icecast.xml n'est pas supprimé.
+
+`app/src-tauri/src/icecast.rs` ligne 433
+
+```rust
+#[tauri::command]
+pub fn ice_delete_server(state: tauri::State<'_, App>, id: String) -> Result<IceView, String> {
+    safe_id(&id)?;
+    if state.ice.state(&id) == (true, true) {
+        let _ = state.ice.stop(&id);
+    }
+    state.secrets.delete(&ice_key(&id));
+    state.commit(|cfg| cfg.icecast.servers.retain(|s| s.id != id))?;
+    Ok(state.ice_view(None))
+}
+```
+
+### [ICM-19] Commande ice_status
+
+Statistiques admin, sinon sonde publique, avec un message adapté (arrêté, en démarrage, mot de passe manquant ou refusé).
+
+`app/src-tauri/src/icecast.rs` ligne 445
+
+```rust
+#[tauri::command]
+pub async fn ice_status(app: tauri::AppHandle, id: String) -> Result<StatusView, String> {
+    let state = app.state::<App>();
+    let p = state.ice_profile(&id)?;
+    let ep = state.ice_endpoint(&p);
+    let has_password = !ep.password.is_empty();
+    let app2 = app.clone();
+    blocking(move || {
+        let state = app2.state::<App>();
+        let (running, owned) = if p.remote {
+            (false, false)
+        } else {
+…
+```
+
+### [ICM-20] Commande ice_power
+
+Démarre, arrête ou redémarre un serveur local.
+
+`app/src-tauri/src/icecast.rs` ligne 509
+
+```rust
+#[tauri::command]
+pub async fn ice_power(
+    app: tauri::AppHandle,
+    id: String,
+    action: String,
+) -> Result<String, String> {
+    let p = app.state::<App>().ice_profile(&id)?;
+    blocking(move || {
+        let state = app.state::<App>();
+        match action.as_str() {
+            "start" => state.ice.start(&p),
+            "stop" => state.ice.stop(&p.id),
+…
+```
+
+### [ICM-21] Commande ice_get_config
+
+Renvoie la vue de la configuration d'un serveur.
+
+`app/src-tauri/src/icecast.rs` ligne 535
+
+```rust
+#[tauri::command]
+pub fn ice_get_config(state: tauri::State<'_, App>, id: String) -> Result<ConfigView, String> {
+    let p = state.ice_profile(&id)?;
+    state.ice_config_view(&p, Vec::new(), None)
+}
+```
+
+### [ICM-22] Commande ice_save_config
+
+Valide, vérifie le droit d'écriture, applique au document, relit le résultat, écrit avec sauvegarde, recopie identifiant, mot de passe admin et port dans le profil, puis redémarre si demandé.
+
+`app/src-tauri/src/icecast.rs` ligne 542
+
+```rust
+#[tauri::command]
+pub async fn ice_save_config(
+    app: tauri::AppHandle,
+    id: String,
+    config: IceConfig,
+    restart: bool,
+) -> Result<ConfigView, String> {
+    blocking(move || {
+        let state = app.state::<App>();
+        let p = state.ice_profile(&id)?;
+        let path = p
+            .config_path
+…
+```
+
+### [ICM-23] Commande ice_adopt_config
+
+Copie icecast.xml dans le dossier de réglages de BLAST avec des chemins absolus, pour le modifier sans droits administrateur ; l'original n'est pas touché.
+
+`app/src-tauri/src/icecast.rs` ligne 593
+
+```rust
+#[tauri::command]
+pub fn ice_adopt_config(state: tauri::State<'_, App>, id: String) -> Result<ConfigView, String> {
+    let p = state.ice_profile(&id)?;
+    let src = p
+        .config_path
+        .clone()
+        .ok_or("Aucun fichier de configuration à copier.")?;
+    let target = state.ice.managed_config(&p.id);
+    if src == target {
+        return state.ice_config_view(&p, Vec::new(), None);
+    }
+    let wd = workdir(&p).ok_or("Dossier d'installation introuvable.")?;
+…
+```
+
+### [ICM-24] Commande ice_new_config
+
+Crée une configuration neuve à mots de passe aléatoires dans le dossier de réglages de BLAST, avec les pages web et admin de l'installation.
+
+`app/src-tauri/src/icecast.rs` ligne 626
+
+```rust
+#[tauri::command]
+pub fn ice_new_config(state: tauri::State<'_, App>, id: String) -> Result<ConfigView, String> {
+    let p = state.ice_profile(&id)?;
+    if p.remote {
+        return Err("Disponible pour un serveur local seulement.".into());
+    }
+    let target = state.ice.managed_config(&p.id);
+    if target.exists() {
+        return Err(format!(
+            "Une configuration créée par BLAST existe déjà : {}",
+            target.display()
+        ));
+…
+```
+
+### [ICM-25] Commande ice_listeners
+
+Liste les auditeurs d'un mountpoint.
+
+`app/src-tauri/src/icecast.rs` ligne 681
+
+```rust
+#[tauri::command]
+pub async fn ice_listeners(
+    app: tauri::AppHandle,
+    id: String,
+    mount: String,
+) -> Result<Vec<Listener>, String> {
+    let state = app.state::<App>();
+    let ep = state.ice_endpoint(&state.ice_profile(&id)?);
+    blocking(move || ep.listeners(&mount).map_err(|e| e.to_string())).await
+}
+```
+
+### [ICM-26] Commande ice_admin
+
+Exécute une action admin et la note dans le journal de BLAST.
+
+`app/src-tauri/src/icecast.rs` ligne 693
+
+```rust
+#[tauri::command]
+pub async fn ice_admin(
+    app: tauri::AppHandle,
+    id: String,
+    action: AdminAction,
+) -> Result<String, String> {
+    let state = app.state::<App>();
+    let p = state.ice_profile(&id)?;
+    let ep = state.ice_endpoint(&p);
+    let name = p.name.clone();
+    blocking(move || {
+        let r = ep.run(&action).map_err(|e| e.to_string());
+…
+```
+
+### [ICM-27] Commande ice_log
+
+Fin du journal d'erreurs, d'accès ou de la console d'Icecast.
+
+`app/src-tauri/src/icecast.rs` ligne 714
+
+```rust
+#[tauri::command]
+pub fn ice_log(
+    state: tauri::State<'_, App>,
+    id: String,
+    which: String,
+    lines: Option<usize>,
+) -> Result<String, String> {
+    let p = state.ice_profile(&id)?;
+    let lines = lines.unwrap_or(300).clamp(10, 5000);
+    let path = if which == "console" {
+        state.ice.console(&p.id)
+    } else {
+…
+```
+
+### [ICM-28] Commande ice_link_output
+
+Ajoute dans Diffusion une sortie Icecast vers un mountpoint, avec son mot de passe (propre ou celui des sources) et sa présentation.
+
+`app/src-tauri/src/icecast.rs` ligne 745
+
+```rust
+#[tauri::command]
+pub fn ice_link_output(
+    state: tauri::State<'_, App>,
+    id: String,
+    mount: String,
+) -> Result<String, String> {
+    let p = state.ice_profile(&id)?;
+    let cfg = p
+        .config_path
+        .as_ref()
+        .and_then(|c| IceDocument::load(c).ok())
+        .map(|d| d.read());
+…
+```
+
+### [ICM-29] Lancement automatique
+
+Au démarrage de BLAST, lance dans un fil séparé les serveurs locaux réglés ainsi.
+
+`app/src-tauri/src/icecast.rs` ligne 845
+
+```rust
+pub fn autostart(app: &tauri::AppHandle) {
+    let state = app.state::<App>();
+    let servers: Vec<IceServerProfile> = state
+        .config
+        .lock()
+        .map(|c| c.icecast.servers.clone())
+        .unwrap_or_default();
+    let todo: Vec<IceServerProfile> = servers
+        .into_iter()
+        .filter(|s| s.autostart && !s.remote)
+        .collect();
+    if todo.is_empty() {
+…
+```
+
+### [ICM-30] Commande ice_open_web
+
+Ouvre la page d'état du serveur dans le navigateur.
+
+`app/src-tauri/src/icecast.rs` ligne 828
+
+```rust
+#[tauri::command]
+pub fn ice_open_web(state: tauri::State<'_, App>, id: String) -> Result<(), String> {
+    let p = state.ice_profile(&id)?;
+    let host = if matches!(p.host.as_str(), "0.0.0.0" | "::") {
+        "localhost".to_string()
+    } else {
+        p.host.clone()
+    };
+    let url = Endpoint {
+        host,
+        ..state.ice_endpoint(&p)
+    }
 …
 ```
 
@@ -8880,7 +10383,7 @@ export async function pickAudio(multiple, title) {
 
 Met à jour l'horloge de la barre du haut.
 
-`app/ui/js/main.js` ligne 17
+`app/ui/js/main.js` ligne 18
 
 ```js
 function tickClock() {
@@ -8892,7 +10395,7 @@ function tickClock() {
 
 Relie chaque événement blast:// à son module.
 
-`app/ui/js/main.js` ligne 22
+`app/ui/js/main.js` ligne 23
 
 ```js
 async function subscribe() {
@@ -8914,11 +10417,11 @@ async function subscribe() {
 
 Initialise les modules, s'abonne, charge thèmes et voix, active le glisser-déposer puis vérifie les mises à jour.
 
-`app/ui/js/main.js` ligne 42
+`app/ui/js/main.js` ligne 43
 
 ```js
 async function start() {
-  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation]) m.init();
+  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast]) m.init();
   $("#themes-folder").addEventListener("click", async () => {
     try {
       const dir = await invoke("themes_dir");
@@ -9898,13 +11401,13 @@ function renderInputs(connected) {
 
 Espace pour parler, M pour le verrou, F1 à F12 pour les pads, Échap pour fermer.
 
-`app/ui/js/shortcuts.js` ligne 10
+`app/ui/js/shortcuts.js` ligne 11
 
 ```js
 export function init() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closePadMenu();
-    if (settingsOpen() || typing(e)) return;
+    if (settingsOpen() || icecastOpen() || typing(e)) return;
     if (e.code === "Space") {
       e.preventDefault();
       if (!e.repeat) pttDown();
@@ -10571,6 +12074,462 @@ function readProgram() {
 …
 ```
 
+### [UI-108] État du module Icecast
+
+Serveur choisi, onglet, états et historiques par serveur, configuration chargée et brouillon en cours de modification.
+
+`app/ui/js/icecast.js` ligne 4
+
+```js
+const I = {
+  view: null,
+  sel: null,
+  draftServer: null,
+  tab: "dash",
+  status: {},
+  history: {},
+  rate: {},
+  peak: {},
+  conf: null,
+  confError: null,
+  draft: null,
+…
+```
+
+### [UI-109] Outils de format Icecast
+
+Échappement HTML, octets, durées, accès aux champs par chemin (auth.admin_password).
+
+`app/ui/js/icecast.js` ligne 32
+
+```js
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+```
+
+### [UI-110] Liste des serveurs
+
+Un bouton par serveur avec son état et ses auditeurs.
+
+`app/ui/js/icecast.js` ligne 73
+
+```js
+function renderServers() {
+  const box = $("#ice-servers");
+  box.innerHTML = "";
+  for (const s of I.view.servers) {
+    const status = I.status[s.id];
+    const b = document.createElement("button");
+    b.className = "ice-server" + (s.id === I.sel ? " active" : "");
+    const n = status && status.stats ? status.stats.listeners : null;
+    b.innerHTML = `<span class="dot ${stateOf(status) === "running" ? "connecting" : stateOf(status)}"></span><span class="n"></span><span class="c"></span><span class="t"></span>`;
+    $(".n", b).textContent = s.name;
+    $(".c", b).textContent = n != null ? String(n) : "";
+    $(".c", b).title = "auditeurs";
+…
+```
+
+### [UI-111] Choix d'un serveur
+
+Charge sa configuration si le serveur est local puis son état ; prévient si un brouillon est abandonné.
+
+`app/ui/js/icecast.js` ligne 129
+
+```js
+async function selectServer(id) {
+  if (I.draft && dirty() && id !== I.sel) toast("warn", "Les modifications non enregistrées de la configuration précédente sont abandonnées.");
+  I.sel = id;
+  I.conf = null;
+  I.draft = null;
+  I.confError = null;
+  I.mount = null;
+  renderServers();
+  renderHead();
+  const s = server();
+  const tab = s && s.remote && ["config", "mounts", "log"].includes(I.tab) ? "dash" : I.tab;
+  showITab(tab === "profile" && I.sel !== "new" ? "dash" : tab);
+…
+```
+
+### [UI-112] Onglets Icecast
+
+Affiche une page ; les onglets réservés aux serveurs locaux sont désactivés pour un serveur distant ou non enregistré.
+
+`app/ui/js/icecast.js` ligne 146
+
+```js
+function showITab(tab) {
+  const s = server();
+  const isNew = I.sel === "new";
+  I.tab = tab;
+  $$(".ice-tabs .fx-tab").forEach((t) => {
+    const off = isNew ? t.dataset.itab !== "profile" : s && s.remote && t.hasAttribute("data-local");
+    t.disabled = !!off;
+    t.title = off ? (isNew ? "Enregistre d'abord la connexion" : "Disponible pour un serveur local (SSH à venir pour un VPS)") : "";
+    t.classList.toggle("active", t.dataset.itab === tab);
+  });
+  $$(".ice-page").forEach((p) => p.classList.toggle("hidden", p.dataset.ipage !== tab));
+  if (tab === "profile") fillProfile();
+…
+```
+
+### [UI-113] Actualisation de l'état
+
+Interroge ice_status, enregistre l'historique des auditeurs et le débit sortant calculé sur 30 s.
+
+`app/ui/js/icecast.js` ligne 190
+
+```js
+async function refreshStatus(id = I.sel) {
+  if (!id || id === "new") return;
+  try {
+    const s = await invoke("ice_status", { id });
+    I.status[id] = s;
+    record(id, s);
+  } catch (e) {
+    I.status[id] = { error: String(e), running: false, reachable: false };
+  }
+  renderPill();
+  if (!isOpen()) return;
+  renderServers();
+…
+```
+
+### [UI-114] En-tête Icecast
+
+Pastille d'état, adresse, version, origine du processus et boutons selon l'état.
+
+`app/ui/js/icecast.js` ligne 168
+
+```js
+function renderHead() {
+  const s = server();
+  if (!s) return;
+  const status = st();
+  const state = stateOf(status);
+  $("#ice-dot").className = "dot " + (state === "live" ? "live" : state === "running" ? "running" : status && status.error && s.remote ? "error" : "");
+  $("#ice-name").textContent = s.name || "Nouveau serveur";
+  const parts = [`${s.remote ? "Distant" : "Local"} · ${s.https ? "https" : "http"}://${s.host}:${s.port}`];
+  if (status && status.server_id) parts.push(status.server_id);
+  if (status && status.running && !s.remote) parts.push(status.owned ? "lancé par BLAST" : "processus repris");
+  $("#ice-sub").textContent = I.sel === "new" ? "Configure la connexion puis enregistre." : parts.join(" · ");
+  const running = !!(status && status.running);
+…
+```
+
+### [UI-115] Tableau de bord Icecast
+
+Bandeau d'information, tuiles et tableau des mountpoints (actifs et déclarés en attente de source).
+
+`app/ui/js/icecast.js` ligne 225
+
+```js
+function renderDash() {
+  const s = st();
+  const banner = $("#ice-banner");
+  const srv = server();
+  let note = s && s.error ? s.error : "";
+  let level = "";
+  if (s && !s.running && !s.reachable && srv && !srv.remote) note = "Icecast est arrêté. Clique sur Démarrer.";
+  if (s && s.reachable && !s.running && srv && !srv.remote) note = (note ? note + " " : "") + "Icecast répond mais n'a pas été lancé par BLAST (service Windows ou autre fenêtre) : Démarrer et Arrêter sont indisponibles.";
+  if (s && s.error && srv && srv.remote && !s.reachable) level = "error";
+  banner.textContent = note;
+  banner.className = "ice-banner" + (level ? " " + level : "") + (note ? "" : " hidden");
+  const stats = s && s.stats;
+…
+```
+
+### [UI-116] Graphique des auditeurs
+
+Courbe en escalier des 10 dernières minutes, aux couleurs du thème.
+
+`app/ui/js/icecast.js` ligne 308
+
+```js
+function drawChart() {
+  const c = $("#ice-chart");
+  const w = c.clientWidth;
+  const h = c.clientHeight;
+  if (!w || !h) return;
+  const dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(w * dpr);
+  c.height = Math.round(h * dpr);
+  const g = c.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement);
+…
+```
+
+### [UI-117] Actions sur un mountpoint
+
+Menu flottant : voir les auditeurs, changer le titre, déplacer les auditeurs, couper la source.
+
+`app/ui/js/icecast.js` ligne 363
+
+```js
+function openMenu(anchor, html, bind) {
+  const m = $("#ice-menu");
+  m.innerHTML = html;
+  m.classList.remove("hidden");
+  const r = anchor.getBoundingClientRect();
+  m.style.left = `${Math.max(8, Math.min(window.innerWidth - 296, r.right - 280))}px`;
+  m.style.top = `${Math.min(window.innerHeight - m.offsetHeight - 8, r.bottom + 6)}px`;
+  bind(m);
+}
+```
+
+### [UI-118] Chargement de la configuration
+
+Lit icecast.xml et prépare un brouillon modifiable.
+
+`app/ui/js/icecast.js` ligne 429
+
+```js
+async function loadConfig() {
+  try {
+    const v = await invoke("ice_get_config", { id: I.sel });
+    applyConfigView(v);
+  } catch (e) {
+    I.conf = null;
+    I.draft = null;
+    I.confError = String(e);
+  }
+  if (I.tab === "config") fillConfig();
+  if (I.tab === "mounts") renderMounts();
+  renderSavebar();
+…
+```
+
+### [UI-119] Formulaire de configuration
+
+Remplit les champs data-k depuis le brouillon et les désactive si le fichier est en lecture seule.
+
+`app/ui/js/icecast.js` ligne 461
+
+```js
+function fillConfig() {
+  const noconf = !I.draft;
+  $("#ice-noconf").classList.toggle("hidden", !noconf);
+  $("#ice-config-form").hidden = noconf;
+  $("#ice-file").classList.toggle("hidden", noconf);
+  if (noconf) {
+    const s = server();
+    $("#ice-noconf-text").textContent = I.confError || "Aucun fichier de configuration n'est associé à ce serveur.";
+    $("#ice-create").classList.toggle("hidden", !s || s.remote || !!(s.config_path && s.managed));
+    return;
+  }
+  const v = I.confView;
+…
+```
+
+### [UI-120] Ports d'écoute
+
+Une ligne par port ; le dernier port ne peut pas être retiré.
+
+`app/ui/js/icecast.js` ligne 499
+
+```js
+function renderSockets() {
+  const box = $("#ice-sockets");
+  box.innerHTML = "";
+  const ro = I.confView && !I.confView.writable;
+  I.draft.sockets.forEach((s, i) => {
+    const row = document.createElement("div");
+    row.className = "ice-row";
+    row.innerHTML = `
+      <label>Port<input type="number" min="1" max="65535" data-s="port"></label>
+      <label>Adresse d'écoute<input data-s="bind_address" placeholder="toutes (0.0.0.0)"></label>
+      <label>Compatibilité Shoutcast<input data-s="shoutcast_mount" placeholder="mountpoint, ex. /live (port +1)"></label>
+      <label class="check"><input type="checkbox" data-s="ssl"> HTTPS</label>
+…
+```
+
+### [UI-121] Mountpoints
+
+Liste et formulaire des mountpoints du brouillon.
+
+`app/ui/js/icecast.js` ligne 535
+
+```js
+function renderMounts() {
+  const list = $("#ice-mount-list");
+  list.innerHTML = "";
+  const has = !!I.draft;
+  $("#ice-mount-add").disabled = !has || (I.confView && !I.confView.writable);
+  if (!has) {
+    $("#ice-mount-empty").textContent = I.confError || "Associe d'abord un fichier de configuration (onglet CONFIGURATION).";
+    $("#ice-mount-empty").classList.remove("hidden");
+    $("#ice-mount-body").classList.add("hidden");
+    return;
+  }
+  const live = new Map(((st() && st().stats && st().stats.mounts) || []).map((m) => [m.mount, m]));
+…
+```
+
+### [UI-122] Enregistrement de la configuration
+
+Envoie le brouillon, redémarre si demandé et recharge les profils.
+
+`app/ui/js/icecast.js` ligne 602
+
+```js
+async function saveConfig(restart) {
+  if (!I.draft) return;
+  setResult("#ice-save-result", "busy", restart ? "Enregistrement et redémarrage…" : "Enregistrement…");
+  try {
+    const v = await invoke("ice_save_config", { id: I.sel, config: I.draft, restart });
+    applyConfigView(v);
+    setResult("#ice-save-result", "", "");
+    I.view = await invoke("ice_list");
+    renderServers();
+    showITab(I.tab);
+    setTimeout(() => refreshStatus(), 800);
+  } catch (e) {
+…
+```
+
+### [UI-123] Liste des auditeurs
+
+Auditeurs du mountpoint choisi, du plus ancien au plus récent, avec déconnexion confirmée.
+
+`app/ui/js/icecast.js` ligne 619
+
+```js
+async function loadListeners() {
+  if (I.tab !== "listeners" || !I.sel || I.sel === "new") return;
+  const sel = $("#ice-lis-mount");
+  const mounts = ((st() && st().stats && st().stats.mounts) || []).filter((m) => m.connected).map((m) => m.mount);
+  const want = sel.dataset.want || sel.value;
+  sel.dataset.want = "";
+  sel.innerHTML = mounts.map((m) => `<option>${esc(m)}</option>`).join("");
+  if (mounts.includes(want)) sel.value = want;
+  const tb = $("#ice-lis-table tbody");
+  if (!mounts.length) {
+    tb.innerHTML = "";
+    $("#ice-lis-none").textContent = "Aucun mountpoint ne diffuse en ce moment.";
+…
+```
+
+### [UI-124] Journal
+
+Fin du journal choisi, erreurs et avertissements colorés, défilement suivi.
+
+`app/ui/js/icecast.js` ligne 661
+
+```js
+async function loadLog() {
+  if (I.tab !== "log" || !I.sel || I.sel === "new") return;
+  const pre = $("#ice-log");
+  const atEnd = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 30;
+  try {
+    const text = await invoke("ice_log", { id: I.sel, which: I.logKind, lines: 500 });
+    pre.innerHTML = text
+      .split("\n")
+      .map((l) => {
+        const cls = / EROR /.test(l) ? "e" : / WARN /.test(l) ? "w" : "";
+        return cls ? `<span class="${cls}">${esc(l)}</span>` : esc(l);
+      })
+…
+```
+
+### [UI-125] Profil du serveur
+
+Formulaire de connexion, choix du dossier et du fichier, détection de l'exécutable, avertissement HTTP pour un VPS.
+
+`app/ui/js/icecast.js` ligne 681
+
+```js
+function fillProfile() {
+  const s = server();
+  if (!s) return;
+  const f = $("#ice-profile-form").elements;
+  f.name.value = s.name;
+  f.remote.value = String(!!s.remote);
+  f.install_dir.value = s.install_dir || "";
+  f.config_path.value = s.config_path || "";
+  f.host.value = s.host;
+  f.port.value = s.port;
+  f.admin_user.value = s.admin_user;
+  f.https.checked = !!s.https;
+…
+```
+
+### [UI-126] Pastille ICECAST
+
+État global et total des auditeurs dans la barre du haut, actualisés toutes les 10 s quand la fenêtre est fermée.
+
+`app/ui/js/icecast.js` ligne 786
+
+```js
+function renderPill() {
+  const pill = $("#ice-pill");
+  const servers = (I.view && I.view.servers) || [];
+  const states = servers.map((s) => I.status[s.id]);
+  const live = states.filter((s) => stateOf(s) === "live").length;
+  const running = states.filter((s) => stateOf(s) !== "off").length;
+  const err = servers.some((s) => s.remote && I.status[s.id] && !I.status[s.id].reachable);
+  pill.className = "obs-pill ice-pill" + (live ? " live" : running ? " running" : err ? " error" : "");
+  const total = states.reduce((a, s) => a + (s && s.stats ? s.stats.listeners : 0), 0);
+  const count = $("#ice-pill-count");
+  count.textContent = String(total);
+  count.classList.toggle("hidden", !running);
+…
+```
+
+### [UI-127] Ouverture de la fenêtre Icecast
+
+Charge les profils, choisit un serveur et lance les actualisations ; fermeture par Échap ou clic hors du panneau.
+
+`app/ui/js/icecast.js` ligne 823
+
+```js
+export const isOpen = () => !$("#icecast").classList.contains("hidden");
+```
+
+### [UI-128] Démarrer, arrêter, redémarrer
+
+Commandes du serveur local, avec retour dans une notification.
+
+`app/ui/js/icecast.js` ligne 768
+
+```js
+async function power(action) {
+  I.busy = true;
+  renderHead();
+  try {
+    toast("info", await invoke("ice_power", { id: I.sel, action }));
+  } catch (e) {
+    toast("error", String(e));
+    if (I.tab !== "log") {
+      I.logKind = "console";
+      $$("[data-ilog]").forEach((b) => b.classList.toggle("active", b.dataset.ilog === "console"));
+    }
+  }
+…
+```
+
+### [UI-129] Accueil Icecast
+
+Installations détectées pas encore ajoutées.
+
+`app/ui/js/icecast.js` ligne 94
+
+```js
+function renderWelcome() {
+  const box = $("#ice-detected");
+  box.innerHTML = "";
+  const known = new Set(I.view.servers.map((s) => s.exe).filter(Boolean));
+  const list = I.view.detected.filter((d) => !known.has(d.exe));
+  if (!list.length) {
+    box.innerHTML = `<div class="muted">Aucune autre installation détectée dans les emplacements habituels. Choisis le dossier à la main.</div>`;
+  }
+  for (const d of list) {
+    const row = document.createElement("div");
+    row.className = "ice-found";
+    row.innerHTML = `<code></code><span class="muted"></span><button class="btn accent small">Ajouter</button>`;
+…
+```
+
 
 ## STY
 
@@ -10779,7 +12738,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 689
+`app/ui/style.css` ligne 781
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -10789,7 +12748,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 708
+`app/ui/style.css` ligne 800
 
 ```css
 .statusbar {
@@ -10807,7 +12766,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 743
+`app/ui/style.css` ligne 835
 
 ```css
 .hidden { display: none !important; }
@@ -10817,7 +12776,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 719
+`app/ui/style.css` ligne 811
 
 ```css
 html.glass body {
@@ -10825,6 +12784,16 @@ html.glass body {
     linear-gradient(rgba(0, 0, 0, var(--glass-dim)), rgba(0, 0, 0, var(--glass-dim))),
     var(--glass-backdrop) center / cover no-repeat fixed;
 }
+```
+
+### [STY-18] Fenêtre Icecast
+
+Pastille de la barre du haut, liste des serveurs, en-tête, tuiles, graphique, tableaux, formulaires, journal et barre d'enregistrement.
+
+`app/ui/style.css` ligne 689
+
+```css
+.ice-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
 ```
 
 
@@ -10851,7 +12820,7 @@ Sprite des icônes SVG communes à Linux et Windows.
 
 Logo, ON AIR, DIFFUSER, OBS, horloge, thème et réglages.
 
-`app/ui/index.html` ligne 28
+`app/ui/index.html` ligne 30
 
 ```html
 <header class="topbar">
@@ -10866,7 +12835,7 @@ Logo, ON AIR, DIFFUSER, OBS, horloge, thème et réglages.
 
 Titre, temps, progression et commandes de la platine A.
 
-`app/ui/index.html` ligne 60
+`app/ui/index.html` ligne 66
 
 ```html
 <article class="deck" data-deck="A">
@@ -10881,7 +12850,7 @@ Titre, temps, progression et commandes de la platine A.
 
 Crossfader, fondu, auto-mix, préréglage antenne et vumètres.
 
-`app/ui/index.html` ligne 87
+`app/ui/index.html` ligne 93
 
 ```html
 <section class="mixer">
@@ -10896,7 +12865,7 @@ Crossfader, fondu, auto-mix, préréglage antenne et vumètres.
 
 Titre, temps, progression et commandes de la platine B.
 
-`app/ui/index.html` ligne 113
+`app/ui/index.html` ligne 119
 
 ```html
 <article class="deck" data-deck="B">
@@ -10911,7 +12880,7 @@ Titre, temps, progression et commandes de la platine B.
 
 Barre d'outils, lignes de playlist et historique de diffusion.
 
-`app/ui/index.html` ligne 142
+`app/ui/index.html` ligne 148
 
 ```html
 <section class="playlist" id="playlist">
@@ -10926,7 +12895,7 @@ Barre d'outils, lignes de playlist et historique de diffusion.
 
 Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
-`app/ui/index.html` ligne 183
+`app/ui/index.html` ligne 189
 
 ```html
 <section class="fx voicefx" id="voicefx">
@@ -10941,7 +12910,7 @@ Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
 Pads et panneau de pilotage d'OBS.
 
-`app/ui/index.html` ligne 223
+`app/ui/index.html` ligne 229
 
 ```html
 <section class="fx soundfx" id="soundfx">
@@ -10956,7 +12925,7 @@ Pads et panneau de pilotage d'OBS.
 
 Renommer, choisir un son, vider.
 
-`app/ui/index.html` ligne 277
+`app/ui/index.html` ligne 283
 
 ```html
 <div id="pad-menu" class="pad-menu hidden">
@@ -10971,7 +12940,7 @@ Renommer, choisir un son, vider.
 
 Sortie audio et résumé de diffusion.
 
-`app/ui/index.html` ligne 309
+`app/ui/index.html` ligne 315
 
 ```html
 <footer class="statusbar">
@@ -10986,7 +12955,7 @@ Sortie audio et résumé de diffusion.
 
 Fenêtre des réglages et ses onglets.
 
-`app/ui/index.html` ligne 317
+`app/ui/index.html` ligne 323
 
 ```html
 <div id="settings" class="modal hidden" role="dialog" aria-modal="true">
@@ -11001,7 +12970,7 @@ Fenêtre des réglages et ses onglets.
 
 Liste et formulaire des sorties Icecast / Shoutcast.
 
-`app/ui/index.html` ligne 334
+`app/ui/index.html` ligne 340
 
 ```html
 <section class="tab-page" data-page="cast">
@@ -11016,7 +12985,7 @@ Liste et formulaire des sorties Icecast / Shoutcast.
 
 Connexion à obs-websocket et source « Now Playing ».
 
-`app/ui/index.html` ligne 387
+`app/ui/index.html` ligne 393
 
 ```html
 <section class="tab-page hidden" data-page="aura">
@@ -11031,7 +13000,7 @@ Connexion à obs-websocket et source « Now Playing ».
 
 Règles de séparation et conservation de l'historique.
 
-`app/ui/index.html` ligne 407
+`app/ui/index.html` ligne 413
 
 ```html
 <section class="tab-page hidden" data-page="automation">
@@ -11046,7 +13015,7 @@ Règles de séparation et conservation de l'historique.
 
 Micro, retour et sortie audio.
 
-`app/ui/index.html` ligne 441
+`app/ui/index.html` ligne 447
 
 ```html
 <section class="tab-page hidden" data-page="audio">
@@ -11061,7 +13030,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 610
+`app/ui/index.html` ligne 616
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -11076,7 +13045,7 @@ Version, mises à jour et diagnostic.
 
 Dossier, relecture, volume, arrêt et grille des jingles.
 
-`app/ui/index.html` ligne 230
+`app/ui/index.html` ligne 236
 
 ```html
 <div class="fx-head" data-fxpage="jingles" hidden>
@@ -11091,7 +13060,7 @@ Dossier, relecture, volume, arrêt et grille des jingles.
 
 Tout, Morceaux, Jingles, Pubs.
 
-`app/ui/index.html` ligne 151
+`app/ui/index.html` ligne 157
 
 ```html
 <div class="hfilters" data-ppage="history" hidden>
@@ -11106,7 +13075,7 @@ Tout, Morceaux, Jingles, Pubs.
 
 Catégorie et période de l'export CSV de l'historique.
 
-`app/ui/index.html` ligne 285
+`app/ui/index.html` ligne 291
 
 ```html
 <div id="export-menu" class="pad-menu export-menu hidden">
@@ -11121,7 +13090,7 @@ Catégorie et période de l'export CSV de l'historique.
 
 Mots-clés de dossier des jingles et des pubs.
 
-`app/ui/index.html` ligne 426
+`app/ui/index.html` ligne 432
 
 ```html
 <form class="form" id="categories-form">
@@ -11136,7 +13105,7 @@ Mots-clés de dossier des jingles et des pubs.
 
 Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement.
 
-`app/ui/index.html` ligne 585
+`app/ui/index.html` ligne 591
 
 ```html
 <section class="tab-page hidden" data-page="appearance">
@@ -11151,7 +13120,7 @@ Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissemen
 
 Bibliothèque, catégories, grilles et planning de la semaine.
 
-`app/ui/index.html` ligne 474
+`app/ui/index.html` ligne 480
 
 ```html
 <section class="tab-page hidden" data-page="rotation">
@@ -11166,7 +13135,7 @@ Bibliothèque, catégories, grilles et planning de la semaine.
 
 Actions de mélange et de nettoyage de la playlist.
 
-`app/ui/index.html` ligne 302
+`app/ui/index.html` ligne 308
 
 ```html
 <div id="shuffle-menu" class="pad-menu shuffle-menu hidden">
@@ -11180,7 +13149,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Émissions des grilles : nom, couleur, fichier M3U, explications.
 
-`app/ui/index.html` ligne 553
+`app/ui/index.html` ligne 559
 
 ```html
 <div class="rot-page rot-split" data-rotpage="programs" hidden>
@@ -11195,7 +13164,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Égaliseur micro et temps du ducking ; repliés sur une même ligne, une section ouverte prend toute la largeur.
 
-`app/ui/index.html` ligne 202
+`app/ui/index.html` ligne 208
 
 ```html
 <div class="vfx-more">
@@ -11204,4 +13173,169 @@ Actions de mélange et de nettoyage de la playlist.
   <div class="sliders">
     <label><span>Grave</span><input type="range" id="eq-low" min="-12" max="12" step="0.5"><output id="eq-low-v"></output></label>
     <label><span>Médium</span><input type="range" id="eq-mid" min="-12" max="12" step="0.5"><output id="eq-mid-v"></output></label>
+```
+
+### [HTM-26] Fenêtre Icecast
+
+Liste des serveurs à gauche, contenu du serveur choisi à droite.
+
+`app/ui/index.html` ligne 645
+
+```html
+<div id="icecast" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-panel ice-panel">
+    <aside class="modal-tabs">
+      <div class="modal-title">ICECAST</div>
+      <div class="ice-servers" id="ice-servers"></div>
+      <button class="btn small wide" id="ice-add">+ Ajouter un serveur</button>
+```
+
+### [HTM-27] Accueil Icecast
+
+Présentation, installations détectées et ajout d'un serveur local ou distant.
+
+`app/ui/index.html` ligne 658
+
+```html
+<div class="ice-welcome" id="ice-welcome">
+  <div class="about-name">Serveur Icecast</div>
+  <p class="muted">Lance, configure et surveille ton serveur Icecast sans éditer <code>icecast.xml</code> à la main. Un serveur <b>local</b> est piloté entièrement (démarrage, configuration, journaux). Un serveur <b>distant</b> (VPS) est surveillé et administré par son interface admin.</p>
+  <div class="form-section">Installations trouvées sur cet ordinateur</div>
+  <div class="ice-detected" id="ice-detected"></div>
+  <div class="form-actions">
+```
+
+### [HTM-28] En-tête du serveur
+
+État, nom, adresse, version, boutons page web, Redémarrer, Arrêter et Démarrer.
+
+`app/ui/index.html` ligne 671
+
+```html
+<header class="ice-head">
+  <span class="dot" id="ice-dot"></span>
+  <div class="ice-ident">
+    <div class="ice-name" id="ice-name"></div>
+    <div class="ice-sub muted" id="ice-sub"></div>
+  </div>
+```
+
+### [HTM-29] Tableau de bord Icecast
+
+Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints.
+
+`app/ui/index.html` ligne 693
+
+```html
+<div class="ice-page" data-ipage="dash">
+  <div class="ice-banner hidden" id="ice-banner"></div>
+  <div class="ice-tiles">
+    <div class="ice-tile"><small>Auditeurs</small><b id="it-listeners">—</b><span id="it-listeners-sub" class="muted"></span></div>
+    <div class="ice-tile"><small>Pic</small><b id="it-peak">—</b><span class="muted">record des mountpoints actifs</span></div>
+    <div class="ice-tile"><small>Sources</small><b id="it-sources">—</b><span id="it-sources-sub" class="muted"></span></div>
+```
+
+### [HTM-30] Configuration Icecast
+
+Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute, limites, chemins, journalisation.
+
+`app/ui/index.html` ligne 717
+
+```html
+<div class="ice-page hidden" data-ipage="config">
+  <div class="ice-file" id="ice-file">
+    <code id="ice-file-path"></code>
+    <span class="chip" id="ice-file-state"></span>
+    <span class="muted" id="ice-file-backups"></span>
+    <span class="spacer"></span>
+```
+
+### [HTM-31] Mountpoints Icecast
+
+Liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST.
+
+`app/ui/index.html` ligne 782
+
+```html
+<div class="ice-page hidden" data-ipage="mounts">
+  <div class="cast-layout">
+    <div class="out-list">
+      <div class="out-items" id="ice-mount-list"></div>
+      <button class="btn small wide" id="ice-mount-add">+ Nouveau mountpoint</button>
+    </div>
+```
+
+### [HTM-32] Auditeurs Icecast
+
+Choix du mountpoint et tableau des auditeurs avec déconnexion.
+
+`app/ui/index.html` ligne 832
+
+```html
+<div class="ice-page hidden" data-ipage="listeners">
+  <div class="form-actions ice-tools">
+    <label class="fx-select">Mountpoint <select id="ice-lis-mount"></select></label>
+    <span class="muted" id="ice-lis-info"></span>
+    <span class="spacer"></span>
+    <button class="btn small" id="ice-lis-refresh">Actualiser</button>
+```
+
+### [HTM-33] Journal Icecast
+
+Erreurs, accès ou console, suivi en direct.
+
+`app/ui/index.html` ligne 849
+
+```html
+<div class="ice-page hidden" data-ipage="log">
+  <div class="form-actions ice-tools">
+    <button class="chip-btn active" data-ilog="error">Erreurs</button>
+    <button class="chip-btn" data-ilog="access">Accès</button>
+    <button class="chip-btn" data-ilog="console">Console</button>
+    <span class="spacer"></span>
+```
+
+### [HTM-34] Connexion Icecast
+
+Profil : emplacement, installation, configuration, accès admin et démarrage.
+
+`app/ui/index.html` ligne 862
+
+```html
+<div class="ice-page hidden" data-ipage="profile">
+  <form class="form" id="ice-profile-form" autocomplete="off">
+    <div class="grid2">
+      <label>Nom<input name="name" required></label>
+      <label>Emplacement
+        <select name="remote"><option value="false">Local (cet ordinateur)</option><option value="true">Distant (VPS, serveur dédié)</option></select>
+```
+
+### [HTM-35] Barre d'enregistrement Icecast
+
+Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer et redémarrer.
+
+`app/ui/index.html` ligne 900
+
+```html
+<footer class="ice-savebar hidden" id="ice-savebar">
+  <span>Modifications de la configuration non enregistrées</span>
+  <span class="form-result" id="ice-save-result"></span>
+  <span class="spacer"></span>
+  <button class="btn ghost small" id="ice-revert">Annuler</button>
+  <button class="btn small" id="ice-save">Enregistrer</button>
+```
+
+### [HTM-36] Menu d'actions Icecast
+
+Menu flottant des actions sur un mountpoint.
+
+`app/ui/index.html` ligne 914
+
+```html
+<div id="ice-menu" class="pad-menu ice-menu hidden"></div>
+
+<div id="toasts" class="toasts"></div>
+<div id="ghost" class="drag-ghost"></div>
+
+<script type="module" src="js/main.js"></script>
 ```

@@ -23,6 +23,7 @@ pub struct App {
     pub config_path: PathBuf,
     pub db_path: PathBuf,
     pub secrets: Arc<Secrets>,
+    pub ice: crate::icecast::IceManager,
 }
 
 // [APP-04]
@@ -99,7 +100,7 @@ impl App {
         }
     }
 
-    fn commit(&self, edit: impl FnOnce(&mut AppConfig)) -> Result<(), String> {
+    pub(crate) fn commit(&self, edit: impl FnOnce(&mut AppConfig)) -> Result<(), String> {
         let mut cfg = self.config.lock().map_err(|e| e.to_string())?;
         edit(&mut cfg);
         config::save(&self.config_path, &cfg)?;
@@ -107,7 +108,7 @@ impl App {
         Ok(())
     }
 
-    fn store_password(&self, key: &str, password: Option<String>) -> Option<String> {
+    pub(crate) fn store_password(&self, key: &str, password: Option<String>) -> Option<String> {
         let pw = password.filter(|p| !p.is_empty())?;
         match self.secrets.set(key, &pw) {
             Stored::Keyring => None,

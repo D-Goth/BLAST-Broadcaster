@@ -13,6 +13,7 @@ import * as update from "./update.js";
 import * as jingles from "./jingles.js";
 import * as appearance from "./appearance.js";
 import * as rotation from "./rotation.js";
+import * as icecast from "./icecast.js";
 
 // [UI-15]
 function tickClock() {
@@ -41,7 +42,7 @@ async function subscribe() {
 
 // [UI-17]
 async function start() {
-  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation]) m.init();
+  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast]) m.init();
   $("#themes-folder").addEventListener("click", async () => {
     try {
       const dir = await invoke("themes_dir");
