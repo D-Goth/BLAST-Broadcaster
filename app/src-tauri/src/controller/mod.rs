@@ -411,6 +411,8 @@ impl Controller {
                 self.playlist.move_to(id, to);
                 self.emit_playlist();
             }
+            UiCommand::Shuffle { spread } => self.shuffle(spread),
+            UiCommand::Dedupe => self.dedupe(),
             UiCommand::Clear => {
                 self.playlist.clear();
                 self.emit_playlist();

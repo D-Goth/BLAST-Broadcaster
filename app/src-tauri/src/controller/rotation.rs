@@ -50,7 +50,7 @@ impl RotationState {
         }
     }
 
-    fn roll(&mut self) -> f64 {
+    pub fn roll(&mut self) -> f64 {
         self.rng ^= self.rng << 13;
         self.rng ^= self.rng >> 7;
         self.rng ^= self.rng << 17;

@@ -158,6 +158,7 @@
         <div class="spacer"></div>
         <button id="add-files" class="btn small" data-ppage="playlist">+ Fichiers</button>
         <button id="add-folder" class="btn small" data-ppage="playlist">+ Dossier</button>
+        <button class="btn small ghost" id="shuffle" data-ppage="playlist" title="Mélanger ou nettoyer la playlist">Mélanger &#9662;</button>
         <button id="clear" class="btn ghost small" data-ppage="playlist">Vider</button>
         <button id="history-export" class="btn small" data-ppage="history" hidden>Exporter…</button>
         <button id="history-clear" class="btn ghost small danger" data-ppage="history" hidden>Effacer</button>
@@ -285,6 +286,13 @@
     <label>Au (inclus)<input type="date" id="export-to"></label>
     <button class="btn accent small" id="export-go">Exporter la période</button>
     <button class="btn ghost small" id="export-all">Tout l'historique conservé</button>
+  </div>
+
+  <!-- [HTM-23] -->
+  <div id="shuffle-menu" class="pad-menu shuffle-menu hidden">
+    <button class="btn ghost small" data-shuffle="plain">Mélanger</button>
+    <button class="btn ghost small" data-shuffle="spread">Mélanger en espaçant les artistes</button>
+    <button class="btn ghost small" data-shuffle="dedupe">Retirer les doublons</button>
   </div>
 
   <!-- [HTM-10] -->

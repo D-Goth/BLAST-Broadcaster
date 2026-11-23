@@ -38,12 +38,12 @@ ne pas le modifier à la main.
 | [`SEC`](#sec) | Mots de passe dans le trousseau du système | 6 |
 | [`JRN`](#jrn) | Journal de diagnostic (blast.log) | 8 |
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
-| [`PL`](#pl) | Playlist côté application | 12 |
+| [`PL`](#pl) | Playlist côté application | 15 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 140 |
-| [`UI`](#ui) | Interface : modules JavaScript | 99 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 142 |
+| [`UI`](#ui) | Interface : modules JavaScript | 100 |
 | [`STY`](#sty) | Interface : feuille de style | 17 |
-| [`HTM`](#htm) | Interface : structure de la page | 22 |
+| [`HTM`](#htm) | Interface : structure de la page | 23 |
 
 ## CORE
 
@@ -5164,7 +5164,7 @@ impl Playlist {
 
 Parcourt un dossier récursivement, dans l'ordre alphabétique.
 
-`app/src-tauri/src/playlist.rs` ligne 113
+`app/src-tauri/src/playlist.rs` ligne 177
 
 ```rust
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -5186,7 +5186,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 
 Remplace les dossiers par les fichiers audio qu'ils contiennent.
 
-`app/src-tauri/src/playlist.rs` ligne 129
+`app/src-tauri/src/playlist.rs` ligne 193
 
 ```rust
 pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
@@ -5206,7 +5206,7 @@ pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
 
 Sonde un fichier ; un fichier illisible devient une entrée signalée en erreur.
 
-`app/src-tauri/src/playlist.rs` ligne 225
+`app/src-tauri/src/playlist.rs` ligne 289
 
 ```rust
 pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
@@ -5228,7 +5228,7 @@ pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
 
 Minuscules et accents retirés, pour comparer les noms de dossiers.
 
-`app/src-tauri/src/playlist.rs` ligne 142
+`app/src-tauri/src/playlist.rs` ligne 206
 
 ```rust
 fn fold(word: &str) -> String {
@@ -5250,7 +5250,7 @@ fn fold(word: &str) -> String {
 
 Le nom de dossier contient-il un des mots-clés, au singulier ou au pluriel ?
 
-`app/src-tauri/src/playlist.rs` ligne 157
+`app/src-tauri/src/playlist.rs` ligne 221
 
 ```rust
 fn folder_matches(folder: &str, keywords: &[String]) -> bool {
@@ -5272,7 +5272,7 @@ fn folder_matches(folder: &str, keywords: &[String]) -> bool {
 
 Jingle, pub ou morceau d'après le dossier le plus proche qui porte un mot-clé.
 
-`app/src-tauri/src/playlist.rs` ligne 172
+`app/src-tauri/src/playlist.rs` ligne 236
 
 ```rust
 pub fn classify(path: &Path, cats: &CategorySettings) -> Kind {
@@ -5308,7 +5308,7 @@ pub struct SlotTag {
 
 Date de modification en secondes, pour le scan incrémental.
 
-`app/src-tauri/src/playlist.rs` ligne 191
+`app/src-tauri/src/playlist.rs` ligne 255
 
 ```rust
 pub fn file_mtime(path: &Path) -> Option<i64> {
@@ -5324,7 +5324,7 @@ pub fn file_mtime(path: &Path) -> Option<i64> {
 
 Construit une entrée de playlist à partir d'un titre de la bibliothèque, sans relire le fichier.
 
-`app/src-tauri/src/playlist.rs` ligne 200
+`app/src-tauri/src/playlist.rs` ligne 264
 
 ```rust
 pub fn from_library(t: &blast_library::LibraryTrack, slot: SlotTag) -> Entry {
@@ -5339,6 +5339,66 @@ pub fn from_library(t: &blast_library::LibraryTrack, slot: SlotTag) -> Entry {
     Entry {
         id: 0,
         path,
+…
+```
+
+### [PL-13] Mélange
+
+Mélange de Fisher-Yates de toute la playlist.
+
+`app/src-tauri/src/playlist.rs` ligne 106
+
+```rust
+pub fn shuffle(&mut self, roll: &mut impl FnMut() -> f64) {
+    let n = self.entries.len();
+    for i in (1..n).rev() {
+        let j = ((roll() * (i + 1) as f64) as usize).min(i);
+        self.entries.swap(i, j);
+    }
+}
+```
+
+### [PL-14] Mélange en espaçant les artistes
+
+Mélange puis regroupe par artiste et pioche à chaque fois dans le plus gros groupe qui n'est pas celui du titre précédent : les titres d'un même artiste sont répartis au plus loin ; les titres sans artiste ne sont pas contraints.
+
+`app/src-tauri/src/playlist.rs` ligne 115
+
+```rust
+pub fn shuffle_spread(&mut self, roll: &mut impl FnMut() -> f64) {
+    self.shuffle(roll);
+    let mut groups: Vec<(String, Vec<Entry>)> = Vec::new();
+    for (i, e) in std::mem::take(&mut self.entries).into_iter().enumerate() {
+        let artist = e.artist.trim().to_lowercase();
+        let key = if artist.is_empty() {
+            format!("\u{0}{i}")
+        } else {
+            artist
+        };
+        match groups.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, list)) => list.push(e),
+…
+```
+
+### [PL-15] Retrait des doublons
+
+Retire les entrées dont le fichier, ou le titre et l'artiste (majuscules ignorées), sont déjà présents plus haut ; seules les entrées conservées comptent comme déjà vues.
+
+`app/src-tauri/src/playlist.rs` ligne 151
+
+```rust
+pub fn dedupe(&mut self) -> usize {
+    let before = self.entries.len();
+    let mut seen_paths = std::collections::HashSet::new();
+    let mut seen_tracks = std::collections::HashSet::new();
+    self.entries.retain(|e| {
+        let title = e.title.trim().to_lowercase();
+        let track = (!title.is_empty()).then(|| (title, e.artist.trim().to_lowercase()));
+        let keep = !seen_paths.contains(&e.path)
+            && track.as_ref().is_none_or(|t| !seen_tracks.contains(t));
+        if keep {
+            seen_paths.insert(e.path.clone());
+            seen_tracks.extend(track);
 …
 ```
 
@@ -5730,7 +5790,7 @@ fn handle(&mut self, cmd: UiCommand) {
 
 Republie toutes les vues et l'avertissement de démarrage éventuel.
 
-`app/src-tauri/src/controller/mod.rs` ligne 442
+`app/src-tauri/src/controller/mod.rs` ligne 444
 
 ```rust
 fn refresh(&mut self) {
@@ -5751,7 +5811,7 @@ fn refresh(&mut self) {
 
 Applique traitement antenne, automation, OBS, voix, pads et sorties modifiés.
 
-`app/src-tauri/src/controller/mod.rs` ligne 456
+`app/src-tauri/src/controller/mod.rs` ligne 458
 
 ```rust
 fn apply_config(&mut self, cfg: AppConfig) {
@@ -5773,7 +5833,7 @@ fn apply_config(&mut self, cfg: AppConfig) {
 
 Dirige chaque résultat de fond vers son traitement.
 
-`app/src-tauri/src/controller/mod.rs` ligne 477
+`app/src-tauri/src/controller/mod.rs` ligne 479
 
 ```rust
 fn on_work(&mut self, w: Work) {
@@ -5795,7 +5855,7 @@ fn on_work(&mut self, w: Work) {
 
 Met à jour platines, vumètres et micro à chaque tick ; gère fin de titre, fondus et fin des sons de pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 511
+`app/src-tauri/src/controller/mod.rs` ligne 513
 
 ```rust
 fn on_event(&mut self, e: Event) {
@@ -5817,7 +5877,7 @@ fn on_event(&mut self, e: Event) {
 
 Platine désignée par la position du crossfader.
 
-`app/src-tauri/src/controller/mod.rs` ligne 555
+`app/src-tauri/src/controller/mod.rs` ligne 557
 
 ```rust
 fn on_air_side(&self) -> usize {
@@ -7359,19 +7419,7 @@ Envoie la playlist avec le motif d'attente de chaque titre.
 `app/src-tauri/src/controller/playlist_ops.rs` ligne 80
 
 ```rust
-pub(super) fn emit_playlist(&self) {
-    let now = now_secs();
-    let entries: Vec<Entry> = self
-        .playlist
-        .entries()
-        .iter()
-        .map(|e| Entry {
-            blocked: self.violation_for(e, now),
-            ..e.clone()
-        })
-        .collect();
-    self.emit(
-…
+
 ```
 
 ### [CTL-108] État du micro
@@ -7973,6 +8021,44 @@ pub(super) fn violation_of(
     }
     let rules = self.auto.rules();
 …
+```
+
+### [CTL-151] Mélange de la playlist
+
+Mélange simple ou en espaçant les artistes, avec le tirage aléatoire du contrôleur.
+
+`app/src-tauri/src/controller/playlist_ops.rs` ligne 81
+
+```rust
+pub(super) fn shuffle(&mut self, spread: bool) {
+    let rot = &mut self.rot;
+    let mut roll = || rot.roll();
+    if spread {
+        self.playlist.shuffle_spread(&mut roll);
+    } else {
+        self.playlist.shuffle(&mut roll);
+    }
+    self.emit_playlist();
+}
+```
+
+### [CTL-152] Doublons de la playlist
+
+Retire les doublons et indique combien ont été retirés.
+
+`app/src-tauri/src/controller/playlist_ops.rs` ligne 93
+
+```rust
+pub(super) fn dedupe(&mut self) {
+    let n = self.playlist.dedupe();
+    let msg = match n {
+        0 => "Aucun doublon dans la playlist.".to_string(),
+        1 => "1 doublon retiré de la playlist.".to_string(),
+        n => format!("{n} doublons retirés de la playlist."),
+    };
+    self.notice("info", msg);
+    self.emit_playlist();
+}
 ```
 
 
@@ -9757,6 +9843,23 @@ function renderClock(clock) {
 …
 ```
 
+### [UI-100] Menu Mélanger
+
+Mélanger, mélanger en espaçant les artistes, retirer les doublons.
+
+`app/ui/js/playlist.js` ligne 160
+
+```js
+function openShuffleMenu(anchor) {
+  const menu = $("#shuffle-menu");
+  menu.classList.remove("hidden");
+  const r = anchor.getBoundingClientRect();
+  const m = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(r.left, window.innerWidth - m.width - 8)}px`;
+  menu.style.top = `${r.bottom + 6}px`;
+}
+```
+
 
 ## STY
 
@@ -9893,7 +9996,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Étiquette qui suit le pointeur et curseur pendant le glisser.
 
-`app/ui/style.css` ligne 431
+`app/ui/style.css` ligne 434
 
 ```css
 .drag-ghost {
@@ -9915,7 +10018,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
-`app/ui/style.css` ligne 450
+`app/ui/style.css` ligne 453
 
 ```css
 .fx { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -9925,7 +10028,7 @@ Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
 VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
-`app/ui/style.css` ligne 468
+`app/ui/style.css` ligne 471
 
 ```css
 .vfx-main { display: grid; grid-template-columns: 78px 1fr 60px; gap: 8px; height: 48px; }
@@ -9935,7 +10038,7 @@ VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
 Grille de pads, état de lecture et menu de pad.
 
-`app/ui/style.css` ligne 505
+`app/ui/style.css` ligne 508
 
 ```css
 .soundfx { flex: 1; min-height: 160px; }
@@ -9945,7 +10048,7 @@ Grille de pads, état de lecture et menu de pad.
 
 Boutons matériels, scènes et sources audio.
 
-`app/ui/style.css` ligne 547
+`app/ui/style.css` ligne 550
 
 ```css
 .obs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -9955,7 +10058,7 @@ Boutons matériels, scènes et sources audio.
 
 Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos.
 
-`app/ui/style.css` ligne 575
+`app/ui/style.css` ligne 578
 
 ```css
 .about-head { display: flex; flex-direction: column; gap: 4px; }
@@ -9965,7 +10068,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 679
+`app/ui/style.css` ligne 682
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -9975,7 +10078,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 698
+`app/ui/style.css` ligne 701
 
 ```css
 .statusbar {
@@ -9993,7 +10096,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 733
+`app/ui/style.css` ligne 736
 
 ```css
 .hidden { display: none !important; }
@@ -10003,7 +10106,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 709
+`app/ui/style.css` ligne 712
 
 ```css
 html.glass body {
@@ -10112,7 +10215,7 @@ Barre d'outils, lignes de playlist et historique de diffusion.
 
 Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
-`app/ui/index.html` ligne 181
+`app/ui/index.html` ligne 182
 
 ```html
 <section class="fx voicefx" id="voicefx">
@@ -10127,7 +10230,7 @@ Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
 Pads et panneau de pilotage d'OBS.
 
-`app/ui/index.html` ligne 211
+`app/ui/index.html` ligne 212
 
 ```html
 <section class="fx soundfx" id="soundfx">
@@ -10142,7 +10245,7 @@ Pads et panneau de pilotage d'OBS.
 
 Renommer, choisir un son, vider.
 
-`app/ui/index.html` ligne 265
+`app/ui/index.html` ligne 266
 
 ```html
 <div id="pad-menu" class="pad-menu hidden">
@@ -10157,7 +10260,7 @@ Renommer, choisir un son, vider.
 
 Sortie audio et résumé de diffusion.
 
-`app/ui/index.html` ligne 290
+`app/ui/index.html` ligne 298
 
 ```html
 <footer class="statusbar">
@@ -10172,7 +10275,7 @@ Sortie audio et résumé de diffusion.
 
 Fenêtre des réglages et ses onglets.
 
-`app/ui/index.html` ligne 298
+`app/ui/index.html` ligne 306
 
 ```html
 <div id="settings" class="modal hidden" role="dialog" aria-modal="true">
@@ -10187,7 +10290,7 @@ Fenêtre des réglages et ses onglets.
 
 Liste et formulaire des sorties Icecast / Shoutcast.
 
-`app/ui/index.html` ligne 315
+`app/ui/index.html` ligne 323
 
 ```html
 <section class="tab-page" data-page="cast">
@@ -10202,7 +10305,7 @@ Liste et formulaire des sorties Icecast / Shoutcast.
 
 Connexion à obs-websocket et source « Now Playing ».
 
-`app/ui/index.html` ligne 368
+`app/ui/index.html` ligne 376
 
 ```html
 <section class="tab-page hidden" data-page="aura">
@@ -10217,7 +10320,7 @@ Connexion à obs-websocket et source « Now Playing ».
 
 Règles de séparation et conservation de l'historique.
 
-`app/ui/index.html` ligne 388
+`app/ui/index.html` ligne 396
 
 ```html
 <section class="tab-page hidden" data-page="automation">
@@ -10232,7 +10335,7 @@ Règles de séparation et conservation de l'historique.
 
 Micro, retour et sortie audio.
 
-`app/ui/index.html` ligne 422
+`app/ui/index.html` ligne 430
 
 ```html
 <section class="tab-page hidden" data-page="audio">
@@ -10247,7 +10350,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 567
+`app/ui/index.html` ligne 575
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -10262,7 +10365,7 @@ Version, mises à jour et diagnostic.
 
 Dossier, relecture, volume, arrêt et grille des jingles.
 
-`app/ui/index.html` ligne 218
+`app/ui/index.html` ligne 219
 
 ```html
 <div class="fx-head" data-fxpage="jingles" hidden>
@@ -10292,7 +10395,7 @@ Tout, Morceaux, Jingles, Pubs.
 
 Catégorie et période de l'export CSV de l'historique.
 
-`app/ui/index.html` ligne 273
+`app/ui/index.html` ligne 274
 
 ```html
 <div id="export-menu" class="pad-menu export-menu hidden">
@@ -10307,7 +10410,7 @@ Catégorie et période de l'export CSV de l'historique.
 
 Mots-clés de dossier des jingles et des pubs.
 
-`app/ui/index.html` ligne 407
+`app/ui/index.html` ligne 415
 
 ```html
 <form class="form" id="categories-form">
@@ -10322,7 +10425,7 @@ Mots-clés de dossier des jingles et des pubs.
 
 Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement.
 
-`app/ui/index.html` ligne 542
+`app/ui/index.html` ligne 550
 
 ```html
 <section class="tab-page hidden" data-page="appearance">
@@ -10337,7 +10440,7 @@ Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissemen
 
 Bibliothèque, catégories, grilles et planning de la semaine.
 
-`app/ui/index.html` ligne 455
+`app/ui/index.html` ligne 463
 
 ```html
 <section class="tab-page hidden" data-page="rotation">
@@ -10346,4 +10449,18 @@ Bibliothèque, catégories, grilles et planning de la semaine.
     <button class="chip-btn" data-rot="categories">Catégories</button>
     <button class="chip-btn" data-rot="clocks">Grilles</button>
     <button class="chip-btn" data-rot="schedule">Planning</button>
+```
+
+### [HTM-23] Menu Mélanger
+
+Actions de mélange et de nettoyage de la playlist.
+
+`app/ui/index.html` ligne 291
+
+```html
+<div id="shuffle-menu" class="pad-menu shuffle-menu hidden">
+  <button class="btn ghost small" data-shuffle="plain">Mélanger</button>
+  <button class="btn ghost small" data-shuffle="spread">Mélanger en espaçant les artistes</button>
+  <button class="btn ghost small" data-shuffle="dedupe">Retirer les doublons</button>
+</div>
 ```

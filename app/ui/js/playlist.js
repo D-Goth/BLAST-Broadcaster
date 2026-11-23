@@ -157,6 +157,18 @@ async function exportHistory() {
   }
 }
 
+// [UI-100]
+function openShuffleMenu(anchor) {
+  const menu = $("#shuffle-menu");
+  menu.classList.remove("hidden");
+  const r = anchor.getBoundingClientRect();
+  const m = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(r.left, window.innerWidth - m.width - 8)}px`;
+  menu.style.top = `${r.bottom + 6}px`;
+}
+
+const closeShuffleMenu = () => $("#shuffle-menu").classList.add("hidden");
+
 export function init() {
   const rows = $("#rows");
   rows.addEventListener("dblclick", (e) => {
@@ -172,6 +184,18 @@ export function init() {
     const id = Number(btn.closest(".row").dataset.id);
     if (btn.dataset.load) send({ type: "load_entry", id, deck: btn.dataset.load });
     else if ("remove" in btn.dataset) send({ type: "remove", id });
+  });
+  $("#shuffle").addEventListener("click", (e) => openShuffleMenu(e.currentTarget));
+  $$("[data-shuffle]").forEach((b) =>
+    b.addEventListener("click", () => {
+      closeShuffleMenu();
+      const action = b.dataset.shuffle;
+      if (action === "dedupe") send({ type: "dedupe" });
+      else send({ type: "shuffle", spread: action === "spread" });
+    }),
+  );
+  document.addEventListener("pointerdown", (e) => {
+    if (!e.target.closest("#shuffle-menu, #shuffle")) closeShuffleMenu();
   });
   $("#clear").addEventListener("click", () => {
     if (S.entries.length) send({ type: "clear" });

@@ -2343,3 +2343,31 @@ definition = "Envoie la copie de travail ; une erreur de validation s'affiche sa
 [codes.UI-99]
 titre = "Grille dans le mixeur"
 definition = "Affiche le nom et la couleur de la grille de l'heure à côté du titre MIX."
+
+[codes.PL-13]
+titre = "Mélange"
+definition = "Mélange de Fisher-Yates de toute la playlist."
+
+[codes.PL-14]
+titre = "Mélange en espaçant les artistes"
+definition = "Mélange puis regroupe par artiste et pioche à chaque fois dans le plus gros groupe qui n'est pas celui du titre précédent : les titres d'un même artiste sont répartis au plus loin ; les titres sans artiste ne sont pas contraints."
+
+[codes.PL-15]
+titre = "Retrait des doublons"
+definition = "Retire les entrées dont le fichier, ou le titre et l'artiste (majuscules ignorées), sont déjà présents plus haut ; seules les entrées conservées comptent comme déjà vues."
+
+[codes.CTL-151]
+titre = "Mélange de la playlist"
+definition = "Mélange simple ou en espaçant les artistes, avec le tirage aléatoire du contrôleur."
+
+[codes.CTL-152]
+titre = "Doublons de la playlist"
+definition = "Retire les doublons et indique combien ont été retirés."
+
+[codes.UI-100]
+titre = "Menu Mélanger"
+definition = "Mélanger, mélanger en espaçant les artistes, retirer les doublons."
+
+[codes.HTM-23]
+titre = "Menu Mélanger"
+definition = "Actions de mélange et de nettoyage de la playlist."

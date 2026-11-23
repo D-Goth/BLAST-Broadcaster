@@ -428,6 +428,9 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
 
 .slot-tag { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .5px; padding: 1px 6px; margin-right: 6px; border-radius: 4px; color: var(--text); background: color-mix(in srgb, var(--slot-color) 30%, transparent); border: 1px solid var(--slot-color); vertical-align: 1px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.shuffle-menu { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 6px; }
+.shuffle-menu .btn { justify-content: flex-start; text-align: left; }
+
 /* [STY-08] */
 .drag-ghost {
   position: fixed;
