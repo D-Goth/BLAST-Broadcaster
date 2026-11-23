@@ -6,6 +6,8 @@ const SLIDERS = [
   ["#mic-gain", "mic_gain_db", SIGNED],
   ["#music-gain", "music_gain_db", SIGNED],
   ["#duck-db", "duck_db", (v) => `${v} dB`],
+  ["#duck-attack", "duck_attack_ms", (v) => `${(v / 1000).toFixed(2)} s`],
+  ["#duck-release", "duck_release_ms", (v) => `${(v / 1000).toFixed(2)} s`],
   ["#eq-low", "low_db", SIGNED],
   ["#eq-mid", "mid_db", SIGNED],
   ["#eq-high", "high_db", SIGNED],

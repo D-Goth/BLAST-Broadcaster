@@ -503,6 +503,8 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .sliders label.check { display: flex; gap: 8px; color: var(--text); }
 .sliders input[type=range], #sfx-vol, #jingle-vol { accent-color: var(--accent); width: 100%; }
 .sliders output { font-family: var(--mono); font-size: 11px; text-align: right; color: var(--text); }
+.vfx-more { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.vfx-more details[open] { flex-basis: 100%; }
 .eq summary { cursor: pointer; font-size: 11px; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
 .btn.mic { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 4px; }
 .btn.mic .ico { width: 16px; height: 16px; }
