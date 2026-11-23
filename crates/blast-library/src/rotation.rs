@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Kind, LibraryTrack};
@@ -18,6 +20,15 @@ pub struct CategoryRule {
     pub bpm_min: Option<f32>,
     pub bpm_max: Option<f32>,
     pub folders: Vec<String>,
+    pub playlists: Vec<String>,
+}
+
+// [LIB-56]
+pub type PlaylistSets = HashMap<String, HashSet<String>>;
+
+// [LIB-57]
+pub fn path_key(p: &str) -> String {
+    norm_path(p)
 }
 
 fn norm_path(p: &str) -> String {
@@ -51,8 +62,10 @@ impl CategoryRule {
                 return false;
             }
         }
-        if !in_range(t.year, self.year_min, self.year_max)
-            || !in_range(t.bpm, self.bpm_min, self.bpm_max)
+        let year = |v: Option<i32>| v.filter(|y| *y > 0);
+        let bpm = |v: Option<f32>| v.filter(|b| *b > 0.0);
+        if !in_range(t.year, year(self.year_min), year(self.year_max))
+            || !in_range(t.bpm, bpm(self.bpm_min), bpm(self.bpm_max))
         {
             return false;
         }
@@ -68,6 +81,21 @@ impl CategoryRule {
             }
         }
         true
+    }
+
+    // [LIB-58]
+    pub fn matches_with(&self, t: &LibraryTrack, lists: &PlaylistSets) -> bool {
+        if !self.matches(t) {
+            return false;
+        }
+        if self.playlists.is_empty() {
+            return true;
+        }
+        let key = norm_path(&t.path);
+        self.playlists
+            .iter()
+            .filter_map(|p| lists.get(&norm_path(p)))
+            .any(|set| set.contains(&key))
     }
 }
 
@@ -91,14 +119,41 @@ pub struct Clock {
     pub slots: Vec<String>,
 }
 
+// [LIB-59]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Program {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+    pub path: String,
+}
+
 // [LIB-50]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Rotation {
     pub categories: Vec<RotationCategory>,
     pub clocks: Vec<Clock>,
+    pub programs: Vec<Program>,
     pub schedule: Vec<String>,
     pub default_clock: Option<String>,
+}
+
+// [LIB-60]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Scheduled<'a> {
+    Clock(&'a Clock),
+    Program(&'a Program),
+}
+
+impl Scheduled<'_> {
+    pub fn id(&self) -> &str {
+        match self {
+            Scheduled::Clock(c) => &c.id,
+            Scheduled::Program(p) => &p.id,
+        }
+    }
 }
 
 impl Rotation {
@@ -108,6 +163,24 @@ impl Rotation {
 
     pub fn clock(&self, id: &str) -> Option<&Clock> {
         self.clocks.iter().find(|c| c.id == id)
+    }
+
+    pub fn program(&self, id: &str) -> Option<&Program> {
+        self.programs.iter().find(|p| p.id == id)
+    }
+
+    // [LIB-61]
+    pub fn playlist_paths(&self) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .categories
+            .iter()
+            .flat_map(|c| c.rule.playlists.iter().cloned())
+            .chain(self.programs.iter().map(|p| p.path.clone()))
+            .filter(|p| !p.trim().is_empty())
+            .collect();
+        out.sort();
+        out.dedup();
+        out
     }
 
     // [LIB-51]
@@ -138,11 +211,23 @@ impl Rotation {
                 ));
             }
         }
-        let known = |id: &str| id.is_empty() || self.clock(id).is_some();
-        if self.schedule.len() > SCHEDULE_SLOTS || !self.schedule.iter().all(|s| known(s)) {
-            return Err("Le planning référence une grille inconnue.".into());
+        for p in &self.programs {
+            if p.name.trim().is_empty() {
+                return Err("Chaque émission doit avoir un nom.".into());
+            }
+            if p.id.is_empty() || !ids.insert(p.id.as_str()) {
+                return Err(format!("Identifiant d'émission invalide : « {} ».", p.name));
+            }
+            if p.path.trim().is_empty() {
+                return Err(format!("L'émission « {} » n'a pas de fichier M3U.", p.name));
+            }
         }
-        if !known(self.default_clock.as_deref().unwrap_or_default()) {
+        let known_clock = |id: &str| id.is_empty() || self.clock(id).is_some();
+        let known = |id: &str| known_clock(id) || self.program(id).is_some();
+        if self.schedule.len() > SCHEDULE_SLOTS || !self.schedule.iter().all(|s| known(s)) {
+            return Err("Le planning référence une grille ou une émission inconnue.".into());
+        }
+        if !known_clock(self.default_clock.as_deref().unwrap_or_default()) {
             return Err("La grille par défaut n'existe plus.".into());
         }
         Ok(())
@@ -150,15 +235,25 @@ impl Rotation {
 }
 
 // [LIB-52]
-pub fn clock_index(rotation: &Rotation, weekday: usize, hour: usize) -> Option<&Clock> {
+pub fn scheduled(rotation: &Rotation, weekday: usize, hour: usize) -> Option<Scheduled<'_>> {
     let slot = weekday.min(6) * 24 + hour.min(23);
+    if let Some(id) = rotation.schedule.get(slot).filter(|id| !id.is_empty()) {
+        if let Some(p) = rotation.program(id) {
+            return Some(Scheduled::Program(p));
+        }
+        if let Some(c) = rotation.clock(id).filter(|c| !c.slots.is_empty()) {
+            return Some(Scheduled::Clock(c));
+        }
+    }
+    default_clock(rotation).map(Scheduled::Clock)
+}
+
+// [LIB-62]
+pub fn default_clock(rotation: &Rotation) -> Option<&Clock> {
     rotation
-        .schedule
-        .get(slot)
-        .filter(|id| !id.is_empty())
-        .cloned()
-        .or_else(|| rotation.default_clock.clone())
-        .and_then(|id| rotation.clock(&id))
+        .default_clock
+        .as_deref()
+        .and_then(|id| rotation.clock(id))
         .filter(|c| !c.slots.is_empty())
 }
 
@@ -237,6 +332,26 @@ mod tests {
             Some(90.0)
         )));
         assert!(CategoryRule::default().matches(&track("/x.mp3", "", None, None)));
+        let zeros = CategoryRule {
+            year_min: Some(0),
+            year_max: Some(0),
+            bpm_min: Some(0.0),
+            bpm_max: Some(0.0),
+            ..Default::default()
+        };
+        assert!(zeros.matches(&track("/x.mp3", "", Some(1994), None)));
+        let listed = CategoryRule {
+            playlists: vec!["C:\\Prog\\Fete.m3u".into()],
+            ..Default::default()
+        };
+        let mut lists = PlaylistSets::new();
+        lists.insert(
+            path_key("c:/prog/fete.m3u"),
+            [path_key("C:\\Musique\\a.mp3")].into_iter().collect(),
+        );
+        assert!(listed.matches_with(&track("c:/musique/A.mp3", "", None, None), &lists));
+        assert!(!listed.matches_with(&track("c:/musique/b.mp3", "", None, None), &lists));
+        assert!(CategoryRule::default().matches_with(&track("/b.mp3", "", None, None), &lists));
     }
 
     fn rotation() -> Rotation {
@@ -253,12 +368,19 @@ mod tests {
         };
         let mut schedule = vec![String::new(); SCHEDULE_SLOTS];
         schedule[4 * 24 + 21] = "soiree".to_string();
+        schedule[5 * 24 + 22] = "halloween".to_string();
         Rotation {
             categories: vec![cat("rock"), cat("metal")],
             clocks: vec![
                 clock("jour", &["rock"]),
                 clock("soiree", &["metal", "rock"]),
             ],
+            programs: vec![Program {
+                id: "halloween".into(),
+                name: "Halloween".into(),
+                path: "/m/halloween.m3u".into(),
+                ..Default::default()
+            }],
             schedule,
             default_clock: Some("jour".into()),
         }
@@ -267,15 +389,22 @@ mod tests {
     #[test]
     fn schedule_falls_back_to_the_default_clock() {
         let r = rotation();
-        assert_eq!(clock_index(&r, 4, 21).unwrap().id, "soiree");
-        assert_eq!(clock_index(&r, 4, 20).unwrap().id, "jour");
+        assert_eq!(scheduled(&r, 4, 21).unwrap().id(), "soiree");
+        assert_eq!(scheduled(&r, 4, 20).unwrap().id(), "jour");
+        assert!(
+            matches!(scheduled(&r, 5, 22), Some(Scheduled::Program(p)) if p.name == "Halloween")
+        );
+        assert_eq!(r.playlist_paths(), vec!["/m/halloween.m3u".to_string()]);
         assert!(r.validate().is_ok());
+        let mut nameless = r.clone();
+        nameless.programs[0].path.clear();
+        assert!(nameless.validate().is_err());
         let mut broken = r.clone();
         broken.clocks[0].slots.push("disparue".into());
         assert!(broken.validate().is_err());
         let mut none = r;
         none.default_clock = None;
-        assert!(clock_index(&none, 0, 0).is_none());
+        assert!(scheduled(&none, 0, 0).is_none());
     }
 
     #[test]

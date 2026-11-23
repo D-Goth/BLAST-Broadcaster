@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use std::thread;
 
 use blast_library::{
-    clock_index, pick_weighted, Kind, LibraryTrack, Rotation, RotationCategory, TrackMeta,
+    default_clock, path_key, pick_weighted, scheduled, Kind, LibraryTrack, PlaylistSets, Rotation,
+    RotationCategory, Scheduled, TrackMeta,
 };
 use chrono::{Datelike, Timelike};
 
@@ -30,8 +31,12 @@ pub struct RotationState {
     pub scanned: usize,
     pub clock_id: Option<String>,
     pub cursor: usize,
+    pub fb_cursor: usize,
     pub rng: u64,
     pub warned: HashSet<String>,
+    pub lists: PlaylistSets,
+    pub program: Vec<PathBuf>,
+    pub program_done: bool,
 }
 
 impl RotationState {
@@ -45,8 +50,12 @@ impl RotationState {
             scanned: 0,
             clock_id: None,
             cursor: 0,
+            fb_cursor: 0,
             rng: now_ms() | 1,
             warned: HashSet::new(),
+            lists: PlaylistSets::new(),
+            program: Vec::new(),
+            program_done: false,
         }
     }
 
@@ -64,6 +73,36 @@ impl RotationState {
             .map(|(i, t)| (t.path.clone(), i))
             .collect();
         self.tracks = tracks;
+    }
+
+    // [CTL-164]
+    pub fn refresh_lists(&mut self) {
+        self.lists = self
+            .rotation
+            .categories
+            .iter()
+            .flat_map(|c| c.rule.playlists.iter())
+            .map(|p| {
+                let set = playlist::read_m3u(Path::new(p))
+                    .iter()
+                    .map(|t| path_key(&t.to_string_lossy()))
+                    .collect();
+                (path_key(p), set)
+            })
+            .collect();
+    }
+
+    fn scan_targets(&self) -> Vec<PathBuf> {
+        self.library_dirs
+            .iter()
+            .cloned()
+            .chain(
+                self.rotation
+                    .playlist_paths()
+                    .into_iter()
+                    .map(PathBuf::from),
+            )
+            .collect()
     }
 
     // [CTL-139]
@@ -123,7 +162,8 @@ impl Controller {
             self.notice("info", "Scan de la bibliothèque déjà en cours…");
             return;
         }
-        if self.rot.library_dirs.is_empty() {
+        let targets = self.rot.scan_targets();
+        if targets.is_empty() {
             self.emit_library();
             return;
         }
@@ -135,10 +175,9 @@ impl Controller {
             .unwrap_or_default();
         self.rot.scanning = true;
         self.rot.scanned = 0;
-        let dirs = self.rot.library_dirs.clone();
         let cats = self.categories.clone();
         let tx = self.work_tx.clone();
-        thread::spawn(move || scan_library(dirs, cats, known, tx));
+        thread::spawn(move || scan_library(targets, cats, known, tx));
         self.emit_library();
     }
 
@@ -154,6 +193,7 @@ impl Controller {
     pub(super) fn on_library_done(&mut self, files: usize) {
         self.rot.scanning = false;
         self.load_library_tracks();
+        self.rot.refresh_lists();
         journal::info(format!(
             "bibliothèque : {files} fichiers, {} nouveaux ou modifiés",
             self.rot.scanned
@@ -164,14 +204,20 @@ impl Controller {
 
     // [CTL-143]
     pub(super) fn apply_rotation(&mut self, rotation: Rotation, library: &LibrarySettings) {
+        let mut rescan = false;
         if rotation != self.rot.rotation {
+            rescan = rotation.playlist_paths() != self.rot.rotation.playlist_paths();
             self.rot.rotation = rotation;
             self.rot.clock_id = None;
             self.rot.warned.clear();
+            self.rot.refresh_lists();
             self.emit_state();
         }
         if library.dirs != self.rot.library_dirs {
             self.rot.library_dirs = library.dirs.clone();
+            rescan = true;
+        }
+        if rescan {
             self.library_rescan();
         }
     }
@@ -180,10 +226,19 @@ impl Controller {
     pub(super) fn current_clock(&self) -> Option<ClockView> {
         let now = chrono::Local::now();
         let wd = now.weekday().num_days_from_monday() as usize;
-        clock_index(&self.rot.rotation, wd, now.hour() as usize).map(|c| ClockView {
-            id: c.id.clone(),
-            name: c.name.clone(),
-            color: c.color.clone(),
+        scheduled(&self.rot.rotation, wd, now.hour() as usize).map(|s| match s {
+            Scheduled::Clock(c) => ClockView {
+                id: c.id.clone(),
+                name: c.name.clone(),
+                color: c.color.clone(),
+                program: false,
+            },
+            Scheduled::Program(p) => ClockView {
+                id: p.id.clone(),
+                name: p.name.clone(),
+                color: p.color.clone(),
+                program: true,
+            },
         })
     }
 
@@ -196,10 +251,29 @@ impl Controller {
         if self.rot.clock_id.as_deref() != Some(clock.id.as_str()) {
             self.rot.clock_id = Some(clock.id.clone());
             self.rot.cursor = 0;
+            self.rot.fb_cursor = 0;
+            self.rot.program_done = false;
+            self.rot.program = Vec::new();
+            if clock.program {
+                self.start_program(&clock.id);
+            }
         }
         let mut added = Vec::new();
         while self.playlist.entries().len() + added.len() < LOOKAHEAD {
-            match self.rotation_next(&clock.id, &added) {
+            let next = if clock.program {
+                let tag = SlotTag {
+                    name: clock.name.clone(),
+                    color: clock.color.clone(),
+                    fixed: true,
+                };
+                match self.program_next(tag) {
+                    Some(e) => Some(e),
+                    None => self.fallback_next(&clock.name, &added),
+                }
+            } else {
+                self.rotation_next(&clock.id, &added, false)
+            };
+            match next {
                 Some(e) => added.push(e),
                 None => break,
             }
@@ -211,11 +285,80 @@ impl Controller {
         true
     }
 
-    fn rotation_next(&mut self, clock_id: &str, pending: &[Entry]) -> Option<Entry> {
+    // [CTL-165]
+    fn start_program(&mut self, id: &str) {
+        let Some(p) = self.rot.rotation.program(id).cloned() else {
+            return;
+        };
+        self.rot.program = playlist::read_m3u(Path::new(&p.path));
+        if self.rot.program.is_empty() {
+            self.notice(
+                "warn",
+                format!(
+                    "Émission « {} » : playlist {} vide ou introuvable.",
+                    p.name, p.path
+                ),
+            );
+        } else {
+            journal::info(format!(
+                "émission « {} » : {} titre(s) programmé(s)",
+                p.name,
+                self.rot.program.len()
+            ));
+        }
+    }
+
+    // [CTL-166]
+    fn program_next(&mut self, tag: SlotTag) -> Option<Entry> {
+        while self.rot.cursor < self.rot.program.len() {
+            let path = self.rot.program[self.rot.cursor].clone();
+            self.rot.cursor += 1;
+            if !path.is_file() {
+                continue;
+            }
+            let known = self.rot.index.get(&*path.to_string_lossy()).copied();
+            let entry = match known {
+                Some(i) => playlist::from_library(&self.rot.tracks[i], tag),
+                None => Entry {
+                    slot: Some(tag),
+                    ..playlist::make_entry(&path, &self.categories)
+                },
+            };
+            return Some(entry);
+        }
+        None
+    }
+
+    // [CTL-167]
+    fn fallback_next(&mut self, program: &str, pending: &[Entry]) -> Option<Entry> {
+        if !self.rot.program_done {
+            self.rot.program_done = true;
+            if !self.rot.program.is_empty() {
+                self.notice(
+                    "info",
+                    format!("Émission « {program} » terminée : retour à la grille par défaut."),
+                );
+            }
+        }
+        let id = default_clock(&self.rot.rotation)?.id.clone();
+        self.rotation_next(&id, pending, true)
+    }
+
+    fn rotation_next(
+        &mut self,
+        clock_id: &str,
+        pending: &[Entry],
+        fallback: bool,
+    ) -> Option<Entry> {
         let clock = self.rot.rotation.clock(clock_id)?.clone();
         for _ in 0..clock.slots.len() {
-            let slot = clock.slots[self.rot.cursor % clock.slots.len()].clone();
-            self.rot.cursor += 1;
+            let cursor = if fallback {
+                &mut self.rot.fb_cursor
+            } else {
+                &mut self.rot.cursor
+            };
+            let slot = clock.slots[*cursor % clock.slots.len()].clone();
+            *cursor += 1;
             let Some(cat) = self.rot.rotation.category(&slot).cloned() else {
                 continue;
             };
@@ -259,7 +402,9 @@ impl Controller {
         let tracks = std::mem::take(&mut self.rot.tracks);
         let mut matching: Vec<&LibraryTrack> = tracks
             .iter()
-            .filter(|t| cat.rule.matches(t) && !busy.contains(Path::new(&t.path)))
+            .filter(|t| {
+                cat.rule.matches_with(t, &self.rot.lists) && !busy.contains(Path::new(&t.path))
+            })
             .collect();
         let allowed: Vec<&LibraryTrack> = matching
             .iter()
@@ -287,6 +432,7 @@ impl Controller {
                     SlotTag {
                         name: cat.name.clone(),
                         color: cat.color.clone(),
+                        fixed: false,
                     },
                 ));
                 break;

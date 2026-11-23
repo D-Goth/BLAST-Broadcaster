@@ -78,7 +78,7 @@ pub fn pick_next<'a>(
 impl Controller {
     // [CTL-68]
     pub(super) fn violation_for(&self, e: &Entry, now: i64) -> Option<String> {
-        if e.error.is_some() {
+        if e.error.is_some() || e.slot.as_ref().is_some_and(|s| s.fixed) {
             return None;
         }
         self.violation_of(&e.path.to_string_lossy(), &e.title, &e.artist, e.kind, now)

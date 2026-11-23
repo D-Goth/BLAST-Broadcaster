@@ -1258,7 +1258,7 @@ definition = "Premier titre lisible conforme aux règles ; sinon le premier titr
 
 [codes.CTL-68]
 titre = "Motif d'attente"
-definition = "Même artiste déjà sur une platine, ou règle enfreinte selon l'historique ; jingles et pubs en sont exemptés."
+definition = "Même artiste déjà sur une platine, ou règle enfreinte selon l'historique ; jingles, pubs et titres d'émission en sont exemptés."
 
 [codes.CTL-69]
 titre = "Titre suivant"
@@ -2194,7 +2194,7 @@ definition = "Charge en mémoire les titres connus de la base."
 
 [codes.CTL-142]
 titre = "Relecture de la bibliothèque"
-definition = "Lance un scan, sauf s'il en tourne déjà un."
+definition = "Lance un scan des dossiers de la bibliothèque et des playlists M3U des catégories et émissions, sauf s'il en tourne déjà un."
 
 [codes.CTL-143]
 titre = "Nouveaux réglages de grilles"
@@ -2206,7 +2206,7 @@ definition = "Grille du planning pour le jour et l'heure locaux, ou grille hors 
 
 [codes.CTL-145]
 titre = "Remplissage par la grille"
-definition = "Ajoute à la playlist les titres tirés par la grille de l'heure jusqu'à avoir 3 titres d'avance ; la grille repart de sa première case quand elle change."
+definition = "Ajoute à la playlist les titres de la grille ou de l'émission de l'heure jusqu'à avoir 3 titres d'avance ; tout repart du début quand l'heure change de contenu."
 
 [codes.CTL-146]
 titre = "Tirage dans une catégorie"
@@ -2218,7 +2218,7 @@ definition = "Envoie dossiers, nombre de titres et état du scan."
 
 [codes.CTL-148]
 titre = "Vue de la grille active"
-definition = "Identifiant, nom et couleur de la grille de l'heure."
+definition = "Identifiant, nom, couleur de la grille ou de l'émission de l'heure, et s'il s'agit d'une émission."
 
 [codes.CTL-149]
 titre = "Vue de la bibliothèque"
@@ -2258,7 +2258,7 @@ definition = "Au-delà d'une semaine sans passage, tous les titres ont le même 
 
 [codes.LIB-46]
 titre = "Règles d'une catégorie"
-definition = "Types, mots de genre, années, BPM et dossiers ; un critère vide n'impose rien."
+definition = "Types, mots de genre, années, BPM, dossiers et playlists M3U ; un critère vide n'impose rien, une année ou un BPM à 0 non plus."
 
 [codes.LIB-47]
 titre = "Correspondance"
@@ -2274,15 +2274,15 @@ definition = "Nom, couleur et suite ordonnée de catégories, jouée en boucle."
 
 [codes.LIB-50]
 titre = "Grilles et planning"
-definition = "Catégories, grilles, grille de chaque heure de la semaine et grille hors planning."
+definition = "Catégories, grilles, émissions, contenu de chaque heure de la semaine (grille ou émission) et grille hors planning."
 
 [codes.LIB-51]
 titre = "Validation des grilles"
 definition = "Noms présents, identifiants uniques, aucune référence à une catégorie ou une grille supprimée."
 
 [codes.LIB-52]
-titre = "Grille d'une heure"
-definition = "Grille du planning pour un jour et une heure, sinon grille hors planning ; une grille sans case est ignorée."
+titre = "Contenu d'une heure"
+definition = "Grille ou émission du planning pour un jour et une heure, sinon grille hors planning ; une grille sans case est ignorée."
 
 [codes.LIB-53]
 titre = "Poids d'un titre"
@@ -2294,7 +2294,7 @@ definition = "Choisit un titre au hasard proportionnellement à son poids."
 
 [codes.PL-10]
 titre = "Étiquette de grille"
-definition = "Nom et couleur de la catégorie qui a ajouté un titre à la playlist."
+definition = "Nom et couleur de la catégorie ou de l'émission qui a ajouté un titre ; « fixed » marque un titre d'émission, joué dans l'ordre et exempté des règles de séparation."
 
 [codes.PL-11]
 titre = "Date de modification d'un fichier"
@@ -2330,7 +2330,7 @@ definition = "Catégorie de chaque case, montée, descente et retrait."
 
 [codes.UI-96]
 titre = "Planning"
-definition = "Palette des grilles et tableau des 7 jours × 24 heures, à peindre au clic ou au glisser."
+definition = "Palette des grilles et des émissions (hachurées) et tableau des 7 jours × 24 heures, à peindre au clic ou au glisser."
 
 [codes.UI-97]
 titre = "Chargement des grilles"
@@ -2342,7 +2342,7 @@ definition = "Envoie la copie de travail ; une erreur de validation s'affiche sa
 
 [codes.UI-99]
 titre = "Grille dans le mixeur"
-definition = "Affiche le nom et la couleur de la grille de l'heure à côté du titre MIX."
+definition = "Affiche le nom et la couleur de la grille ou de l'émission (précédée de ▶) de l'heure à côté du titre MIX."
 
 [codes.PL-13]
 titre = "Mélange"
@@ -2467,3 +2467,59 @@ definition = "Écrit la playlist dans le fichier M3U choisi et indique le nombre
 [codes.UI-105]
 titre = "Enregistrer la playlist"
 definition = "Demande l'emplacement du fichier M3U, nommé par défaut avec la date du jour."
+
+[codes.LIB-56]
+titre = "Contenu des playlists"
+definition = "Pour chaque playlist M3U (clé normalisée), l'ensemble des chemins normalisés qu'elle contient."
+
+[codes.LIB-57]
+titre = "Clé de chemin"
+definition = "Chemin normalisé pour comparer : barres obliques, minuscules, sans barre finale."
+
+[codes.LIB-58]
+titre = "Correspondance avec playlists"
+definition = "Applique les règles d'une catégorie, puis exige que le titre figure dans l'une de ses playlists M3U s'il y en a."
+
+[codes.LIB-59]
+titre = "Émission"
+definition = "Nom, couleur et fichier M3U d'une émission à placer dans le planning."
+
+[codes.LIB-60]
+titre = "Contenu programmé"
+definition = "Une heure du planning contient une grille ou une émission."
+
+[codes.LIB-61]
+titre = "Playlists utilisées"
+definition = "Liste sans doublon des fichiers M3U cités par les catégories et les émissions."
+
+[codes.LIB-62]
+titre = "Grille hors planning"
+definition = "Grille utilisée pour les heures vides du planning et après la fin d'une émission ; ignorée si elle n'a aucune case."
+
+[codes.CTL-164]
+titre = "Lecture des playlists de catégories"
+definition = "Relit les M3U des catégories pour savoir quels titres de la bibliothèque y figurent."
+
+[codes.CTL-165]
+titre = "Début d'émission"
+definition = "Lit le M3U de l'émission quand son heure commence ; prévient s'il est vide ou introuvable."
+
+[codes.CTL-166]
+titre = "Titre suivant de l'émission"
+definition = "Prend le titre suivant du M3U dans l'ordre, en sautant les fichiers absents ; tags de la bibliothèque s'il y est connu."
+
+[codes.CTL-167]
+titre = "Fin d'émission"
+definition = "Quand le M3U est épuisé, annonce la fin une fois et continue avec la grille hors planning."
+
+[codes.UI-106]
+titre = "Liste des émissions"
+definition = "Liste des émissions et formulaire de l'émission choisie."
+
+[codes.UI-107]
+titre = "Lecture d'une émission"
+definition = "Recopie le nom, la couleur et le chemin du M3U depuis le formulaire."
+
+[codes.HTM-24]
+titre = "Page Émissions"
+definition = "Émissions des grilles : nom, couleur, fichier M3U, explications."

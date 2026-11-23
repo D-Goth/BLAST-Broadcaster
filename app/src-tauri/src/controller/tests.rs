@@ -410,6 +410,7 @@ fn clockwheel_fills_the_playlist_from_the_library() {
             color: "#0000ff".into(),
             slots: vec!["ident".into(), "rock".into(), "rock".into()],
         }],
+        programs: Vec::new(),
         schedule: Vec::new(),
         default_clock: Some("jour".into()),
     };
@@ -490,4 +491,85 @@ fn playlist_survives_restart() {
         .entries()
         .iter()
         .all(|e| e.duration.is_some()));
+}
+
+#[test]
+fn m3u_programs_and_categories_drive_the_clock() {
+    let mut h = Harness::new("m3u-clock");
+    let music = h.dir.join("Musique");
+    std::fs::create_dir_all(&music).unwrap();
+    for i in 0..5 {
+        write_wav(&music.join(format!("t{i}.wav")), 44_100, 22_050);
+    }
+    let theme = h.dir.join("theme.m3u8");
+    std::fs::write(&theme, "#EXTM3U\nMusique/t3.wav\nMusique/t4.wav\n").unwrap();
+    let show = h.dir.join("emission.m3u");
+    std::fs::write(
+        &show,
+        "Musique/t2.wav\nMusique/t0.wav\nMusique/absent.wav\n",
+    )
+    .unwrap();
+    let mut cfg = AppConfig {
+        rotation: blast_library::Rotation {
+            categories: vec![blast_library::RotationCategory {
+                id: "theme".into(),
+                name: "Thème".into(),
+                color: "#ff0000".into(),
+                rule: blast_library::CategoryRule {
+                    playlists: vec![theme.to_string_lossy().into_owned()],
+                    ..Default::default()
+                },
+            }],
+            clocks: vec![blast_library::Clock {
+                id: "jour".into(),
+                name: "Journée".into(),
+                color: "#0000ff".into(),
+                slots: vec!["theme".into()],
+            }],
+            programs: vec![blast_library::Program {
+                id: "show".into(),
+                name: "Spécial".into(),
+                color: "#00ff00".into(),
+                path: show.to_string_lossy().into_owned(),
+            }],
+            schedule: vec!["show".into(); blast_library::SCHEDULE_SLOTS],
+            default_clock: Some("jour".into()),
+        },
+        ..Default::default()
+    };
+    cfg.automation.rules.enabled = false;
+    h.c.handle(UiCommand::Config(Box::new(cfg)));
+    loop {
+        let w =
+            h.c.work_rx
+                .recv_timeout(Duration::from_secs(10))
+                .expect("scan");
+        let done = matches!(w, Work::LibraryDone { .. });
+        h.c.on_work(w);
+        if done {
+            break;
+        }
+    }
+    assert_eq!(h.last(EV_LIBRARY)["tracks"], 4);
+    assert_eq!(h.last(EV_STATE)["clock"]["program"], true);
+    assert!(h.c.rotation_fill());
+    let names: Vec<String> =
+        h.c.playlist
+            .entries()
+            .iter()
+            .map(|e| e.path.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+    assert_eq!(names[..2], ["t2.wav".to_string(), "t0.wav".to_string()]);
+    assert!(names[2] == "t3.wav" || names[2] == "t4.wav");
+    let slots: Vec<bool> =
+        h.c.playlist
+            .entries()
+            .iter()
+            .map(|e| e.slot.as_ref().unwrap().fixed)
+            .collect();
+    assert_eq!(slots, [true, true, false]);
+    assert!(h
+        .notices("info")
+        .iter()
+        .any(|m| m.contains("Émission « Spécial » terminée")));
 }

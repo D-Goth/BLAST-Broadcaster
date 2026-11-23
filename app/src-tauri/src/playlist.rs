@@ -33,6 +33,8 @@ pub struct Entry {
 pub struct SlotTag {
     pub name: String,
     pub color: String,
+    #[serde(default)]
+    pub fixed: bool,
 }
 
 impl Entry {
@@ -525,6 +527,7 @@ mod tests {
         a.slot = Some(SlotTag {
             name: "Hits".into(),
             color: "#f00".into(),
+            fixed: true,
         });
         let b = e("b.mp3");
         save_queue(&file, &[a, b], &[PathBuf::from("deck.mp3")]).unwrap();
@@ -534,6 +537,7 @@ mod tests {
         assert_eq!(entries[0].artist, "X");
         assert_eq!(entries[0].kind, Kind::Jingle);
         assert_eq!(entries[0].slot.as_ref().unwrap().name, "Hits");
+        assert!(entries[0].slot.as_ref().unwrap().fixed);
         assert_eq!(entries[1].title, "b.mp3");
         assert_eq!(decks, vec![PathBuf::from("deck.mp3")]);
     }

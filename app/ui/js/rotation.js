@@ -3,16 +3,18 @@ import { $, $$, T, send, invoke, toast, setResult, formValues, fillForm } from "
 const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const PALETTE = ["#FF1654", "#1F6FEB", "#D9730D", "#0E9F6E", "#7A5AF8", "#E5B800", "#00B3C7", "#B4436C"];
 
-let rot = { categories: [], clocks: [], schedule: [], default_clock: null };
+let rot = { categories: [], clocks: [], programs: [], schedule: [], default_clock: null };
 let library = { dirs: [], tracks: 0, scanning: false, scanned: 0 };
 let selCat = null;
 let selClock = null;
+let selProg = null;
 let paint = null;
 let painting = false;
 let countTimer = null;
 
 const uid = (p) => `${p}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const words = (t) => t.split(",").map((w) => w.trim()).filter(Boolean);
+const lines = (t) => t.split("\n").map((f) => f.trim()).filter(Boolean);
 const num = (v) => (v === "" || v == null || isNaN(Number(v)) ? null : Number(v));
 const pickColor = (list) => PALETTE[list.length % PALETTE.length];
 const errorOut = (e) => toast("error", String(e));
@@ -95,6 +97,7 @@ function renderCategories() {
     bpm_min: r.bpm_min ?? "",
     bpm_max: r.bpm_max ?? "",
     folders: r.folders.join("\n"),
+    playlists: (r.playlists || []).join("\n"),
   });
   refreshCount();
 }
@@ -103,17 +106,20 @@ function renderCategories() {
 function readCategory() {
   const cat = rot.categories.find((c) => c.id === selCat);
   if (!cat) return;
-  const v = formValues($("#cat-form"));
+  const form = $("#cat-form");
+  const v = formValues(form);
+  const raw = (n) => num(form.elements[n].value);
   cat.name = v.name.trim();
   cat.color = v.color;
   cat.rule = {
     kinds: ["morceau", "jingle", "pub"].filter((k) => v[`k_${k}`]),
     genres: words(v.genres),
-    year_min: num(v.year_min),
-    year_max: num(v.year_max),
-    bpm_min: num(v.bpm_min),
-    bpm_max: num(v.bpm_max),
-    folders: v.folders.split("\n").map((f) => f.trim()).filter(Boolean),
+    year_min: raw("year_min"),
+    year_max: raw("year_max"),
+    bpm_min: raw("bpm_min"),
+    bpm_max: raw("bpm_max"),
+    folders: lines(v.folders),
+    playlists: lines(v.playlists),
   };
   const item = $("#cat-list .rot-item.active");
   if (item) {
@@ -200,16 +206,59 @@ function renderSlots(clock) {
   });
 }
 
+// [UI-106]
+function renderPrograms() {
+  const box = $("#prog-list");
+  box.innerHTML = "";
+  for (const p of rot.programs) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "rot-item" + (p.id === selProg ? " active" : "");
+    row.append(dot(p.color), Object.assign(document.createElement("span"), { className: "rot-name", textContent: p.name || "Sans nom" }));
+    row.addEventListener("click", () => {
+      selProg = p.id;
+      renderPrograms();
+    });
+    box.appendChild(row);
+  }
+  const prog = rot.programs.find((p) => p.id === selProg);
+  $("#prog-form").hidden = !prog;
+  if (prog) fillForm($("#prog-form"), { name: prog.name, color: prog.color || "#7A5AF8", path: prog.path });
+}
+
+// [UI-107]
+function readProgram() {
+  const prog = rot.programs.find((p) => p.id === selProg);
+  if (!prog) return;
+  const v = formValues($("#prog-form"));
+  prog.name = v.name.trim();
+  prog.color = v.color;
+  prog.path = v.path.trim();
+  const item = $("#prog-list .rot-item.active");
+  if (item) {
+    $(".rot-name", item).textContent = prog.name || "Sans nom";
+    $(".rot-dot", item).style.background = prog.color;
+  }
+}
+
+const scheduled = (id) => (id && (rot.clocks.find((c) => c.id === id) || rot.programs.find((p) => p.id === id))) || null;
+const isProgram = (id) => rot.programs.some((p) => p.id === id);
+
 // [UI-96]
 function renderSchedule() {
   const pal = $("#sched-palette");
   pal.innerHTML = "";
-  const choices = [{ id: null, name: "Effacer", color: "transparent" }, ...rot.clocks];
+  const choices = [{ id: null, name: "Effacer", color: "transparent" }, ...rot.clocks, ...rot.programs];
   for (const k of choices) {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "chip-btn sched-chip" + (paint === k.id ? " active" : "");
-    b.append(dot(k.id ? k.color : "transparent"), document.createTextNode(k.name || "Sans nom"));
+    b.className = "chip-btn sched-chip" + (paint === k.id ? " active" : "") + (isProgram(k.id) ? " prog" : "");
+    const d = dot(k.id ? k.color : "transparent");
+    if (isProgram(k.id)) {
+      d.style.background = "";
+      d.style.setProperty("--cell-color", k.color);
+    }
+    b.append(d, document.createTextNode(k.name || "Sans nom"));
     b.addEventListener("click", () => {
       paint = k.id;
       renderSchedule();
@@ -239,10 +288,12 @@ function renderSchedule() {
 }
 
 function paintCell(cell, id) {
-  const k = id && rot.clocks.find((c) => c.id === id);
-  cell.style.background = k ? k.color : "";
-  cell.title = k ? k.name : "Hors planning";
+  const k = scheduled(id);
+  const prog = !!k && isProgram(id);
+  cell.style.setProperty("--cell-color", k ? k.color : "transparent");
+  cell.title = k ? (prog ? `Émission : ${k.name}` : k.name) : "Hors planning";
   cell.classList.toggle("set", !!k);
+  cell.classList.toggle("prog", prog);
 }
 
 function applyPaint(cell) {
@@ -257,9 +308,12 @@ export function applySettingsView(view) {
   rot = JSON.parse(JSON.stringify(view.rotation));
   if (!rot.categories.some((c) => c.id === selCat)) selCat = rot.categories[0] ? rot.categories[0].id : null;
   if (!rot.clocks.some((k) => k.id === selClock)) selClock = rot.clocks[0] ? rot.clocks[0].id : null;
-  if (paint && !rot.clocks.some((k) => k.id === paint)) paint = null;
+  rot.programs = rot.programs || [];
+  if (!rot.programs.some((p) => p.id === selProg)) selProg = rot.programs[0] ? rot.programs[0].id : null;
+  if (paint && !scheduled(paint)) paint = null;
   renderCategories();
   renderClocks();
+  renderPrograms();
   renderSchedule();
 }
 
@@ -272,6 +326,11 @@ async function save() {
   } catch (e) {
     setResult("#rotation-result", "err", String(e));
   }
+}
+
+async function pickM3u(title) {
+  const picked = await T.dialog.open({ directory: false, multiple: false, title, filters: [{ name: "Playlist M3U", extensions: ["m3u", "m3u8"] }] });
+  return picked || null;
 }
 
 async function pickDir(title) {
@@ -288,7 +347,7 @@ export function init() {
   });
   $("#lib-rescan").addEventListener("click", () => send({ type: "library_rescan" }));
   $("#cat-add").addEventListener("click", () => {
-    const c = { id: uid("cat"), name: `Catégorie ${rot.categories.length + 1}`, color: pickColor(rot.categories), rule: { kinds: ["morceau"], genres: [], year_min: null, year_max: null, bpm_min: null, bpm_max: null, folders: [] } };
+    const c = { id: uid("cat"), name: `Catégorie ${rot.categories.length + 1}`, color: pickColor(rot.categories), rule: { kinds: ["morceau"], genres: [], year_min: null, year_max: null, bpm_min: null, bpm_max: null, folders: [], playlists: [] } };
     rot.categories.push(c);
     selCat = c.id;
     renderCategories();
@@ -301,6 +360,37 @@ export function init() {
     const f = $("#cat-form").elements.folders;
     f.value = [f.value.trim(), d].filter(Boolean).join("\n");
     readCategory();
+  });
+  $("#cat-m3u").addEventListener("click", async () => {
+    const f = await pickM3u("Playlist de la catégorie");
+    if (!f) return;
+    const field = $("#cat-form").elements.playlists;
+    field.value = [field.value.trim(), f].filter(Boolean).join("\n");
+    readCategory();
+  });
+  $("#prog-add").addEventListener("click", async () => {
+    const path = await pickM3u("Playlist de l'émission");
+    if (!path) return;
+    const base = path.split(/[\\/]/).pop().replace(/\.m3u8?$/i, "");
+    const p = { id: uid("emission"), name: base || `Émission ${rot.programs.length + 1}`, color: pickColor(rot.programs), path };
+    rot.programs.push(p);
+    selProg = p.id;
+    renderPrograms();
+  });
+  $("#prog-form").addEventListener("input", readProgram);
+  $("#prog-form").addEventListener("submit", (e) => e.preventDefault());
+  $("#prog-pick").addEventListener("click", async () => {
+    const f = await pickM3u("Playlist de l'émission");
+    if (!f) return;
+    $("#prog-form").elements.path.value = f;
+    readProgram();
+  });
+  $("#prog-delete").addEventListener("click", () => {
+    rot.programs = rot.programs.filter((p) => p.id !== selProg);
+    rot.schedule = rot.schedule.map((id) => (id === selProg ? "" : id));
+    if (paint === selProg) paint = null;
+    selProg = rot.programs[0] ? rot.programs[0].id : null;
+    renderPrograms();
   });
   $("#cat-delete").addEventListener("click", () => {
     const used = rot.clocks.filter((k) => k.slots.includes(selCat)).map((k) => k.name);

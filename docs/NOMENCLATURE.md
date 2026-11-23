@@ -30,7 +30,7 @@ ne pas le modifier à la main.
 | [`CAST`](#cast) | Sorties de diffusion, encodage MP3 et fils d'envoi (blast-cast) | 18 |
 | [`PROT`](#prot) | Protocoles Icecast / Shoutcast et statistiques (blast-cast) | 23 |
 | [`AURA`](#aura) | Pilotage d'OBS par obs-websocket (blast-aura) | 21 |
-| [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 53 |
+| [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 60 |
 | [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 4 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
 | [`APP`](#app) | Démarrage de l'application et commandes Tauri | 44 |
@@ -40,10 +40,10 @@ ne pas le modifier à la main.
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
 | [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 153 |
-| [`UI`](#ui) | Interface : modules JavaScript | 105 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 157 |
+| [`UI`](#ui) | Interface : modules JavaScript | 107 |
 | [`STY`](#sty) | Interface : feuille de style | 17 |
-| [`HTM`](#htm) | Interface : structure de la page | 23 |
+| [`HTM`](#htm) | Interface : structure de la page | 24 |
 
 ## CORE
 
@@ -3153,7 +3153,7 @@ fn track_mtimes(&self) -> Result<std::collections::HashMap<String, i64>, StoreEr
 
 7 jours de 24 heures.
 
-`crates/blast-library/src/rotation.rs` ligne 5
+`crates/blast-library/src/rotation.rs` ligne 7
 
 ```rust
 pub const SCHEDULE_SLOTS: usize = 7 * 24;
@@ -3163,7 +3163,7 @@ pub const SCHEDULE_SLOTS: usize = 7 * 24;
 
 Au-delà d'une semaine sans passage, tous les titres ont le même poids.
 
-`crates/blast-library/src/rotation.rs` ligne 7
+`crates/blast-library/src/rotation.rs` ligne 9
 
 ```rust
 const STALE_HOURS: f64 = 168.0;
@@ -3171,9 +3171,9 @@ const STALE_HOURS: f64 = 168.0;
 
 ### [LIB-46] Règles d'une catégorie
 
-Types, mots de genre, années, BPM et dossiers ; un critère vide n'impose rien.
+Types, mots de genre, années, BPM, dossiers et playlists M3U ; un critère vide n'impose rien, une année ou un BPM à 0 non plus.
 
-`crates/blast-library/src/rotation.rs` ligne 10
+`crates/blast-library/src/rotation.rs` ligne 12
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -3186,6 +3186,7 @@ pub struct CategoryRule {
     pub bpm_min: Option<f32>,
     pub bpm_max: Option<f32>,
     pub folders: Vec<String>,
+    pub playlists: Vec<String>,
 }
 ```
 
@@ -3193,7 +3194,7 @@ pub struct CategoryRule {
 
 Un titre entre dans la catégorie s'il remplit tous les critères renseignés ; sans année ou sans BPM, il ne passe pas un filtre d'année ou de BPM.
 
-`crates/blast-library/src/rotation.rs` ligne 38
+`crates/blast-library/src/rotation.rs` ligne 49
 
 ```rust
 pub fn matches(&self, t: &LibraryTrack) -> bool {
@@ -3215,7 +3216,7 @@ pub fn matches(&self, t: &LibraryTrack) -> bool {
 
 Nom, couleur et règles.
 
-`crates/blast-library/src/rotation.rs` ligne 74
+`crates/blast-library/src/rotation.rs` ligne 102
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -3232,7 +3233,7 @@ pub struct RotationCategory {
 
 Nom, couleur et suite ordonnée de catégories, jouée en boucle.
 
-`crates/blast-library/src/rotation.rs` ligne 84
+`crates/blast-library/src/rotation.rs` ligne 112
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -3247,9 +3248,9 @@ pub struct Clock {
 
 ### [LIB-50] Grilles et planning
 
-Catégories, grilles, grille de chaque heure de la semaine et grille hors planning.
+Catégories, grilles, émissions, contenu de chaque heure de la semaine (grille ou émission) et grille hors planning.
 
-`crates/blast-library/src/rotation.rs` ligne 94
+`crates/blast-library/src/rotation.rs` ligne 132
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -3257,6 +3258,7 @@ Catégories, grilles, grille de chaque heure de la semaine et grille hors planni
 pub struct Rotation {
     pub categories: Vec<RotationCategory>,
     pub clocks: Vec<Clock>,
+    pub programs: Vec<Program>,
     pub schedule: Vec<String>,
     pub default_clock: Option<String>,
 }
@@ -3266,7 +3268,7 @@ pub struct Rotation {
 
 Noms présents, identifiants uniques, aucune référence à une catégorie ou une grille supprimée.
 
-`crates/blast-library/src/rotation.rs` ligne 113
+`crates/blast-library/src/rotation.rs` ligne 186
 
 ```rust
 pub fn validate(&self) -> Result<(), String> {
@@ -3284,23 +3286,24 @@ pub fn validate(&self) -> Result<(), String> {
 …
 ```
 
-### [LIB-52] Grille d'une heure
+### [LIB-52] Contenu d'une heure
 
-Grille du planning pour un jour et une heure, sinon grille hors planning ; une grille sans case est ignorée.
+Grille ou émission du planning pour un jour et une heure, sinon grille hors planning ; une grille sans case est ignorée.
 
-`crates/blast-library/src/rotation.rs` ligne 152
+`crates/blast-library/src/rotation.rs` ligne 237
 
 ```rust
-pub fn clock_index(rotation: &Rotation, weekday: usize, hour: usize) -> Option<&Clock> {
+pub fn scheduled(rotation: &Rotation, weekday: usize, hour: usize) -> Option<Scheduled<'_>> {
     let slot = weekday.min(6) * 24 + hour.min(23);
-    rotation
-        .schedule
-        .get(slot)
-        .filter(|id| !id.is_empty())
-        .cloned()
-        .or_else(|| rotation.default_clock.clone())
-        .and_then(|id| rotation.clock(&id))
-        .filter(|c| !c.slots.is_empty())
+    if let Some(id) = rotation.schedule.get(slot).filter(|id| !id.is_empty()) {
+        if let Some(p) = rotation.program(id) {
+            return Some(Scheduled::Program(p));
+        }
+        if let Some(c) = rotation.clock(id).filter(|c| !c.slots.is_empty()) {
+            return Some(Scheduled::Clock(c));
+        }
+    }
+    default_clock(rotation).map(Scheduled::Clock)
 }
 ```
 
@@ -3308,7 +3311,7 @@ pub fn clock_index(rotation: &Rotation, weekday: usize, hour: usize) -> Option<&
 
 Heures écoulées depuis le dernier passage (une semaine au plus), plus un : un titre oublié pèse beaucoup plus qu'un titre récent.
 
-`crates/blast-library/src/rotation.rs` ligne 165
+`crates/blast-library/src/rotation.rs` ligne 260
 
 ```rust
 pub fn weight(t: &LibraryTrack, now: i64) -> f64 {
@@ -3323,7 +3326,7 @@ pub fn weight(t: &LibraryTrack, now: i64) -> f64 {
 
 Choisit un titre au hasard proportionnellement à son poids.
 
-`crates/blast-library/src/rotation.rs` ligne 173
+`crates/blast-library/src/rotation.rs` ligne 268
 
 ```rust
 pub fn pick_weighted<'a>(
@@ -3339,6 +3342,118 @@ pub fn pick_weighted<'a>(
     for t in candidates {
         target -= weight(t, now);
 …
+```
+
+### [LIB-56] Contenu des playlists
+
+Pour chaque playlist M3U (clé normalisée), l'ensemble des chemins normalisés qu'elle contient.
+
+`crates/blast-library/src/rotation.rs` ligne 26
+
+```rust
+pub type PlaylistSets = HashMap<String, HashSet<String>>;
+```
+
+### [LIB-57] Clé de chemin
+
+Chemin normalisé pour comparer : barres obliques, minuscules, sans barre finale.
+
+`crates/blast-library/src/rotation.rs` ligne 29
+
+```rust
+pub fn path_key(p: &str) -> String {
+    norm_path(p)
+}
+```
+
+### [LIB-58] Correspondance avec playlists
+
+Applique les règles d'une catégorie, puis exige que le titre figure dans l'une de ses playlists M3U s'il y en a.
+
+`crates/blast-library/src/rotation.rs` ligne 86
+
+```rust
+pub fn matches_with(&self, t: &LibraryTrack, lists: &PlaylistSets) -> bool {
+    if !self.matches(t) {
+        return false;
+    }
+    if self.playlists.is_empty() {
+        return true;
+    }
+    let key = norm_path(&t.path);
+    self.playlists
+        .iter()
+        .filter_map(|p| lists.get(&norm_path(p)))
+        .any(|set| set.contains(&key))
+…
+```
+
+### [LIB-59] Émission
+
+Nom, couleur et fichier M3U d'une émission à placer dans le planning.
+
+`crates/blast-library/src/rotation.rs` ligne 122
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Program {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+    pub path: String,
+}
+```
+
+### [LIB-60] Contenu programmé
+
+Une heure du planning contient une grille ou une émission.
+
+`crates/blast-library/src/rotation.rs` ligne 143
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Scheduled<'a> {
+    Clock(&'a Clock),
+    Program(&'a Program),
+}
+```
+
+### [LIB-61] Playlists utilisées
+
+Liste sans doublon des fichiers M3U cités par les catégories et les émissions.
+
+`crates/blast-library/src/rotation.rs` ligne 172
+
+```rust
+pub fn playlist_paths(&self) -> Vec<String> {
+    let mut out: Vec<String> = self
+        .categories
+        .iter()
+        .flat_map(|c| c.rule.playlists.iter().cloned())
+        .chain(self.programs.iter().map(|p| p.path.clone()))
+        .filter(|p| !p.trim().is_empty())
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+```
+
+### [LIB-62] Grille hors planning
+
+Grille utilisée pour les heures vides du planning et après la fin d'une émission ; ignorée si elle n'a aucune case.
+
+`crates/blast-library/src/rotation.rs` ligne 251
+
+```rust
+pub fn default_clock(rotation: &Rotation) -> Option<&Clock> {
+    rotation
+        .default_clock
+        .as_deref()
+        .and_then(|id| rotation.clock(id))
+        .filter(|c| !c.slots.is_empty())
+}
 ```
 
 
@@ -4485,7 +4600,7 @@ pub async fn rotation_counts(
         let tracks = blast_library::SqliteStore::open(&db)
             .and_then(|l| l.tracks())
             .map_err(|e| e.to_string())?;
-        Ok(rules
+        let lists: blast_library::PlaylistSets = rules
             .iter()
 …
 ```
@@ -5150,7 +5265,7 @@ pub struct Entry {
 
 Liste ordonnée d'entrées avec identifiants uniques.
 
-`app/src-tauri/src/playlist.rs` ligne 55
+`app/src-tauri/src/playlist.rs` ligne 57
 
 ```rust
 #[derive(Debug, Default)]
@@ -5164,7 +5279,7 @@ pub struct Playlist {
 
 Insérer à une position, retirer, déplacer, vider et totaliser la durée.
 
-`app/src-tauri/src/playlist.rs` ligne 62
+`app/src-tauri/src/playlist.rs` ligne 64
 
 ```rust
 impl Playlist {
@@ -5186,7 +5301,7 @@ impl Playlist {
 
 Parcourt un dossier récursivement, dans l'ordre alphabétique.
 
-`app/src-tauri/src/playlist.rs` ligne 181
+`app/src-tauri/src/playlist.rs` ligne 183
 
 ```rust
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -5208,7 +5323,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 
 Remplace les dossiers par les fichiers audio qu'ils contiennent et les playlists M3U par leurs titres existants.
 
-`app/src-tauri/src/playlist.rs` ligne 197
+`app/src-tauri/src/playlist.rs` ligne 199
 
 ```rust
 pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
@@ -5230,7 +5345,7 @@ pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
 
 Sonde un fichier ; un fichier illisible devient une entrée signalée en erreur.
 
-`app/src-tauri/src/playlist.rs` ligne 350
+`app/src-tauri/src/playlist.rs` ligne 352
 
 ```rust
 pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
@@ -5252,7 +5367,7 @@ pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
 
 Minuscules et accents retirés, pour comparer les noms de dossiers.
 
-`app/src-tauri/src/playlist.rs` ligne 267
+`app/src-tauri/src/playlist.rs` ligne 269
 
 ```rust
 fn fold(word: &str) -> String {
@@ -5274,7 +5389,7 @@ fn fold(word: &str) -> String {
 
 Le nom de dossier contient-il un des mots-clés, au singulier ou au pluriel ?
 
-`app/src-tauri/src/playlist.rs` ligne 282
+`app/src-tauri/src/playlist.rs` ligne 284
 
 ```rust
 fn folder_matches(folder: &str, keywords: &[String]) -> bool {
@@ -5296,7 +5411,7 @@ fn folder_matches(folder: &str, keywords: &[String]) -> bool {
 
 Jingle, pub ou morceau d'après le dossier le plus proche qui porte un mot-clé.
 
-`app/src-tauri/src/playlist.rs` ligne 297
+`app/src-tauri/src/playlist.rs` ligne 299
 
 ```rust
 pub fn classify(path: &Path, cats: &CategorySettings) -> Kind {
@@ -5316,7 +5431,7 @@ pub fn classify(path: &Path, cats: &CategorySettings) -> Kind {
 
 ### [PL-10] Étiquette de grille
 
-Nom et couleur de la catégorie qui a ajouté un titre à la playlist.
+Nom et couleur de la catégorie ou de l'émission qui a ajouté un titre ; « fixed » marque un titre d'émission, joué dans l'ordre et exempté des règles de séparation.
 
 `app/src-tauri/src/playlist.rs` ligne 31
 
@@ -5325,6 +5440,8 @@ Nom et couleur de la catégorie qui a ajouté un titre à la playlist.
 pub struct SlotTag {
     pub name: String,
     pub color: String,
+    #[serde(default)]
+    pub fixed: bool,
 }
 ```
 
@@ -5332,7 +5449,7 @@ pub struct SlotTag {
 
 Date de modification en secondes, pour le scan incrémental.
 
-`app/src-tauri/src/playlist.rs` ligne 316
+`app/src-tauri/src/playlist.rs` ligne 318
 
 ```rust
 pub fn file_mtime(path: &Path) -> Option<i64> {
@@ -5348,7 +5465,7 @@ pub fn file_mtime(path: &Path) -> Option<i64> {
 
 Construit une entrée de playlist à partir d'un titre de la bibliothèque, sans relire le fichier.
 
-`app/src-tauri/src/playlist.rs` ligne 325
+`app/src-tauri/src/playlist.rs` ligne 327
 
 ```rust
 pub fn from_library(t: &blast_library::LibraryTrack, slot: SlotTag) -> Entry {
@@ -5370,7 +5487,7 @@ pub fn from_library(t: &blast_library::LibraryTrack, slot: SlotTag) -> Entry {
 
 Mélange de Fisher-Yates de toute la playlist.
 
-`app/src-tauri/src/playlist.rs` ligne 110
+`app/src-tauri/src/playlist.rs` ligne 112
 
 ```rust
 pub fn shuffle(&mut self, roll: &mut impl FnMut() -> f64) {
@@ -5386,7 +5503,7 @@ pub fn shuffle(&mut self, roll: &mut impl FnMut() -> f64) {
 
 Mélange puis regroupe par artiste et pioche à chaque fois dans le plus gros groupe qui n'est pas celui du titre précédent : les titres d'un même artiste sont répartis au plus loin ; les titres sans artiste ne sont pas contraints.
 
-`app/src-tauri/src/playlist.rs` ligne 119
+`app/src-tauri/src/playlist.rs` ligne 121
 
 ```rust
 pub fn shuffle_spread(&mut self, roll: &mut impl FnMut() -> f64) {
@@ -5408,7 +5525,7 @@ pub fn shuffle_spread(&mut self, roll: &mut impl FnMut() -> f64) {
 
 Retire les entrées dont le fichier, ou le titre et l'artiste (majuscules ignorées), sont déjà présents plus haut ; seules les entrées conservées comptent comme déjà vues.
 
-`app/src-tauri/src/playlist.rs` ligne 155
+`app/src-tauri/src/playlist.rs` ligne 157
 
 ```rust
 pub fn dedupe(&mut self) -> usize {
@@ -5430,7 +5547,7 @@ pub fn dedupe(&mut self) -> usize {
 
 Forme d'une entrée dans playlist.json : chemin, tags, durée, type et étiquette de grille.
 
-`app/src-tauri/src/playlist.rs` ligne 383
+`app/src-tauri/src/playlist.rs` ligne 385
 
 ```rust
 #[derive(Serialize, Deserialize)]
@@ -5452,7 +5569,7 @@ struct SavedEntry {
 
 Contenu de playlist.json : version du format, titres des platines en cours, entrées dans l'ordre.
 
-`app/src-tauri/src/playlist.rs` ligne 408
+`app/src-tauri/src/playlist.rs` ligne 410
 
 ```rust
 #[derive(Serialize, Deserialize, Default)]
@@ -5468,7 +5585,7 @@ struct SavedQueue {
 
 Écrit playlist.json dans un fichier temporaire, force l'écriture sur disque puis le renomme.
 
-`app/src-tauri/src/playlist.rs` ligne 417
+`app/src-tauri/src/playlist.rs` ligne 419
 
 ```rust
 pub fn save_queue(path: &Path, entries: &[Entry], decks: &[PathBuf]) -> Result<(), String> {
@@ -5490,7 +5607,7 @@ pub fn save_queue(path: &Path, entries: &[Entry], decks: &[PathBuf]) -> Result<(
 
 Relit playlist.json sans relire les tags des fichiers.
 
-`app/src-tauri/src/playlist.rs` ligne 453
+`app/src-tauri/src/playlist.rs` ligne 455
 
 ```rust
 pub fn load_queue(path: &Path) -> Result<(Vec<Entry>, Vec<PathBuf>), String> {
@@ -5512,7 +5629,7 @@ pub fn load_queue(path: &Path) -> Result<(Vec<Entry>, Vec<PathBuf>), String> {
 
 Reconnaît une playlist .m3u ou .m3u8 à son extension.
 
-`app/src-tauri/src/playlist.rs` ligne 212
+`app/src-tauri/src/playlist.rs` ligne 214
 
 ```rust
 pub fn is_m3u(path: &Path) -> bool {
@@ -5526,7 +5643,7 @@ pub fn is_m3u(path: &Path) -> bool {
 
 Lit les chemins d'une playlist M3U (UTF-8 ou Latin-1, chemins relatifs au fichier, préfixe file://), en ignorant les commentaires et les fichiers non audio.
 
-`app/src-tauri/src/playlist.rs` ligne 219
+`app/src-tauri/src/playlist.rs` ligne 221
 
 ```rust
 pub fn read_m3u(path: &Path) -> Vec<PathBuf> {
@@ -5548,7 +5665,7 @@ pub fn read_m3u(path: &Path) -> Vec<PathBuf> {
 
 Écrit la playlist en M3U étendu (#EXTINF : durée, artiste - titre), avec des fins de ligne Windows sous Windows.
 
-`app/src-tauri/src/playlist.rs` ligne 246
+`app/src-tauri/src/playlist.rs` ligne 248
 
 ```rust
 pub fn write_m3u(path: &Path, entries: &[Entry]) -> Result<(), String> {
@@ -5829,7 +5946,7 @@ fn new(
 
 Toutes les 15 ms : commandes de l'interface, travaux de fond, événements du moteur, prise antenne, OBS, sorties, statistiques et entretien.
 
-`app/src-tauri/src/controller/mod.rs` ligne 317
+`app/src-tauri/src/controller/mod.rs` ligne 318
 
 ```rust
 fn run(mut self) {
@@ -5851,7 +5968,7 @@ fn run(mut self) {
 
 Applique les résultats des fils de fond.
 
-`app/src-tauri/src/controller/mod.rs` ligne 343
+`app/src-tauri/src/controller/mod.rs` ligne 344
 
 ```rust
 fn drain_work(&mut self) {
@@ -5865,7 +5982,7 @@ fn drain_work(&mut self) {
 
 Lit jusqu'à 64 événements par tour et ne garde que le dernier tick.
 
-`app/src-tauri/src/controller/mod.rs` ligne 350
+`app/src-tauri/src/controller/mod.rs` ligne 351
 
 ```rust
 fn pump_engine(&mut self) {
@@ -5887,7 +6004,7 @@ fn pump_engine(&mut self) {
 
 Transmet une commande au mixeur si le moteur tourne.
 
-`app/src-tauri/src/controller/mod.rs` ligne 370
+`app/src-tauri/src/controller/mod.rs` ligne 371
 
 ```rust
 fn send(&self, cmd: Command) {
@@ -5901,7 +6018,7 @@ fn send(&self, cmd: Command) {
 
 Sérialise une vue et l'envoie à l'interface.
 
-`app/src-tauri/src/controller/mod.rs` ligne 377
+`app/src-tauri/src/controller/mod.rs` ligne 378
 
 ```rust
 fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
@@ -5916,7 +6033,7 @@ fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
 
 Affiche un message à l'utilisateur et journalise avertissements et erreurs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 385
+`app/src-tauri/src/controller/mod.rs` ligne 386
 
 ```rust
 fn notice(&self, level: &'static str, message: impl Into<String>) {
@@ -5932,7 +6049,7 @@ fn notice(&self, level: &'static str, message: impl Into<String>) {
 
 Dirige chaque commande de l'interface vers son traitement, puis publie l'état.
 
-`app/src-tauri/src/controller/mod.rs` ligne 394
+`app/src-tauri/src/controller/mod.rs` ligne 395
 
 ```rust
 fn handle(&mut self, cmd: UiCommand) {
@@ -5954,7 +6071,7 @@ fn handle(&mut self, cmd: UiCommand) {
 
 Republie toutes les vues et l'avertissement de démarrage éventuel.
 
-`app/src-tauri/src/controller/mod.rs` ligne 456
+`app/src-tauri/src/controller/mod.rs` ligne 457
 
 ```rust
 fn refresh(&mut self) {
@@ -5975,7 +6092,7 @@ fn refresh(&mut self) {
 
 Applique traitement antenne, automation, OBS, voix, pads et sorties modifiés.
 
-`app/src-tauri/src/controller/mod.rs` ligne 470
+`app/src-tauri/src/controller/mod.rs` ligne 471
 
 ```rust
 fn apply_config(&mut self, cfg: AppConfig) {
@@ -5997,7 +6114,7 @@ fn apply_config(&mut self, cfg: AppConfig) {
 
 Dirige chaque résultat de fond vers son traitement.
 
-`app/src-tauri/src/controller/mod.rs` ligne 491
+`app/src-tauri/src/controller/mod.rs` ligne 492
 
 ```rust
 fn on_work(&mut self, w: Work) {
@@ -6019,7 +6136,7 @@ fn on_work(&mut self, w: Work) {
 
 Met à jour platines, vumètres et micro à chaque tick ; gère fin de titre, fondus et fin des sons de pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 525
+`app/src-tauri/src/controller/mod.rs` ligne 526
 
 ```rust
 fn on_event(&mut self, e: Event) {
@@ -6041,7 +6158,7 @@ fn on_event(&mut self, e: Event) {
 
 Platine désignée par la position du crossfader.
 
-`app/src-tauri/src/controller/mod.rs` ligne 569
+`app/src-tauri/src/controller/mod.rs` ligne 570
 
 ```rust
 fn on_air_side(&self) -> usize {
@@ -6254,7 +6371,7 @@ Platines, crossfader, vumètres, auto-mix, platine à l'antenne, sortie audio, m
 
 Entrées avec motif d'attente et durée totale.
 
-`app/src-tauri/src/controller/views.rs` ligne 147
+`app/src-tauri/src/controller/views.rs` ligne 148
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6268,7 +6385,7 @@ pub struct PlaylistView<'a> {
 
 État, cible, auditeurs, pic et heure de passage en direct.
 
-`app/src-tauri/src/controller/views.rs` ligne 154
+`app/src-tauri/src/controller/views.rs` ligne 155
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6289,7 +6406,7 @@ pub struct CastOutputView {
 
 Diffusion en cours, titre, sorties, auditeurs, pic de session et début.
 
-`app/src-tauri/src/controller/views.rs` ligne 168
+`app/src-tauri/src/controller/views.rs` ligne 169
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6307,7 +6424,7 @@ pub struct CastView {
 
 Tampons mémoire envoyés à l'interface : flux global, morceaux, jingles et pubs, avec statistiques, passage en cours et taille des tampons.
 
-`app/src-tauri/src/controller/views.rs` ligne 179
+`app/src-tauri/src/controller/views.rs` ligne 180
 
 ```rust
 #[derive(Serialize, Clone, Default)]
@@ -6810,13 +6927,13 @@ pub fn pick_next<'a>(
 
 ### [CTL-68] Motif d'attente
 
-Même artiste déjà sur une platine, ou règle enfreinte selon l'historique ; jingles et pubs en sont exemptés.
+Même artiste déjà sur une platine, ou règle enfreinte selon l'historique ; jingles, pubs et titres d'émission en sont exemptés.
 
 `app/src-tauri/src/controller/automation.rs` ligne 79
 
 ```rust
 pub(super) fn violation_for(&self, e: &Entry, now: i64) -> Option<String> {
-    if e.error.is_some() {
+    if e.error.is_some() || e.slot.as_ref().is_some_and(|s| s.fixed) {
         return None;
     }
     self.violation_of(&e.path.to_string_lossy(), &e.title, &e.artist, e.kind, now)
@@ -7702,7 +7819,7 @@ pub(super) fn finish_play(&mut self, id: i64, duration: f64) {
 
 Nom, fichier, durée, prêt, en erreur ou en cours de lecture.
 
-`app/src-tauri/src/controller/views.rs` ligne 192
+`app/src-tauri/src/controller/views.rs` ligne 193
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7721,7 +7838,7 @@ pub struct JingleView {
 
 Jingles du dossier, dossier choisi et lecture en cours du dossier.
 
-`app/src-tauri/src/controller/views.rs` ligne 204
+`app/src-tauri/src/controller/views.rs` ligne 205
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7907,7 +8024,7 @@ pub(super) fn emit_jingles(&self) {
 
 Avec une grille active, l'auto-mix garde au moins 3 titres d'avance dans la playlist.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 16
+`app/src-tauri/src/controller/rotation.rs` ligne 17
 
 ```rust
 const LOOKAHEAD: usize = 3;
@@ -7917,7 +8034,7 @@ const LOOKAHEAD: usize = 3;
 
 Les titres lus sont enregistrés en base par lots de 200.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 18
+`app/src-tauri/src/controller/rotation.rs` ligne 19
 
 ```rust
 const SCAN_BATCH: usize = 200;
@@ -7927,7 +8044,7 @@ const SCAN_BATCH: usize = 200;
 
 Nombre de tirages tentés si le fichier choisi a disparu du disque.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 20
+`app/src-tauri/src/controller/rotation.rs` ligne 21
 
 ```rust
 const PICK_ATTEMPTS: usize = 8;
@@ -7937,7 +8054,7 @@ const PICK_ATTEMPTS: usize = 8;
 
 Grilles, dossiers et titres de la bibliothèque en mémoire, scan en cours, grille et case courantes, tirage aléatoire et avertissements déjà donnés.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 23
+`app/src-tauri/src/controller/rotation.rs` ligne 24
 
 ```rust
 pub struct RotationState {
@@ -7949,16 +8066,17 @@ pub struct RotationState {
     pub scanned: usize,
     pub clock_id: Option<String>,
     pub cursor: usize,
+    pub fb_cursor: usize,
     pub rng: u64,
     pub warned: HashSet<String>,
-}
+…
 ```
 
 ### [CTL-139] Passage d'un titre
 
 Met à jour en mémoire la date du dernier passage, pour que la pondération en tienne compte aussitôt.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 69
+`app/src-tauri/src/controller/rotation.rs` ligne 108
 
 ```rust
 pub fn mark_played(&mut self, path: &str, at: i64) {
@@ -7973,7 +8091,7 @@ pub fn mark_played(&mut self, path: &str, at: i64) {
 
 Parcourt les dossiers en arrière-plan et ne relit que les fichiers nouveaux ou modifiés (date de modification).
 
-`app/src-tauri/src/controller/rotation.rs` ligne 78
+`app/src-tauri/src/controller/rotation.rs` ligne 117
 
 ```rust
 fn scan_library(
@@ -7995,7 +8113,7 @@ fn scan_library(
 
 Charge en mémoire les titres connus de la base.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 109
+`app/src-tauri/src/controller/rotation.rs` ligne 148
 
 ```rust
 pub(super) fn load_library_tracks(&mut self) {
@@ -8011,9 +8129,9 @@ pub(super) fn load_library_tracks(&mut self) {
 
 ### [CTL-142] Relecture de la bibliothèque
 
-Lance un scan, sauf s'il en tourne déjà un.
+Lance un scan des dossiers de la bibliothèque et des playlists M3U des catégories et émissions, sauf s'il en tourne déjà un.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 120
+`app/src-tauri/src/controller/rotation.rs` ligne 159
 
 ```rust
 pub(super) fn library_rescan(&mut self) {
@@ -8021,13 +8139,13 @@ pub(super) fn library_rescan(&mut self) {
         self.notice("info", "Scan de la bibliothèque déjà en cours…");
         return;
     }
-    if self.rot.library_dirs.is_empty() {
+    let targets = self.rot.scan_targets();
+    if targets.is_empty() {
         self.emit_library();
         return;
     }
     let known = self
         .auto
-        .history
 …
 ```
 
@@ -8035,46 +8153,51 @@ pub(super) fn library_rescan(&mut self) {
 
 Applique les grilles (la case courante repart du début) et relit la bibliothèque si ses dossiers changent.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 165
+`app/src-tauri/src/controller/rotation.rs` ligne 205
 
 ```rust
 pub(super) fn apply_rotation(&mut self, rotation: Rotation, library: &LibrarySettings) {
+    let mut rescan = false;
     if rotation != self.rot.rotation {
+        rescan = rotation.playlist_paths() != self.rot.rotation.playlist_paths();
         self.rot.rotation = rotation;
         self.rot.clock_id = None;
         self.rot.warned.clear();
+        self.rot.refresh_lists();
         self.emit_state();
     }
     if library.dirs != self.rot.library_dirs {
         self.rot.library_dirs = library.dirs.clone();
-        self.library_rescan();
-    }
-}
+…
 ```
 
 ### [CTL-144] Grille de l'heure
 
 Grille du planning pour le jour et l'heure locaux, ou grille hors planning.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 179
+`app/src-tauri/src/controller/rotation.rs` ligne 225
 
 ```rust
 pub(super) fn current_clock(&self) -> Option<ClockView> {
     let now = chrono::Local::now();
     let wd = now.weekday().num_days_from_monday() as usize;
-    clock_index(&self.rot.rotation, wd, now.hour() as usize).map(|c| ClockView {
-        id: c.id.clone(),
-        name: c.name.clone(),
-        color: c.color.clone(),
-    })
-}
+    scheduled(&self.rot.rotation, wd, now.hour() as usize).map(|s| match s {
+        Scheduled::Clock(c) => ClockView {
+            id: c.id.clone(),
+            name: c.name.clone(),
+            color: c.color.clone(),
+            program: false,
+        },
+        Scheduled::Program(p) => ClockView {
+            id: p.id.clone(),
+…
 ```
 
 ### [CTL-145] Remplissage par la grille
 
-Ajoute à la playlist les titres tirés par la grille de l'heure jusqu'à avoir 3 titres d'avance ; la grille repart de sa première case quand elle change.
+Ajoute à la playlist les titres de la grille ou de l'émission de l'heure jusqu'à avoir 3 titres d'avance ; tout repart du début quand l'heure change de contenu.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 190
+`app/src-tauri/src/controller/rotation.rs` ligne 245
 
 ```rust
 pub(super) fn rotation_fill(&mut self) -> bool {
@@ -8085,10 +8208,10 @@ pub(super) fn rotation_fill(&mut self) -> bool {
     if self.rot.clock_id.as_deref() != Some(clock.id.as_str()) {
         self.rot.clock_id = Some(clock.id.clone());
         self.rot.cursor = 0;
-    }
-    let mut added = Vec::new();
-    while self.playlist.entries().len() + added.len() < LOOKAHEAD {
-        match self.rotation_next(&clock.id, &added) {
+        self.rot.fb_cursor = 0;
+        self.rot.program_done = false;
+        self.rot.program = Vec::new();
+        if clock.program {
 …
 ```
 
@@ -8096,7 +8219,7 @@ pub(super) fn rotation_fill(&mut self) -> bool {
 
 Titres de la catégorie absents de la playlist et des platines, conformes aux règles de séparation (et pas du même artiste qu'un titre déjà prévu), tirés avec pondération ; si aucun n'est conforme, les règles sont assouplies avec un avertissement.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 238
+`app/src-tauri/src/controller/rotation.rs` ligne 381
 
 ```rust
 fn pick_from(&mut self, cat: &RotationCategory, pending: &[Entry]) -> Option<Entry> {
@@ -8118,7 +8241,7 @@ fn pick_from(&mut self, cat: &RotationCategory, pending: &[Entry]) -> Option<Ent
 
 Envoie dossiers, nombre de titres et état du scan.
 
-`app/src-tauri/src/controller/rotation.rs` ligne 310
+`app/src-tauri/src/controller/rotation.rs` ligne 456
 
 ```rust
 pub(super) fn emit_library(&self) {
@@ -8136,7 +8259,7 @@ pub(super) fn emit_library(&self) {
 
 ### [CTL-148] Vue de la grille active
 
-Identifiant, nom et couleur de la grille de l'heure.
+Identifiant, nom, couleur de la grille ou de l'émission de l'heure, et s'il s'agit d'une émission.
 
 `app/src-tauri/src/controller/views.rs` ligne 112
 
@@ -8146,6 +8269,7 @@ pub struct ClockView {
     pub id: String,
     pub name: String,
     pub color: String,
+    pub program: bool,
 }
 ```
 
@@ -8153,7 +8277,7 @@ pub struct ClockView {
 
 Dossiers, nombre de titres, scan en cours et titres lus.
 
-`app/src-tauri/src/controller/views.rs` ligne 120
+`app/src-tauri/src/controller/views.rs` ligne 121
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -8422,6 +8546,94 @@ pub(super) fn save_m3u(&mut self, path: PathBuf) {
                 "info",
                 format!("Playlist enregistrée : {name} ({} titres).", entries.len()),
             );
+…
+```
+
+### [CTL-164] Lecture des playlists de catégories
+
+Relit les M3U des catégories pour savoir quels titres de la bibliothèque y figurent.
+
+`app/src-tauri/src/controller/rotation.rs` ligne 78
+
+```rust
+pub fn refresh_lists(&mut self) {
+    self.lists = self
+        .rotation
+        .categories
+        .iter()
+        .flat_map(|c| c.rule.playlists.iter())
+        .map(|p| {
+            let set = playlist::read_m3u(Path::new(p))
+                .iter()
+                .map(|t| path_key(&t.to_string_lossy()))
+                .collect();
+            (path_key(p), set)
+…
+```
+
+### [CTL-165] Début d'émission
+
+Lit le M3U de l'émission quand son heure commence ; prévient s'il est vide ou introuvable.
+
+`app/src-tauri/src/controller/rotation.rs` ligne 288
+
+```rust
+fn start_program(&mut self, id: &str) {
+    let Some(p) = self.rot.rotation.program(id).cloned() else {
+        return;
+    };
+    self.rot.program = playlist::read_m3u(Path::new(&p.path));
+    if self.rot.program.is_empty() {
+        self.notice(
+            "warn",
+            format!(
+                "Émission « {} » : playlist {} vide ou introuvable.",
+                p.name, p.path
+            ),
+…
+```
+
+### [CTL-166] Titre suivant de l'émission
+
+Prend le titre suivant du M3U dans l'ordre, en sautant les fichiers absents ; tags de la bibliothèque s'il y est connu.
+
+`app/src-tauri/src/controller/rotation.rs` ligne 311
+
+```rust
+fn program_next(&mut self, tag: SlotTag) -> Option<Entry> {
+    while self.rot.cursor < self.rot.program.len() {
+        let path = self.rot.program[self.rot.cursor].clone();
+        self.rot.cursor += 1;
+        if !path.is_file() {
+            continue;
+        }
+        let known = self.rot.index.get(&*path.to_string_lossy()).copied();
+        let entry = match known {
+            Some(i) => playlist::from_library(&self.rot.tracks[i], tag),
+            None => Entry {
+                slot: Some(tag),
+…
+```
+
+### [CTL-167] Fin d'émission
+
+Quand le M3U est épuisé, annonce la fin une fois et continue avec la grille hors planning.
+
+`app/src-tauri/src/controller/rotation.rs` ligne 332
+
+```rust
+fn fallback_next(&mut self, program: &str, pending: &[Entry]) -> Option<Entry> {
+    if !self.rot.program_done {
+        self.rot.program_done = true;
+        if !self.rot.program.is_empty() {
+            self.notice(
+                "info",
+                format!("Émission « {program} » terminée : retour à la grille par défaut."),
+            );
+        }
+    }
+    let id = default_clock(&self.rot.rotation)?.id.clone();
+    self.rotation_next(&id, pending, true)
 …
 ```
 
@@ -9996,7 +10208,7 @@ async function chooseImage() {
 
 Bascule entre Bibliothèque, Catégories, Grilles et Planning.
 
-`app/ui/js/rotation.js` ligne 20
+`app/ui/js/rotation.js` ligne 22
 
 ```js
 function showRotPage(page) {
@@ -10010,7 +10222,7 @@ function showRotPage(page) {
 
 Dossiers, état du scan et nombre de titres.
 
-`app/ui/js/rotation.js` ligne 27
+`app/ui/js/rotation.js` ligne 29
 
 ```js
 export function setLibrary(v) {
@@ -10032,7 +10244,7 @@ export function setLibrary(v) {
 
 Catégories avec leur couleur, et formulaire de celle choisie.
 
-`app/ui/js/rotation.js` ligne 67
+`app/ui/js/rotation.js` ligne 69
 
 ```js
 function renderCategories() {
@@ -10054,21 +10266,21 @@ function renderCategories() {
 
 Lit le formulaire en règles de catégorie, à chaque frappe.
 
-`app/ui/js/rotation.js` ligne 102
+`app/ui/js/rotation.js` ligne 105
 
 ```js
 function readCategory() {
   const cat = rot.categories.find((c) => c.id === selCat);
   if (!cat) return;
-  const v = formValues($("#cat-form"));
+  const form = $("#cat-form");
+  const v = formValues(form);
+  const raw = (n) => num(form.elements[n].value);
   cat.name = v.name.trim();
   cat.color = v.color;
   cat.rule = {
     kinds: ["morceau", "jingle", "pub"].filter((k) => v[`k_${k}`]),
     genres: words(v.genres),
-    year_min: num(v.year_min),
-    year_max: num(v.year_max),
-    bpm_min: num(v.bpm_min),
+    year_min: raw("year_min"),
 …
 ```
 
@@ -10076,7 +10288,7 @@ function readCategory() {
 
 Grilles avec leur couleur et leur nombre de cases.
 
-`app/ui/js/rotation.js` ligne 140
+`app/ui/js/rotation.js` ligne 146
 
 ```js
 function renderClocks() {
@@ -10098,7 +10310,7 @@ function renderClocks() {
 
 Catégorie de chaque case, montée, descente et retrait.
 
-`app/ui/js/rotation.js` ligne 162
+`app/ui/js/rotation.js` ligne 168
 
 ```js
 function renderSlots(clock) {
@@ -10118,23 +10330,23 @@ function renderSlots(clock) {
 
 ### [UI-96] Planning
 
-Palette des grilles et tableau des 7 jours × 24 heures, à peindre au clic ou au glisser.
+Palette des grilles et des émissions (hachurées) et tableau des 7 jours × 24 heures, à peindre au clic ou au glisser.
 
-`app/ui/js/rotation.js` ligne 203
+`app/ui/js/rotation.js` ligne 247
 
 ```js
 function renderSchedule() {
   const pal = $("#sched-palette");
   pal.innerHTML = "";
-  const choices = [{ id: null, name: "Effacer", color: "transparent" }, ...rot.clocks];
+  const choices = [{ id: null, name: "Effacer", color: "transparent" }, ...rot.clocks, ...rot.programs];
   for (const k of choices) {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "chip-btn sched-chip" + (paint === k.id ? " active" : "");
-    b.append(dot(k.id ? k.color : "transparent"), document.createTextNode(k.name || "Sans nom"));
-    b.addEventListener("click", () => {
-      paint = k.id;
-      renderSchedule();
+    b.className = "chip-btn sched-chip" + (paint === k.id ? " active" : "") + (isProgram(k.id) ? " prog" : "");
+    const d = dot(k.id ? k.color : "transparent");
+    if (isProgram(k.id)) {
+      d.style.background = "";
+      d.style.setProperty("--cell-color", k.color);
 …
 ```
 
@@ -10142,16 +10354,19 @@ function renderSchedule() {
 
 Copie de travail des grilles à l'ouverture des réglages.
 
-`app/ui/js/rotation.js` ligne 255
+`app/ui/js/rotation.js` ligne 306
 
 ```js
 export function applySettingsView(view) {
   rot = JSON.parse(JSON.stringify(view.rotation));
   if (!rot.categories.some((c) => c.id === selCat)) selCat = rot.categories[0] ? rot.categories[0].id : null;
   if (!rot.clocks.some((k) => k.id === selClock)) selClock = rot.clocks[0] ? rot.clocks[0].id : null;
-  if (paint && !rot.clocks.some((k) => k.id === paint)) paint = null;
+  rot.programs = rot.programs || [];
+  if (!rot.programs.some((p) => p.id === selProg)) selProg = rot.programs[0] ? rot.programs[0].id : null;
+  if (paint && !scheduled(paint)) paint = null;
   renderCategories();
   renderClocks();
+  renderPrograms();
   renderSchedule();
 }
 ```
@@ -10160,7 +10375,7 @@ export function applySettingsView(view) {
 
 Envoie la copie de travail ; une erreur de validation s'affiche sans rien perdre.
 
-`app/ui/js/rotation.js` ligne 266
+`app/ui/js/rotation.js` ligne 320
 
 ```js
 async function save() {
@@ -10176,23 +10391,23 @@ async function save() {
 
 ### [UI-99] Grille dans le mixeur
 
-Affiche le nom et la couleur de la grille de l'heure à côté du titre MIX.
+Affiche le nom et la couleur de la grille ou de l'émission (précédée de ▶) de l'heure à côté du titre MIX.
 
 `app/ui/js/decks.js` ligne 65
 
 ```js
 function renderClock(clock) {
   const title = $(".mixer-title");
-  const key = clock ? `${clock.id}|${clock.name}|${clock.color}` : "";
+  const key = clock ? `${clock.id}|${clock.name}|${clock.color}|${clock.program}` : "";
   if (title.dataset.clock === key) return;
   title.dataset.clock = key;
   title.textContent = "MIX";
-  title.title = clock ? `Grille de l'heure : ${clock.name}` : "Aucune grille pour cette heure : l'auto-mix suit la playlist";
+  title.title = clock ? `${clock.program ? "Émission" : "Grille"} de l'heure : ${clock.name}` : "Aucune grille pour cette heure : l'auto-mix suit la playlist";
   if (!clock) return;
   const tag = document.createElement("span");
   tag.className = "clock-tag";
   tag.style.setProperty("--clock-color", clock.color || "var(--accent)");
-  tag.textContent = clock.name;
+  tag.textContent = clock.program ? `\u25B6 ${clock.name}` : clock.name;
 …
 ```
 
@@ -10298,6 +10513,50 @@ async function saveM3u() {
   });
   if (path) send({ type: "save_playlist", path });
 }
+```
+
+### [UI-106] Liste des émissions
+
+Liste des émissions et formulaire de l'émission choisie.
+
+`app/ui/js/rotation.js` ligne 209
+
+```js
+function renderPrograms() {
+  const box = $("#prog-list");
+  box.innerHTML = "";
+  for (const p of rot.programs) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "rot-item" + (p.id === selProg ? " active" : "");
+    row.append(dot(p.color), Object.assign(document.createElement("span"), { className: "rot-name", textContent: p.name || "Sans nom" }));
+    row.addEventListener("click", () => {
+      selProg = p.id;
+      renderPrograms();
+    });
+…
+```
+
+### [UI-107] Lecture d'une émission
+
+Recopie le nom, la couleur et le chemin du M3U depuis le formulaire.
+
+`app/ui/js/rotation.js` ligne 229
+
+```js
+function readProgram() {
+  const prog = rot.programs.find((p) => p.id === selProg);
+  if (!prog) return;
+  const v = formValues($("#prog-form"));
+  prog.name = v.name.trim();
+  prog.color = v.color;
+  prog.path = v.path.trim();
+  const item = $("#prog-list .rot-item.active");
+  if (item) {
+    $(".rot-name", item).textContent = prog.name || "Sans nom";
+    $(".rot-dot", item).style.background = prog.color;
+  }
+…
 ```
 
 
@@ -10508,7 +10767,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 686
+`app/ui/style.css` ligne 687
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -10518,7 +10777,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 705
+`app/ui/style.css` ligne 706
 
 ```css
 .statusbar {
@@ -10536,7 +10795,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 740
+`app/ui/style.css` ligne 741
 
 ```css
 .hidden { display: none !important; }
@@ -10546,7 +10805,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 716
+`app/ui/style.css` ligne 717
 
 ```css
 html.glass body {
@@ -10790,7 +11049,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 576
+`app/ui/index.html` ligne 600
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -10865,7 +11124,7 @@ Mots-clés de dossier des jingles et des pubs.
 
 Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement.
 
-`app/ui/index.html` ligne 551
+`app/ui/index.html` ligne 575
 
 ```html
 <section class="tab-page hidden" data-page="appearance">
@@ -10888,7 +11147,7 @@ Bibliothèque, catégories, grilles et planning de la semaine.
     <button class="chip-btn active" data-rot="library">Bibliothèque</button>
     <button class="chip-btn" data-rot="categories">Catégories</button>
     <button class="chip-btn" data-rot="clocks">Grilles</button>
-    <button class="chip-btn" data-rot="schedule">Planning</button>
+    <button class="chip-btn" data-rot="programs">Émissions</button>
 ```
 
 ### [HTM-23] Menu Mélanger
@@ -10903,4 +11162,19 @@ Actions de mélange et de nettoyage de la playlist.
   <button class="btn ghost small" data-shuffle="spread">Mélanger en espaçant les artistes</button>
   <button class="btn ghost small" data-shuffle="dedupe">Retirer les doublons</button>
 </div>
+```
+
+### [HTM-24] Page Émissions
+
+Émissions des grilles : nom, couleur, fichier M3U, explications.
+
+`app/ui/index.html` ligne 543
+
+```html
+<div class="rot-page rot-split" data-rotpage="programs" hidden>
+  <div class="rot-side">
+    <div id="prog-list" class="rot-list"></div>
+    <button type="button" class="btn small" id="prog-add">Nouvelle émission</button>
+  </div>
+  <form class="form rot-form" id="prog-form">
 ```
