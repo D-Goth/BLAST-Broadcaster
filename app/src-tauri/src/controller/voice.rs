@@ -54,6 +54,8 @@ impl Controller {
         self.send(Command::SetDuck {
             enabled: v.duck,
             level_db: v.duck_db,
+            attack_s: v.duck_attack_ms as f32 / 1000.0,
+            release_s: v.duck_release_ms as f32 / 1000.0,
         });
         self.send(Command::SetMicMonitor(v.monitor));
         self.send(Command::SetVoiceParams(voice_preset(&v.preset)));

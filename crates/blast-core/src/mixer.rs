@@ -43,10 +43,19 @@ pub enum Command {
     Seek(DeckId, usize),
     SetDeckGain(DeckId, f32),
     SetCrossfader(f32),
-    StartCrossfade { to: DeckId, frames: usize },
+    StartCrossfade {
+        to: DeckId,
+        frames: usize,
+    },
     SetMaster(f32),
-    SetAutoMix { enabled: bool, fade_frames: usize },
-    PlaySfx { pad: u16, track: Arc<Track> },
+    SetAutoMix {
+        enabled: bool,
+        fade_frames: usize,
+    },
+    PlaySfx {
+        pad: u16,
+        track: Arc<Track>,
+    },
     StopSfx(u16),
     StopAllSfx,
     StopAllCarts,
@@ -55,7 +64,12 @@ pub enum Command {
     SetMusicGain(f32),
     SetMicOpen(bool),
     SetMicParams(MicParams),
-    SetDuck { enabled: bool, level_db: f32 },
+    SetDuck {
+        enabled: bool,
+        level_db: f32,
+        attack_s: f32,
+        release_s: f32,
+    },
     SetMicMonitor(bool),
     SetMasterParams(MasterParams),
     SetVoiceParams(VoiceParams),
@@ -179,6 +193,8 @@ pub struct Mixer {
     duck_enabled: bool,
     duck_target: f32,
     duck: f32,
+    duck_attack_s: f32,
+    duck_release_s: f32,
     mic_monitor: bool,
     master_chain: Option<MasterChain>,
     master_spare: Option<MasterChain>,
@@ -217,6 +233,8 @@ impl Mixer {
             duck_enabled: true,
             duck_target: db_to_gain(-12.0),
             duck: 1.0,
+            duck_attack_s: 0.2,
+            duck_release_s: 0.8,
             mic_monitor: false,
             master_chain: None,
             master_spare: Some(MasterChain::new(sample_rate as f32)),
@@ -370,9 +388,16 @@ impl Mixer {
                 }
             }
             Command::SetVoiceParams(p) => self.voice_fx.configure(p),
-            Command::SetDuck { enabled, level_db } => {
+            Command::SetDuck {
+                enabled,
+                level_db,
+                attack_s,
+                release_s,
+            } => {
                 self.duck_enabled = enabled;
                 self.duck_target = db_to_gain(level_db.min(0.0));
+                self.duck_attack_s = attack_s.clamp(0.0, 10.0);
+                self.duck_release_s = release_s.clamp(0.0, 10.0);
             }
         }
         None
@@ -546,8 +571,9 @@ impl Mixer {
             }
         }
         let mic_step = 1.0 / (self.sample_rate as f32 * 0.02);
-        let duck_attack = 1.0 / (self.sample_rate as f32 * 0.15);
-        let duck_release = 1.0 / (self.sample_rate as f32 * 0.6);
+        let duck_depth = (1.0 - self.duck_target).max(1e-3);
+        let duck_attack = duck_step(duck_depth, self.duck_attack_s, self.sample_rate);
+        let duck_release = duck_step(duck_depth, self.duck_release_s, self.sample_rate);
         for f in 0..frames {
             self.check_automix(&mut emit);
             let (ga, gb) = crossfade_gains(self.crossfader);
@@ -630,6 +656,11 @@ impl MicChain {
             high: Biquad::high_shelf(6000.0, p.high_db, rate),
         }
     }
+}
+
+// [MIX-17]
+fn duck_step(depth: f32, secs: f32, sample_rate: u32) -> f32 {
+    depth / (sample_rate as f32 * secs.max(0.005))
 }
 
 #[cfg(test)]
@@ -858,6 +889,8 @@ mod tests {
         m.apply(Command::SetDuck {
             enabled: true,
             level_db: -12.0,
+            attack_s: 0.2,
+            release_s: 0.8,
         });
         m.apply(Command::Load(DeckId::A, tone(3000, 0.5)));
         m.apply(Command::Play(DeckId::A));
@@ -891,6 +924,30 @@ mod tests {
             "retour de la musique : {}",
             out[2 * 1499]
         );
+    }
+
+    #[test]
+    fn duck_times_set_how_long_the_music_takes_to_move() {
+        let mut m = Mixer::new(1000);
+        let (_tx, rx) = rtrb::RingBuffer::<f32>::new(16);
+        m.attach_mic(rx);
+        m.apply(Command::SetDuck {
+            enabled: true,
+            level_db: -20.0,
+            attack_s: 1.0,
+            release_s: 2.0,
+        });
+        m.apply(Command::SetMicOpen(true));
+        run(&mut m, 500);
+        let half = 1.0 - (1.0 - db_to_gain(-20.0)) / 2.0;
+        assert!((m.duck - half).abs() < 0.01, "mi-attaque : {}", m.duck);
+        run(&mut m, 600);
+        assert!((m.duck - db_to_gain(-20.0)).abs() < 1e-4);
+        m.apply(Command::SetMicOpen(false));
+        run(&mut m, 1000);
+        assert!((m.duck - half).abs() < 0.01, "mi-retour : {}", m.duck);
+        run(&mut m, 1100);
+        assert!((m.duck - 1.0).abs() < 1e-4);
     }
 
     #[test]

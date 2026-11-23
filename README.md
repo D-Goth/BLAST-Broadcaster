@@ -117,7 +117,7 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 | Se déplacer | Cliquer sur la barre de progression |
 | Micro | **Appuyer pour parler** (ou **Espace** maintenu) : ouvert tant qu'on appuie ; **🔒 VERROU** (ou touche **M**) : verrouille le micro ouvert, re-cliquer pour le refermer |
 | Retour micro | **Réglages → Audio** : le micro part toujours vers la diffusion ; « Entendre mon micro » le renvoie aussi vers les enceintes/le casque (désactivé par défaut, pas d'écho ni de Larsen) |
-| Ducking | **AUTO** : la musique baisse automatiquement (niveau réglable, -12 dB par défaut) quand le micro est ouvert |
+| Ducking | **AUTO** : la musique baisse automatiquement (niveau réglable, -12 dB par défaut) quand le micro est ouvert ; **Temps du ducking** règle la descente (0,2 s par défaut) et la remontée (0,8 s) de la musique |
 | Égaliseur micro | Grave, médium, aigu (±12 dB) et coupe-bas ; volume micro et volume musique séparés |
 | Effets voix | Sélecteur dans l'en-tête du Voice FX : Naturel, Podcast chaleureux, Voix radio FM, ASMR, Radio TSF 1930, Téléphone, Mégaphone (porte de bruit, filtres, saturation « lampe », compresseur, de-esser, souffle et craquements selon l'effet) |
 | Son antenne | Sélecteur **Son** du panneau MIX : Aucun traitement, Doux, Radio FM, Puissant (AGC, compresseur, limiteur à anticipation). Le VU **RÉD** montre la réduction de gain appliquée |

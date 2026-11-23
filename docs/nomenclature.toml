@@ -2523,3 +2523,11 @@ definition = "Recopie le nom, la couleur et le chemin du M3U depuis le formulair
 [codes.HTM-24]
 titre = "Page Émissions"
 definition = "Émissions des grilles : nom, couleur, fichier M3U, explications."
+
+[codes.MIX-17]
+titre = "Pas du ducking"
+definition = "Variation de gain par échantillon pour que la musique parcoure toute la profondeur du ducking dans le temps réglé (descente ou remontée)."
+
+[codes.HTM-25]
+titre = "Réglages repliables du Voice FX"
+definition = "Égaliseur micro et temps du ducking ; repliés sur une même ligne, une section ouverte prend toute la largeur."

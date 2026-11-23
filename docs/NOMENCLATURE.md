@@ -25,7 +25,7 @@ ne pas le modifier à la main.
 | [`CORE`](#core) | Types communs du moteur audio (blast-core) | 3 |
 | [`DEC`](#dec) | Décodage, tags et rééchantillonnage (blast-core) | 13 |
 | [`DSP`](#dsp) | Traitement du signal : filtres, dynamique, chaîne antenne, effets de voix (blast-core) | 20 |
-| [`MIX`](#mix) | Mixeur temps réel (blast-core) | 16 |
+| [`MIX`](#mix) | Mixeur temps réel (blast-core) | 17 |
 | [`ENG`](#eng) | Moteur audio et périphériques (blast-core) | 19 |
 | [`CAST`](#cast) | Sorties de diffusion, encodage MP3 et fils d'envoi (blast-cast) | 18 |
 | [`PROT`](#prot) | Protocoles Icecast / Shoutcast et statistiques (blast-cast) | 23 |
@@ -43,7 +43,7 @@ ne pas le modifier à la main.
 | [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 157 |
 | [`UI`](#ui) | Interface : modules JavaScript | 107 |
 | [`STY`](#sty) | Interface : feuille de style | 17 |
-| [`HTM`](#htm) | Interface : structure de la page | 24 |
+| [`HTM`](#htm) | Interface : structure de la page | 25 |
 
 ## CORE
 
@@ -768,8 +768,8 @@ pub enum Command {
     Seek(DeckId, usize),
     SetDeckGain(DeckId, f32),
     SetCrossfader(f32),
-    StartCrossfade { to: DeckId, frames: usize },
-    SetMaster(f32),
+    StartCrossfade {
+        to: DeckId,
 …
 ```
 
@@ -777,7 +777,7 @@ pub enum Command {
 
 État, position et durée en trames, renvoyés à chaque tick.
 
-`crates/blast-core/src/mixer.rs` ligne 64
+`crates/blast-core/src/mixer.rs` ligne 78
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -792,7 +792,7 @@ pub struct DeckStatus {
 
 Fin de titre, transition automatique, fin de fondu, fin d'un son de pad et tick de mesure.
 
-`crates/blast-core/src/mixer.rs` ligne 72
+`crates/blast-core/src/mixer.rs` ligne 86
 
 ```rust
 #[derive(Debug, Clone, PartialEq)]
@@ -814,7 +814,7 @@ pub enum Event {
 
 Son de pad en cours de lecture et sa position.
 
-`crates/blast-core/src/mixer.rs` ligne 96
+`crates/blast-core/src/mixer.rs` ligne 110
 
 ```rust
 struct Voice {
@@ -828,7 +828,7 @@ struct Voice {
 
 File d'entrée, filtres, gain et effets du micro avant le mélange.
 
-`crates/blast-core/src/mixer.rs` ligne 103
+`crates/blast-core/src/mixer.rs` ligne 117
 
 ```rust
 struct MicChain {
@@ -843,7 +843,7 @@ struct MicChain {
 
 Titre chargé, position, état et gain d'une platine dans le fil audio.
 
-`crates/blast-core/src/mixer.rs` ligne 111
+`crates/blast-core/src/mixer.rs` ligne 125
 
 ```rust
 #[derive(Debug, Default)]
@@ -859,7 +859,7 @@ struct Slot {
 
 Positions de départ et d'arrivée du crossfader et durée du fondu.
 
-`crates/blast-core/src/mixer.rs` ligne 145
+`crates/blast-core/src/mixer.rs` ligne 159
 
 ```rust
 #[derive(Debug, Clone, Copy)]
@@ -876,7 +876,7 @@ struct Fade {
 
 Mélange les deux platines, les sons de pads et le micro, sans aucune allocation dans le fil audio.
 
-`crates/blast-core/src/mixer.rs` ligne 155
+`crates/blast-core/src/mixer.rs` ligne 169
 
 ```rust
 pub struct Mixer {
@@ -898,7 +898,7 @@ pub struct Mixer {
 
 Exécute une commande de l'interface ; les titres remplacés partent dans une corbeille vidée hors du fil audio.
 
-`crates/blast-core/src/mixer.rs` ligne 276
+`crates/blast-core/src/mixer.rs` ligne 294
 
 ```rust
 pub fn apply(&mut self, cmd: Command) -> Option<Arc<Track>> {
@@ -920,7 +920,7 @@ pub fn apply(&mut self, cmd: Command) -> Option<Arc<Track>> {
 
 Produit un bloc de mélange sans séparer antenne et écoute locale.
 
-`crates/blast-core/src/mixer.rs` ligne 526
+`crates/blast-core/src/mixer.rs` ligne 551
 
 ```rust
 pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], emit: F) {
@@ -932,7 +932,7 @@ pub fn render<F: FnMut(Event)>(&mut self, out: &mut [f32], emit: F) {
 
 Produit le mélange antenne (avec micro) et le mélange local (micro seulement si le retour est activé), applique ducking, auto-mix et traitement antenne.
 
-`crates/blast-core/src/mixer.rs` ligne 531
+`crates/blast-core/src/mixer.rs` ligne 556
 
 ```rust
 pub fn render_split<F: FnMut(Event)>(
@@ -954,7 +954,7 @@ pub fn render_split<F: FnMut(Event)>(
 
 Lit le micro dans sa file, limite le retard, filtre et applique les effets de voix.
 
-`crates/blast-core/src/mixer.rs` ligne 623
+`crates/blast-core/src/mixer.rs` ligne 649
 
 ```rust
 impl MicChain {
@@ -977,6 +977,18 @@ Les voix numérotées à partir de 1000 sont des jingles : volume propre, arrêt
 
 ```rust
 pub const CART_BASE: u16 = 1000;
+```
+
+### [MIX-17] Pas du ducking
+
+Variation de gain par échantillon pour que la musique parcoure toute la profondeur du ducking dans le temps réglé (descente ou remontée).
+
+`crates/blast-core/src/mixer.rs` ligne 661
+
+```rust
+fn duck_step(depth: f32, secs: f32, sample_rate: u32) -> f32 {
+    depth / (sample_rate as f32 * secs.max(0.005))
+}
 ```
 
 
@@ -4663,9 +4675,9 @@ pub struct VoiceSettings {
     pub music_gain_db: f32,
     pub duck: bool,
     pub duck_db: f32,
+    pub duck_attack_ms: u32,
+    pub duck_release_ms: u32,
     pub low_db: f32,
-    pub mid_db: f32,
-    pub high_db: f32,
 …
 ```
 
@@ -4673,7 +4685,7 @@ pub struct VoiceSettings {
 
 Numéro, nom, fichier et couleur d'un pad.
 
-`app/src-tauri/src/config.rs` ligne 61
+`app/src-tauri/src/config.rs` ligne 65
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -4690,7 +4702,7 @@ pub struct PadConfig {
 
 Volume général et liste des pads.
 
-`app/src-tauri/src/config.rs` ligne 71
+`app/src-tauri/src/config.rs` ligne 75
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -4705,7 +4717,7 @@ pub struct SoundboardSettings {
 
 36 pads, en trois pages de 12.
 
-`app/src-tauri/src/config.rs` ligne 79
+`app/src-tauri/src/config.rs` ligne 83
 
 ```rust
 pub const PAD_COUNT: u16 = 36;
@@ -4715,7 +4727,7 @@ pub const PAD_COUNT: u16 = 36;
 
 Règles de séparation, durée de conservation de l'historique et nombre de passages gardés en mémoire par catégorie (200 par défaut).
 
-`app/src-tauri/src/config.rs` ligne 82
+`app/src-tauri/src/config.rs` ligne 86
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -4731,7 +4743,7 @@ pub struct AutomationSettings {
 
 Vérification au démarrage et version ignorée.
 
-`app/src-tauri/src/config.rs` ligne 135
+`app/src-tauri/src/config.rs` ligne 139
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -4746,7 +4758,7 @@ pub struct UpdateSettings {
 
 Contenu de config.toml ; aucun mot de passe n'y figure.
 
-`app/src-tauri/src/config.rs` ligne 152
+`app/src-tauri/src/config.rs` ligne 156
 
 ```rust
 
@@ -4756,7 +4768,7 @@ Contenu de config.toml ; aucun mot de passe n'y figure.
 
 Lit config.toml ; un fichier illisible est mis de côté et remplacé par les valeurs par défaut.
 
-`app/src-tauri/src/config.rs` ligne 209
+`app/src-tauri/src/config.rs` ligne 213
 
 ```rust
 pub fn load(path: &Path) -> (AppConfig, Option<String>) {
@@ -4778,7 +4790,7 @@ pub fn load(path: &Path) -> (AppConfig, Option<String>) {
 
 Écrit config.toml via un fichier temporaire renommé, pour ne jamais laisser de fichier à moitié écrit.
 
-`app/src-tauri/src/config.rs` ligne 230
+`app/src-tauri/src/config.rs` ligne 234
 
 ```rust
 pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
@@ -4796,7 +4808,7 @@ pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
 
 Mots-clés de dossier qui classent un fichier en jingle ou en pub.
 
-`app/src-tauri/src/config.rs` ligne 101
+`app/src-tauri/src/config.rs` ligne 105
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -4811,7 +4823,7 @@ pub struct CategorySettings {
 
 Dossier de la box à jingles et volume des jingles.
 
-`app/src-tauri/src/config.rs` ligne 118
+`app/src-tauri/src/config.rs` ligne 122
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -4826,7 +4838,7 @@ pub struct JingleSettings {
 
 Verre dépoli activé ou non, flou, opacité des panneaux, assombrissement du fond et image de fond.
 
-`app/src-tauri/src/config.rs` ligne 160
+`app/src-tauri/src/config.rs` ligne 164
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -4844,7 +4856,7 @@ pub struct AppearanceSettings {
 
 Dossiers de musique lus pour alimenter les grilles.
 
-`app/src-tauri/src/config.rs` ligne 153
+`app/src-tauri/src/config.rs` ligne 157
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -7764,7 +7776,7 @@ pub(super) fn apply_voice(&self, v: &VoiceSettings) {
 
 Ouvre ou ferme le micro, ou prévient s'il n'y en a pas.
 
-`app/src-tauri/src/controller/voice.rs` ligne 62
+`app/src-tauri/src/controller/voice.rs` ligne 64
 
 ```rust
 pub(super) fn mic_open(&mut self, open: bool) {
@@ -9543,7 +9555,7 @@ const SIGNED = (v) => `${v > 0 ? "+" : ""}${v} dB`;
 
 Micro disponible, verrou, PARLER et vumètre micro.
 
-`app/ui/js/voice.js` ligne 20
+`app/ui/js/voice.js` ligne 22
 
 ```js
 export function renderVoice() {
@@ -9563,7 +9575,7 @@ export function renderVoice() {
 
 Enregistre les réglages de voix 250 ms après le dernier changement.
 
-`app/ui/js/voice.js` ligne 33
+`app/ui/js/voice.js` ligne 35
 
 ```js
 function saveSoon() {
@@ -9578,7 +9590,7 @@ function saveSoon() {
 
 Positionne curseurs et cases.
 
-`app/ui/js/voice.js` ligne 47
+`app/ui/js/voice.js` ligne 49
 
 ```js
 function applyVoice(v) {
@@ -9597,7 +9609,7 @@ function applyVoice(v) {
 
 Ouvre le micro en permanence ou le referme (bouton VERROU, touche M).
 
-`app/ui/js/voice.js` ligne 59
+`app/ui/js/voice.js` ligne 61
 
 ```js
 export function toggleLock() {
@@ -9610,7 +9622,7 @@ export function toggleLock() {
 
 Ouvre le micro tant que PARLER ou Espace est maintenu.
 
-`app/ui/js/voice.js` ligne 65
+`app/ui/js/voice.js` ligne 67
 
 ```js
 export function pttDown() {
@@ -9624,7 +9636,7 @@ export function pttDown() {
 
 Referme le micro au relâchement, sauf s'il est verrouillé.
 
-`app/ui/js/voice.js` ligne 72
+`app/ui/js/voice.js` ligne 74
 
 ```js
 export function pttUp() {
@@ -9638,7 +9650,7 @@ export function pttUp() {
 
 Remplit les préréglages voix et antenne, les curseurs et le volume Sound FX.
 
-`app/ui/js/voice.js` ligne 79
+`app/ui/js/voice.js` ligne 81
 
 ```js
 export function applySettings(view) {
@@ -10737,7 +10749,7 @@ VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
 Grille de pads, état de lecture et menu de pad.
 
-`app/ui/style.css` ligne 512
+`app/ui/style.css` ligne 514
 
 ```css
 .soundfx { flex: 1 0 196px; min-height: 196px; overflow: hidden; }
@@ -10747,7 +10759,7 @@ Grille de pads, état de lecture et menu de pad.
 
 Boutons matériels, scènes et sources audio.
 
-`app/ui/style.css` ligne 554
+`app/ui/style.css` ligne 556
 
 ```css
 .obs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -10757,7 +10769,7 @@ Boutons matériels, scènes et sources audio.
 
 Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos.
 
-`app/ui/style.css` ligne 582
+`app/ui/style.css` ligne 584
 
 ```css
 .about-head { display: flex; flex-direction: column; gap: 4px; }
@@ -10767,7 +10779,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 687
+`app/ui/style.css` ligne 689
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -10777,7 +10789,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 706
+`app/ui/style.css` ligne 708
 
 ```css
 .statusbar {
@@ -10795,7 +10807,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 741
+`app/ui/style.css` ligne 743
 
 ```css
 .hidden { display: none !important; }
@@ -10805,7 +10817,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 717
+`app/ui/style.css` ligne 719
 
 ```css
 html.glass body {
@@ -10929,7 +10941,7 @@ Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
 Pads et panneau de pilotage d'OBS.
 
-`app/ui/index.html` ligne 213
+`app/ui/index.html` ligne 223
 
 ```html
 <section class="fx soundfx" id="soundfx">
@@ -10944,7 +10956,7 @@ Pads et panneau de pilotage d'OBS.
 
 Renommer, choisir un son, vider.
 
-`app/ui/index.html` ligne 267
+`app/ui/index.html` ligne 277
 
 ```html
 <div id="pad-menu" class="pad-menu hidden">
@@ -10959,7 +10971,7 @@ Renommer, choisir un son, vider.
 
 Sortie audio et résumé de diffusion.
 
-`app/ui/index.html` ligne 299
+`app/ui/index.html` ligne 309
 
 ```html
 <footer class="statusbar">
@@ -10974,7 +10986,7 @@ Sortie audio et résumé de diffusion.
 
 Fenêtre des réglages et ses onglets.
 
-`app/ui/index.html` ligne 307
+`app/ui/index.html` ligne 317
 
 ```html
 <div id="settings" class="modal hidden" role="dialog" aria-modal="true">
@@ -10989,7 +11001,7 @@ Fenêtre des réglages et ses onglets.
 
 Liste et formulaire des sorties Icecast / Shoutcast.
 
-`app/ui/index.html` ligne 324
+`app/ui/index.html` ligne 334
 
 ```html
 <section class="tab-page" data-page="cast">
@@ -11004,7 +11016,7 @@ Liste et formulaire des sorties Icecast / Shoutcast.
 
 Connexion à obs-websocket et source « Now Playing ».
 
-`app/ui/index.html` ligne 377
+`app/ui/index.html` ligne 387
 
 ```html
 <section class="tab-page hidden" data-page="aura">
@@ -11019,7 +11031,7 @@ Connexion à obs-websocket et source « Now Playing ».
 
 Règles de séparation et conservation de l'historique.
 
-`app/ui/index.html` ligne 397
+`app/ui/index.html` ligne 407
 
 ```html
 <section class="tab-page hidden" data-page="automation">
@@ -11034,7 +11046,7 @@ Règles de séparation et conservation de l'historique.
 
 Micro, retour et sortie audio.
 
-`app/ui/index.html` ligne 431
+`app/ui/index.html` ligne 441
 
 ```html
 <section class="tab-page hidden" data-page="audio">
@@ -11049,7 +11061,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 600
+`app/ui/index.html` ligne 610
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -11064,7 +11076,7 @@ Version, mises à jour et diagnostic.
 
 Dossier, relecture, volume, arrêt et grille des jingles.
 
-`app/ui/index.html` ligne 220
+`app/ui/index.html` ligne 230
 
 ```html
 <div class="fx-head" data-fxpage="jingles" hidden>
@@ -11094,7 +11106,7 @@ Tout, Morceaux, Jingles, Pubs.
 
 Catégorie et période de l'export CSV de l'historique.
 
-`app/ui/index.html` ligne 275
+`app/ui/index.html` ligne 285
 
 ```html
 <div id="export-menu" class="pad-menu export-menu hidden">
@@ -11109,7 +11121,7 @@ Catégorie et période de l'export CSV de l'historique.
 
 Mots-clés de dossier des jingles et des pubs.
 
-`app/ui/index.html` ligne 416
+`app/ui/index.html` ligne 426
 
 ```html
 <form class="form" id="categories-form">
@@ -11124,7 +11136,7 @@ Mots-clés de dossier des jingles et des pubs.
 
 Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement.
 
-`app/ui/index.html` ligne 575
+`app/ui/index.html` ligne 585
 
 ```html
 <section class="tab-page hidden" data-page="appearance">
@@ -11139,7 +11151,7 @@ Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissemen
 
 Bibliothèque, catégories, grilles et planning de la semaine.
 
-`app/ui/index.html` ligne 464
+`app/ui/index.html` ligne 474
 
 ```html
 <section class="tab-page hidden" data-page="rotation">
@@ -11154,7 +11166,7 @@ Bibliothèque, catégories, grilles et planning de la semaine.
 
 Actions de mélange et de nettoyage de la playlist.
 
-`app/ui/index.html` ligne 292
+`app/ui/index.html` ligne 302
 
 ```html
 <div id="shuffle-menu" class="pad-menu shuffle-menu hidden">
@@ -11168,7 +11180,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Émissions des grilles : nom, couleur, fichier M3U, explications.
 
-`app/ui/index.html` ligne 543
+`app/ui/index.html` ligne 553
 
 ```html
 <div class="rot-page rot-split" data-rotpage="programs" hidden>
@@ -11177,4 +11189,19 @@ Actions de mélange et de nettoyage de la playlist.
     <button type="button" class="btn small" id="prog-add">Nouvelle émission</button>
   </div>
   <form class="form rot-form" id="prog-form">
+```
+
+### [HTM-25] Réglages repliables du Voice FX
+
+Égaliseur micro et temps du ducking ; repliés sur une même ligne, une section ouverte prend toute la largeur.
+
+`app/ui/index.html` ligne 202
+
+```html
+<div class="vfx-more">
+<details class="eq">
+  <summary>Égaliseur micro</summary>
+  <div class="sliders">
+    <label><span>Grave</span><input type="range" id="eq-low" min="-12" max="12" step="0.5"><output id="eq-low-v"></output></label>
+    <label><span>Médium</span><input type="range" id="eq-mid" min="-12" max="12" step="0.5"><output id="eq-mid-v"></output></label>
 ```
