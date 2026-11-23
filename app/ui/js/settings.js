@@ -83,6 +83,14 @@ function fillDevices(sel, list, def, defLabel, value) {
   sel.value = value || "";
 }
 
+// [UI-148]
+function cueStatus() {
+  const c = S.state && S.state.cue;
+  if (!c) return "";
+  if (c.error) return `Sortie de pré-écoute indisponible (${c.error}) : pré-écoute sur la même sortie, gauche/droite.`;
+  return c.device ? `Pré-écoute active sur : ${c.device}` : "Pré-écoute sur la même sortie (gauche : antenne, droite : CUE).";
+}
+
 function micStatus() {
   const m = S.state && S.state.mic;
   if (!m) return "";
@@ -112,6 +120,8 @@ function applySettings(view, keepSelection = true) {
   aura.elements.password.value = "";
   aura.elements.password.placeholder = view.aura_has_password ? "•••••• enregistré" : "vide si OBS n'en demande pas";
   fillDevices($("#audio-form").elements.device, view.devices, view.default_device, "Sortie par défaut du système", view.audio.device);
+  fillDevices($("#audio-form").elements.cue_device, view.devices, null, "Même sortie : antenne à gauche, pré-écoute à droite", view.audio.cue_device);
+  $("#cue-status").textContent = cueStatus();
   fillForm($("#automation-form"), {
     ...view.automation.rules,
     history_days: view.automation.history_days,
@@ -292,7 +302,8 @@ export function init() {
   $("#aura-test").addEventListener("click", () => testForm("#aura-result", "Connexion à OBS…", () => invoke("test_aura", auraValues())));
   $("#audio-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    saveForm("#audio-result", () => invoke("save_audio", { device: $("#audio-form").elements.device.value || null }));
+    const f = $("#audio-form").elements;
+    saveForm("#audio-result", () => invoke("save_audio", { device: f.device.value || null, cueDevice: f.cue_device.value || null }));
   });
   $("#mic-form").addEventListener("submit", (e) => {
     e.preventDefault();

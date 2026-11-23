@@ -17,6 +17,7 @@
     <symbol id="i-mic" viewBox="0 0 24 24"><rect x="8.5" y="2.5" width="7" height="12" rx="3.5"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8 21.5h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="11" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
     <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="11" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 7.6-1.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-cue" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><rect x="2.5" y="13.5" width="5" height="8" rx="2"/><rect x="16.5" y="13.5" width="5" height="8" rx="2"/></symbol>
     <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/></symbol>
     <symbol id="i-replay" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M4 3.5v5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3.5 8h3.5l2-3h6l2 3h3.5v11.5h-17z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13.2" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
@@ -66,6 +67,8 @@
       <article class="deck" data-deck="A">
         <div class="deck-head">
           <span class="deck-label">PLATINE A</span>
+          <!-- [HTM-47] -->
+          <button type="button" class="cue-btn" title="Pré-écoute (CUE) de la platine A : l'entendre au casque sans l'envoyer à l'antenne"><svg class="ico"><use href="#i-cue"/></svg>CUE</button>
           <span class="chip state">VIDE</span>
         </div>
         <!-- [HTM-42] -->
@@ -142,6 +145,8 @@
       <article class="deck" data-deck="B">
         <div class="deck-head">
           <span class="deck-label">PLATINE B</span>
+          <!-- [HTM-48] -->
+          <button type="button" class="cue-btn" title="Pré-écoute (CUE) de la platine B : l'entendre au casque sans l'envoyer à l'antenne"><svg class="ico"><use href="#i-cue"/></svg>CUE</button>
           <span class="chip state">VIDE</span>
         </div>
         <!-- [HTM-43] -->
@@ -569,8 +574,13 @@
             <label class="span2">Sortie audio principale
               <select name="device"></select>
             </label>
+            <!-- [HTM-46] -->
+            <label class="span2">Pré-écoute (bouton CUE des platines)
+              <select name="cue_device"></select>
+            </label>
           </div>
-          <p class="muted">Les changements de micro et de sortie prennent effet au prochain démarrage de BLAST. La sortie casque (pré-écoute) arrivera avec les platines façon SAM.</p>
+          <p class="muted" id="cue-status"></p>
+          <p class="muted">Pré-écoute sur la même sortie : tant qu'un CUE est allumé, l'antenne passe à gauche et la platine pré-écoutée à droite, dans ta sortie locale seulement ; le flux diffusé ne change jamais. Avec une sortie dédiée (2e carte son, prise casque…), le casque entend la platine pré-écoutée, ou le programme quand aucun CUE n'est allumé. Les changements de micro et de sortie prennent effet au prochain démarrage de BLAST.</p>
           <div class="form-actions">
             <span class="spacer"></span>
             <span class="form-result" id="audio-result"></span>

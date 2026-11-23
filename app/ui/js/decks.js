@@ -24,6 +24,15 @@ let crossfaderHeld = false;
 const pitchHeld = { A: false, B: false };
 const pitchText = (p) => `${p > 0 ? "+" : p < 0 ? "−" : ""}${Math.abs(p).toFixed(1).replace(".", ",")} %`;
 
+// [UI-149]
+function renderCue(id, el, st) {
+  const c = st.cue;
+  const on = !!(c && c.decks[id === "A" ? 0 : 1]);
+  el.classList.toggle("cueing", on);
+  const where = c && c.device ? `casque : ${c.device}` : "même sortie : antenne à gauche, pré-écoute à droite";
+  $(".cue-btn", el).title = `Pré-écoute (CUE) de la platine ${id}${on ? " — active" : ""} · ${where}`;
+}
+
 // [UI-146]
 function renderPitch(id, el, st) {
   const p = st.deck_pitch ? st.deck_pitch[id === "A" ? 0 : 1] : 0;
@@ -124,6 +133,7 @@ function renderDeck(id, d) {
   renderCover(id, el, d);
   renderDeckLevel(id, el, st);
   renderPitch(id, el, st);
+  renderCue(id, el, st);
   const remaining = Math.max(0, d.duration - d.position);
   $(".elapsed", el).textContent = fmt(d.position);
   $(".duration", el).textContent = fmt(Math.round(d.duration));
@@ -234,6 +244,10 @@ export function init() {
       $(".deck-vol-v", el).textContent = dbText(0);
       send({ type: "deck_gain", deck: id, db: 0 });
       saveDeckGains();
+    });
+    $(".cue-btn", el).addEventListener("click", () => {
+      const c = S.state && S.state.cue;
+      send({ type: "deck_cue", deck: id, on: !(c && c.decks[id === "A" ? 0 : 1]) });
     });
     // [UI-147]
     const pitch = $(".pitch", el);

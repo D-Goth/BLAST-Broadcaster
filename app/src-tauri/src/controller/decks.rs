@@ -6,7 +6,7 @@ use blast_core::{decode_file, AudioFormat, Command, Cover, DeckState, DeckStatus
 use blast_library::Kind;
 
 use super::commands::Deck;
-use super::views::{DeckView, MicView, StateView, EV_STATE};
+use super::views::{CueView, DeckView, MicView, StateView, EV_STATE};
 use super::{Controller, Work};
 use crate::playlist::{self, Entry};
 
@@ -369,6 +369,17 @@ impl Controller {
             deck_peak: self.deck_peak,
             deck_gain_db: self.deck_gain_db,
             deck_pitch: self.deck_pitch,
+            cue: CueView {
+                decks: self.deck_cue,
+                device: self
+                    .engine
+                    .as_ref()
+                    .and_then(|e| e.cue_name().map(String::from)),
+                error: self
+                    .engine
+                    .as_ref()
+                    .and_then(|e| e.cue_error().map(String::from)),
+            },
             automix: self.automix,
             fade: self.fade,
             on_air: self.is_playing(side).then(|| Deck::from_index(side)),

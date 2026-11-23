@@ -953,3 +953,24 @@ html.glass .deck-label, html.glass .chip, html.glass .kind-tag { text-shadow: 0 
   cursor: pointer;
 }
 .deck.pitched .pitch-v { color: var(--meter-high); border-color: currentColor; }
+
+/* [STY-24] */
+.deck-head .cue-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.deck-head .cue-btn .ico { width: 13px; height: 13px; }
+.deck-head .cue-btn:hover { color: var(--text); border-color: var(--text-muted); }
+.deck-head .cue-btn + .chip { margin-left: 0; }
+.deck.cueing .cue-btn { background: var(--meter-mid); border-color: var(--meter-mid); color: #111; }

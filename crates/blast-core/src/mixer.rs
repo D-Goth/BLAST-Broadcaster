@@ -43,6 +43,7 @@ pub enum Command {
     Seek(DeckId, usize),
     SetDeckGain(DeckId, f32),
     SetDeckRate(DeckId, f64),
+    SetCue(DeckId, bool),
     SetCrossfader(f32),
     StartCrossfade {
         to: DeckId,
@@ -133,6 +134,7 @@ struct Slot {
     gain: f32,
     rate: f64,
     frac: f64,
+    cue: bool,
 }
 
 // [MIX-18]
@@ -197,6 +199,7 @@ pub struct Mixer {
     cart_gain: f32,
     music_gain: f32,
     mic: Option<rtrb::Consumer<f32>>,
+    cue_out: Option<rtrb::Producer<f32>>,
     mic_open: bool,
     mic_level: f32,
     mic_gain: f32,
@@ -239,6 +242,7 @@ impl Mixer {
             cart_gain: 1.0,
             music_gain: 1.0,
             mic: None,
+            cue_out: None,
             mic_open: false,
             mic_level: 0.0,
             mic_gain: 1.0,
@@ -259,6 +263,11 @@ impl Mixer {
 
     pub fn attach_mic(&mut self, consumer: rtrb::Consumer<f32>) {
         self.mic = Some(consumer);
+    }
+
+    // [MIX-21]
+    pub fn attach_cue(&mut self, producer: rtrb::Producer<f32>) {
+        self.cue_out = Some(producer);
     }
 
     pub fn has_mic(&self) -> bool {
@@ -341,6 +350,7 @@ impl Mixer {
                 slot.frac = 0.0;
             }
             Command::SetDeckGain(id, g) => self.decks[id.index()].gain = g.max(0.0),
+            Command::SetCue(id, on) => self.decks[id.index()].cue = on,
             Command::SetDeckRate(id, r) => {
                 let (lo, hi) = DECK_RATE_RANGE;
                 self.decks[id.index()].rate = if r.is_finite() { r.clamp(lo, hi) } else { 1.0 };
@@ -658,9 +668,33 @@ impl Mixer {
             let r = air[1].clamp(-1.0, 1.0);
             out[2 * f] = l;
             out[2 * f + 1] = r;
+            let loc = [loc[0].clamp(-1.0, 1.0), loc[1].clamp(-1.0, 1.0)];
+            // [MIX-22]
+            let cue = self
+                .decks
+                .iter()
+                .zip([(la, ra), (lb, rb)])
+                .filter(|(d, _)| d.cue && d.track.is_some())
+                .fold(None, |acc: Option<[f32; 2]>, (_, (l, r))| {
+                    let [al, ar] = acc.unwrap_or_default();
+                    Some([al + l, ar + r])
+                })
+                .map(|[l, r]| [l.clamp(-1.0, 1.0), r.clamp(-1.0, 1.0)]);
+            let shown = match (self.cue_out.as_mut(), cue) {
+                (Some(tx), c) => {
+                    if tx.slots() >= 2 {
+                        let [cl, cr] = c.unwrap_or(loc);
+                        let _ = tx.push(cl);
+                        let _ = tx.push(cr);
+                    }
+                    loc
+                }
+                (None, Some([cl, cr])) => [(loc[0] + loc[1]) * 0.5, (cl + cr) * 0.5],
+                (None, None) => loc,
+            };
             if let Some(dst) = local.as_deref_mut() {
-                dst[2 * f] = loc[0].clamp(-1.0, 1.0);
-                dst[2 * f + 1] = loc[1].clamp(-1.0, 1.0);
+                dst[2 * f] = shown[0];
+                dst[2 * f + 1] = shown[1];
             }
 
             self.peak[0] = self.peak[0].max(l.abs());
@@ -989,6 +1023,62 @@ mod tests {
             format: None,
             cover: None,
         })
+    }
+
+    fn render_local(m: &mut Mixer, frames: usize) -> (Vec<f32>, Vec<f32>) {
+        let mut out = vec![0.0; frames * 2];
+        let mut local = vec![0.0; frames * 2];
+        m.render_split(Some(&mut local), &mut out, |_| {});
+        (out, local)
+    }
+
+    #[test]
+    fn cue_splits_the_local_output_but_never_the_air() {
+        let mut m = Mixer::new(1000);
+        m.apply(Command::Load(DeckId::A, tone(100, 0.4)));
+        m.apply(Command::Load(DeckId::B, tone(100, 0.2)));
+        m.apply(Command::Play(DeckId::A));
+        m.apply(Command::Play(DeckId::B));
+        let (out, local) = render_local(&mut m, 4);
+        assert!((local[6] - 0.4).abs() < 1e-5 && (local[7] - 0.4).abs() < 1e-5);
+        m.apply(Command::SetCue(DeckId::B, true));
+        let (out2, local) = render_local(&mut m, 4);
+        assert_eq!(out, out2, "l'antenne ne change pas");
+        assert!((local[6] - 0.4).abs() < 1e-5, "gauche : antenne");
+        assert!((local[7] - 0.2).abs() < 1e-5, "droite : pré-écoute B");
+        m.apply(Command::Eject(DeckId::B));
+        let (_, local) = render_local(&mut m, 2);
+        assert!(
+            (local[3] - 0.4).abs() < 1e-5,
+            "platine vide : plus de split"
+        );
+    }
+
+    #[test]
+    fn cue_device_gets_the_cued_deck_or_the_program() {
+        let mut m = Mixer::new(1000);
+        let (tx, mut rx) = rtrb::RingBuffer::<f32>::new(64);
+        m.attach_cue(tx);
+        m.apply(Command::Load(DeckId::A, tone(100, 0.4)));
+        m.apply(Command::Load(DeckId::B, tone(100, 0.2)));
+        m.apply(Command::Play(DeckId::A));
+        m.apply(Command::SetCue(DeckId::B, false));
+        let (_, local) = render_local(&mut m, 2);
+        assert!(
+            (local[1] - 0.4).abs() < 1e-5,
+            "pas de split avec une sortie dédiée"
+        );
+        assert!(
+            (rx.pop().unwrap() - 0.4).abs() < 1e-5,
+            "rien en pré-écoute : le programme"
+        );
+        while rx.pop().is_ok() {}
+        m.apply(Command::SetCue(DeckId::B, true));
+        m.apply(Command::Play(DeckId::B));
+        render_local(&mut m, 2);
+        assert!((rx.pop().unwrap() - 0.2).abs() < 1e-5);
+        render_local(&mut m, 100);
+        assert_eq!(rx.slots(), 63, "file pleine : le surplus est jeté");
     }
 
     #[test]

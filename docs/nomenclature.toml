@@ -3370,3 +3370,59 @@ definition = "Met à jour le curseur et la valeur depuis l'état, sauf pendant q
 [codes.UI-147]
 titre = "Commandes du pitch"
 definition = "Glisser envoie le pitch ; double-clic sur le curseur ou clic sur la valeur le remet à 0 %."
+
+[codes.MIX-21]
+titre = "Sortie de pré-écoute dédiée"
+definition = "Branche la file vers la 2e sortie audio : la pré-écoute n'est plus mélangée à la sortie locale."
+
+[codes.MIX-22]
+titre = "Pré-écoute (CUE)"
+definition = "Somme des platines en CUE, après leur volume et avant le crossfader. Avec une sortie dédiée : CUE, ou le programme si aucun CUE. Sans : sortie locale en antenne à gauche et CUE à droite. Le flux diffusé n'est jamais touché."
+
+[codes.ENG-20]
+titre = "Latence de la pré-écoute"
+definition = "Au-delà de 150 ms d'avance, la sortie casque saute pour revenir à 40 ms."
+
+[codes.ENG-21]
+titre = "Flux de pré-écoute"
+definition = "Flux audio du casque, nom de la sortie et file d'envoi."
+
+[codes.ENG-22]
+titre = "Ouverture de la sortie casque"
+definition = "Ouvre la sortie de pré-écoute par son nom et prépare son format."
+
+[codes.ENG-23]
+titre = "Lecture de la sortie casque"
+definition = "Rééchantillonne la file de pré-écoute à la fréquence du casque (interpolation linéaire) ; silence progressif si la file est vide."
+
+[codes.CTL-193]
+titre = "Sortie de pré-écoute à ouvrir"
+definition = "Sortie casque des réglages, ignorée si vide ou identique à la sortie principale."
+
+[codes.CTL-194]
+titre = "État de la pré-écoute"
+definition = "Platines en CUE, sortie casque ouverte et erreur éventuelle."
+
+[codes.HTM-46]
+titre = "Réglage de pré-écoute"
+definition = "Choix de la sortie de pré-écoute : même sortie (gauche/droite) ou une sortie dédiée."
+
+[codes.HTM-47]
+titre = "CUE de la platine A"
+definition = "Bouton de pré-écoute de la platine A."
+
+[codes.HTM-48]
+titre = "CUE de la platine B"
+definition = "Bouton de pré-écoute de la platine B."
+
+[codes.STY-24]
+titre = "Bouton CUE"
+definition = "Pastille dans l'en-tête de la platine, jaune quand la pré-écoute est active."
+
+[codes.UI-148]
+titre = "État de la pré-écoute dans les réglages"
+definition = "Indique la sortie casque utilisée, ou pourquoi elle est indisponible."
+
+[codes.UI-149]
+titre = "Affichage du CUE"
+definition = "Allume le bouton CUE et indique où la pré-écoute est entendue."

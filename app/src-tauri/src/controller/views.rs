@@ -107,6 +107,14 @@ pub struct DeckView {
     pub cover: Option<u64>,
 }
 
+// [CTL-194]
+#[derive(Serialize, Clone)]
+pub struct CueView {
+    pub decks: [bool; 2],
+    pub device: Option<String>,
+    pub error: Option<String>,
+}
+
 // [CTL-35]
 // [CTL-153]
 #[derive(Serialize, Clone)]
@@ -140,6 +148,7 @@ pub struct StateView {
     pub deck_peak: [[f32; 2]; 2],
     pub deck_gain_db: [f32; 2],
     pub deck_pitch: [f32; 2],
+    pub cue: CueView,
     pub automix: bool,
     pub fade: f32,
     pub on_air: Option<Deck>,

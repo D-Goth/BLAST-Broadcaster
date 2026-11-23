@@ -86,24 +86,35 @@ pub struct Audio {
     sample_rate: u32,
 }
 
+// [CTL-193]
+fn cue_device(config: &AppConfig) -> Option<String> {
+    config
+        .audio
+        .cue_device
+        .clone()
+        .filter(|c| !c.is_empty() && Some(c) != config.audio.device.as_ref())
+}
+
 // [CTL-04]
 impl Audio {
     pub fn start(config: &AppConfig) -> Self {
         let wanted = config.audio.device.clone();
         let mic = voice::mic_input(&config.voice);
-        let (engine, error) = match Engine::start_with(wanted.as_deref(), mic.clone()) {
-            Ok(e) => (Some(e), None),
-            Err(first) => match wanted {
-                Some(_) => match Engine::start_with(None, mic) {
-                    Ok(e) => (
-                        Some(e),
-                        Some(format!("{first} — sortie par défaut utilisée")),
-                    ),
-                    Err(e) => (None, Some(e.to_string())),
+        let cue = cue_device(config);
+        let (engine, error) =
+            match Engine::start_with(wanted.as_deref(), mic.clone(), cue.as_deref()) {
+                Ok(e) => (Some(e), None),
+                Err(first) => match wanted {
+                    Some(_) => match Engine::start_with(None, mic, cue.as_deref()) {
+                        Ok(e) => (
+                            Some(e),
+                            Some(format!("{first} — sortie par défaut utilisée")),
+                        ),
+                        Err(e) => (None, Some(e.to_string())),
+                    },
+                    None => (None, Some(first.to_string())),
                 },
-                None => (None, Some(first.to_string())),
-            },
-        };
+            };
         if let Some(e) = &error {
             journal::error(format!("audio : {e}"));
         }
@@ -254,6 +265,7 @@ struct Controller {
     deck_peak: [[f32; 2]; 2],
     deck_gain_db: [f32; 2],
     deck_pitch: [f32; 2],
+    deck_cue: [bool; 2],
     reduction: f32,
     automix: bool,
     fade: f32,
@@ -304,6 +316,7 @@ impl Controller {
             deck_peak: [[0.0; 2]; 2],
             deck_gain_db: [f32::NAN; 2],
             deck_pitch: [0.0; 2],
+            deck_cue: [false; 2],
             reduction: 0.0,
             automix: false,
             fade: 6.0,
@@ -482,6 +495,10 @@ impl Controller {
                 self.apply_deck_gains(gains);
             }
             UiCommand::DeckPitch { deck, percent } => self.set_pitch(deck, percent),
+            UiCommand::DeckCue { deck, on } => {
+                self.deck_cue[deck.index()] = on;
+                self.send(Command::SetCue(deck.id(), on));
+            }
             UiCommand::FadeSeconds { value } => {
                 self.fade = value.clamp(0.0, 30.0);
                 self.send_automix();

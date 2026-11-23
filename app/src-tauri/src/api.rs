@@ -314,11 +314,16 @@ pub async fn test_aura(
 pub fn save_audio(
     state: tauri::State<'_, App>,
     device: Option<String>,
+    cue_device: Option<String>,
 ) -> Result<SettingsView, String> {
     let device = device.filter(|d| !d.is_empty());
-    state.commit(move |cfg| cfg.audio.device = device)?;
+    let cue_device = cue_device.filter(|d| !d.is_empty());
+    state.commit(move |cfg| {
+        cfg.audio.device = device;
+        cfg.audio.cue_device = cue_device;
+    })?;
     Ok(state.view(Some(
-        "La nouvelle sortie audio sera utilisée au prochain démarrage de BLAST.".into(),
+        "Les nouvelles sorties audio seront utilisées au prochain démarrage de BLAST.".into(),
     )))
 }
 

@@ -93,6 +93,9 @@ pub struct Engine {
     _input: Option<cpal::Stream>,
     input_name: Option<String>,
     input_error: Option<String>,
+    _cue: Option<cpal::Stream>,
+    cue_name: Option<String>,
+    cue_error: Option<String>,
     commands: Sender<Command>,
     events: Receiver<Event>,
     ticks: Receiver<Event>,
@@ -105,11 +108,15 @@ pub struct Engine {
 
 impl Engine {
     pub fn start(device: Option<&str>) -> Result<Self, EngineError> {
-        Self::start_with(device, MicInput::Off)
+        Self::start_with(device, MicInput::Off, None)
     }
 
     // [ENG-11]
-    pub fn start_with(device: Option<&str>, mic: MicInput) -> Result<Self, EngineError> {
+    pub fn start_with(
+        device: Option<&str>,
+        mic: MicInput,
+        cue: Option<&str>,
+    ) -> Result<Self, EngineError> {
         let host = cpal::default_host();
         let device = match device {
             Some(name) => host
@@ -139,6 +146,16 @@ impl Engine {
             Ok(None) => (None, None, None),
             Err(e) => (None, None, Some(e.to_string())),
         };
+        let (cue_stream, cue_name, cue_error) = match cue {
+            None => (None, None, None),
+            Some(name) => match open_cue(&host, name, sample_rate) {
+                Ok((stream, name, producer)) => {
+                    mixer.attach_cue(producer);
+                    (Some(stream), Some(name), None)
+                }
+                Err(e) => (None, None, Some(e.to_string())),
+            },
+        };
         let (tap_tx, tap_rx) = rtrb::RingBuffer::<f32>::new(sample_rate as usize * 2 * TAP_SECONDS);
         let parts = Parts {
             tap: tap_tx,
@@ -161,12 +178,18 @@ impl Engine {
         if let Some(i) = &input {
             let _ = i.play();
         }
+        if let Some(c) = &cue_stream {
+            let _ = c.play();
+        }
 
         Ok(Self {
             _stream: stream,
             _input: input,
             input_name,
             input_error,
+            _cue: cue_stream,
+            cue_name,
+            cue_error,
             commands: cmd_tx,
             events: evt_rx,
             ticks: tick_rx,
@@ -196,6 +219,14 @@ impl Engine {
 
     pub fn input_error(&self) -> Option<&str> {
         self.input_error.as_deref()
+    }
+
+    pub fn cue_name(&self) -> Option<&str> {
+        self.cue_name.as_deref()
+    }
+
+    pub fn cue_error(&self) -> Option<&str> {
+        self.cue_error.as_deref()
     }
 
     pub fn send(&self, cmd: Command) -> bool {
@@ -410,6 +441,94 @@ where
                 }
             },
             |err| eprintln!("micro : {err}"),
+            None,
+        )
+        .map_err(backend)
+}
+
+// [ENG-20]
+const CUE_MAX_LAG_MS: usize = 150;
+const CUE_TARGET_LAG_MS: usize = 40;
+
+// [ENG-21]
+type CueStream = (cpal::Stream, String, rtrb::Producer<f32>);
+
+// [ENG-22]
+fn open_cue(host: &cpal::Host, name: &str, main_rate: u32) -> Result<CueStream, EngineError> {
+    let device = host
+        .output_devices()
+        .map_err(backend)?
+        .find(|d| d.name().map(|n| n == name).unwrap_or(false))
+        .ok_or_else(|| EngineError::DeviceNotFound(name.to_string()))?;
+    let name = device.name().unwrap_or_default();
+    let supported = device.default_output_config().map_err(backend)?;
+    let format = supported.sample_format();
+    let config: cpal::StreamConfig = supported.into();
+    let (tx, rx) = rtrb::RingBuffer::<f32>::new(main_rate as usize * 2);
+    let stream = match format {
+        SampleFormat::F32 => build_cue::<f32>(&device, &config, rx, main_rate),
+        SampleFormat::I16 => build_cue::<i16>(&device, &config, rx, main_rate),
+        SampleFormat::U16 => build_cue::<u16>(&device, &config, rx, main_rate),
+        SampleFormat::I32 => build_cue::<i32>(&device, &config, rx, main_rate),
+        other => return Err(EngineError::UnsupportedFormat(format!("casque {other:?}"))),
+    }?;
+    Ok((stream, name, tx))
+}
+
+// [ENG-23]
+fn build_cue<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    mut rx: rtrb::Consumer<f32>,
+    main_rate: u32,
+) -> Result<cpal::Stream, EngineError>
+where
+    T: SizedSample + FromSample<f32>,
+{
+    let channels = (config.channels as usize).max(1);
+    let step = main_rate as f64 / config.sample_rate.0 as f64;
+    let max_lag = main_rate as usize * 2 * CUE_MAX_LAG_MS / 1000;
+    let target_lag = main_rate as usize * 2 * CUE_TARGET_LAG_MS / 1000;
+    let mut phase = 0.0f64;
+    let mut prev = [0.0f32; 2];
+    let mut cur = [0.0f32; 2];
+    device
+        .build_output_stream(
+            config,
+            move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
+                let lag = rx.slots();
+                if lag > max_lag {
+                    if let Ok(chunk) = rx.read_chunk((lag - target_lag) & !1) {
+                        chunk.commit_all();
+                    }
+                }
+                for frame in data.chunks_mut(channels) {
+                    while phase >= 1.0 {
+                        prev = cur;
+                        cur = if rx.slots() >= 2 {
+                            [rx.pop().unwrap_or(0.0), rx.pop().unwrap_or(0.0)]
+                        } else {
+                            [cur[0] * 0.995, cur[1] * 0.995]
+                        };
+                        phase -= 1.0;
+                    }
+                    let t = phase as f32;
+                    let l = prev[0] + (cur[0] - prev[0]) * t;
+                    let r = prev[1] + (cur[1] - prev[1]) * t;
+                    phase += step;
+                    match frame.len() {
+                        1 => frame[0] = T::from_sample((l + r) * 0.5),
+                        _ => {
+                            frame[0] = T::from_sample(l);
+                            frame[1] = T::from_sample(r);
+                            for s in frame.iter_mut().skip(2) {
+                                *s = T::from_sample(0.0f32);
+                            }
+                        }
+                    }
+                }
+            },
+            |err| eprintln!("casque : {err}"),
             None,
         )
         .map_err(backend)

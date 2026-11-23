@@ -132,6 +132,10 @@ pub enum UiCommand {
         deck: Deck,
         percent: f32,
     },
+    DeckCue {
+        deck: Deck,
+        on: bool,
+    },
     FadeSeconds {
         value: f32,
     },

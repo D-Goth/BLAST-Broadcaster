@@ -271,6 +271,24 @@ fn pitch_is_clamped_and_shortens_the_shown_duration() {
 }
 
 #[test]
+fn cue_toggles_per_deck_and_ignores_the_main_output_as_headset() {
+    let mut h = Harness::new("cue");
+    h.c.handle(UiCommand::DeckCue {
+        deck: Deck::B,
+        on: true,
+    });
+    let st = h.last(EV_STATE);
+    assert_eq!(st["cue"]["decks"], serde_json::json!([false, true]));
+    assert!(st["cue"]["device"].is_null());
+    let mut cfg = AppConfig::default();
+    cfg.audio.device = Some("Carte".into());
+    cfg.audio.cue_device = Some("Carte".into());
+    assert_eq!(super::cue_device(&cfg), None);
+    cfg.audio.cue_device = Some("Casque USB".into());
+    assert_eq!(super::cue_device(&cfg).as_deref(), Some("Casque USB"));
+}
+
+#[test]
 fn format_labels_read_naturally() {
     let f = |codec: &str, rate, channels, bits, kbps| {
         super::decks::format_label(&blast_core::AudioFormat {
