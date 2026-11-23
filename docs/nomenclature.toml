@@ -2552,7 +2552,7 @@ definition = "Mots de passe des sources et des relais, identifiant et mot de pas
 
 [codes.ICE-05]
 titre = "Port d'écoute"
-definition = "Port, adresse d'écoute, compatibilité Shoutcast (qui occupe aussi le port suivant) et HTTPS. `key` désigne la balise d'origine pour en garder les options non gérées."
+definition = "Port, adresse d'écoute, compatibilité Shoutcast (qui occupe aussi le port suivant) et HTTPS (<ssl> en 2.4, <tls> en 2.5). `key` désigne la balise d'origine pour en garder les options non gérées."
 
 [codes.ICE-06]
 titre = "Mountpoint déclaré"
@@ -2560,11 +2560,11 @@ definition = "Nom, identifiant et mot de passe propres, limite d'auditeurs, seco
 
 [codes.ICE-07]
 titre = "Chemins"
-definition = "basedir, logdir, webroot, adminroot, fichier PID et certificat TLS."
+definition = "basedir, logdir, webroot, adminroot, fichier PID et certificat TLS (paths/ssl-certificate en 2.4, security/tls-context/tls-certificate en 2.5)."
 
 [codes.ICE-08]
 titre = "Journalisation"
-definition = "Fichiers d'accès et d'erreurs, niveau de 1 à 4, taille maximale et archivage."
+definition = "Fichiers d'accès et d'erreurs, niveau de 1 à 4, taille maximale et archivage (balise ajoutée seulement si l'archivage est activé)."
 
 [codes.ICE-09]
 titre = "Configuration éditable"
@@ -2973,3 +2973,11 @@ definition = "Commandes du serveur local, avec retour dans une notification."
 [codes.UI-129]
 titre = "Accueil Icecast"
 definition = "Installations détectées pas encore ajoutées."
+
+[codes.ICE-44]
+titre = "Format Icecast 2.5"
+definition = "Reconnaît un fichier au format 2.5 : bloc security/tls-context, balise <tls> dans un port ou niveau de journal écrit en toutes lettres. La réécriture garde alors ce format."
+
+[codes.ICE-45]
+titre = "Niveau de journal"
+definition = "Lit le niveau en chiffre (1 à 4, Icecast 2.4) ou en toutes lettres (error, warning, information, debug, Icecast 2.5) ; il est réécrit dans la forme du fichier."

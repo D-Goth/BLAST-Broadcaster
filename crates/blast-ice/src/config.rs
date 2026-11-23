@@ -198,6 +198,44 @@ fn set(e: &mut Element, name: &str, value: &str) {
     child_mut(e, name).children = vec![XMLNode::Text(value.to_string())];
 }
 
+// [ICE-44]
+fn modern(r: &Element) -> bool {
+    let tls_context = r
+        .get_child("security")
+        .is_some_and(|s| s.get_child("tls-context").is_some());
+    let tls_socket = elements(r, "listen-socket").any(|s| s.get_child("tls").is_some());
+    let level = r
+        .get_child("logging")
+        .map(|l| text(l, "loglevel"))
+        .unwrap_or_default();
+    tls_context || tls_socket || (!level.is_empty() && level.parse::<u8>().is_err())
+}
+
+// [ICE-45]
+fn level_from(value: &str, default: u8) -> u8 {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "error" | "eror" => 1,
+        "warning" | "warn" => 2,
+        "information" | "info" => 3,
+        "debug" | "dbug" => 4,
+        v => v.parse().unwrap_or(default),
+    }
+}
+
+fn level_word(level: u8) -> &'static str {
+    match level {
+        1 => "error",
+        2 => "warning",
+        4 => "debug",
+        _ => "information",
+    }
+}
+
+fn socket_tls(s: &Element) -> bool {
+    let tls = text(s, "tls").to_ascii_lowercase();
+    flag(s, "ssl").unwrap_or(false) || (!tls.is_empty() && tls != "disabled")
+}
+
 fn set_flag(e: &mut Element, name: &str, value: bool) {
     set(e, name, if value { "1" } else { "0" });
 }
@@ -291,7 +329,7 @@ impl IceDocument {
                     port: number(s, "port", 0),
                     bind_address: text(s, "bind-address"),
                     shoutcast_mount: text(s, "shoutcast-mount"),
-                    ssl: flag(s, "ssl").unwrap_or(false),
+                    ssl: socket_tls(s),
                 })
                 .collect(),
             mounts: elements(r, "mount")
@@ -323,12 +361,22 @@ impl IceDocument {
                 webroot: text(paths, "webroot"),
                 adminroot: text(paths, "adminroot"),
                 pidfile: text(paths, "pidfile"),
-                ssl_certificate: text(paths, "ssl-certificate"),
+                ssl_certificate: {
+                    let legacy = text(paths, "ssl-certificate");
+                    if legacy.is_empty() {
+                        r.get_child("security")
+                            .and_then(|s| s.get_child("tls-context"))
+                            .map(|t| text(t, "tls-certificate"))
+                            .unwrap_or_default()
+                    } else {
+                        legacy
+                    }
+                },
             },
             logging: Logging {
                 accesslog: text(logging, "accesslog"),
                 errorlog: text(logging, "errorlog"),
-                loglevel: number(logging, "loglevel", ld.loglevel),
+                loglevel: level_from(&text(logging, "loglevel"), ld.loglevel),
                 logsize: number(logging, "logsize", ld.logsize),
                 logarchive: flag(logging, "logarchive").unwrap_or(false),
             },
@@ -337,6 +385,7 @@ impl IceDocument {
 
     // [ICE-13]
     pub fn apply(&mut self, cfg: &IceConfig) {
+        let modern = modern(&self.root);
         let r = &mut self.root;
         set(r, "location", &cfg.location);
         set(r, "admin", &cfg.admin);
@@ -374,10 +423,17 @@ impl IceDocument {
                 set(&mut e, "port", &s.port.to_string());
                 set(&mut e, "bind-address", &s.bind_address);
                 set(&mut e, "shoutcast-mount", &s.shoutcast_mount);
-                if s.ssl {
-                    set_flag(&mut e, "ssl", true);
-                } else {
+                let had_tls = socket_tls(&e);
+                if !s.ssl {
                     set(&mut e, "ssl", "");
+                    set(&mut e, "tls", "");
+                } else if modern {
+                    set(&mut e, "ssl", "");
+                    if !had_tls {
+                        set(&mut e, "tls", "auto_no_plain");
+                    }
+                } else if !had_tls {
+                    set_flag(&mut e, "ssl", true);
                 }
                 e
             })
@@ -437,14 +493,37 @@ impl IceDocument {
         set(p, "webroot", &cfg.paths.webroot);
         set(p, "adminroot", &cfg.paths.adminroot);
         set(p, "pidfile", &cfg.paths.pidfile);
-        set(p, "ssl-certificate", &cfg.paths.ssl_certificate);
+        if modern {
+            set(p, "ssl-certificate", "");
+            let sec = child_mut(r, "security");
+            let ctx = child_mut(sec, "tls-context");
+            set(ctx, "tls-certificate", &cfg.paths.ssl_certificate);
+        } else {
+            set(p, "ssl-certificate", &cfg.paths.ssl_certificate);
+        }
 
         let g = child_mut(r, "logging");
         set(g, "accesslog", &cfg.logging.accesslog);
         set(g, "errorlog", &cfg.logging.errorlog);
-        set(g, "loglevel", &cfg.logging.loglevel.to_string());
+        if modern {
+            set(g, "loglevel", level_word(cfg.logging.loglevel));
+        } else {
+            set(g, "loglevel", &cfg.logging.loglevel.to_string());
+        }
         set(g, "logsize", &cfg.logging.logsize.to_string());
-        set_flag(g, "logarchive", cfg.logging.logarchive);
+        if cfg.logging.logarchive || g.get_child("logarchive").is_some() {
+            let on = cfg.logging.logarchive;
+            set(
+                g,
+                "logarchive",
+                match (modern, on) {
+                    (true, true) => "true",
+                    (true, false) => "false",
+                    (false, true) => "1",
+                    (false, false) => "0",
+                },
+            );
+        }
     }
 
     // [ICE-14]
@@ -790,6 +869,80 @@ mod tests {
         assert!(again.sockets[1].ssl);
         assert!(xml.find("/autodj").unwrap() > xml.find("/live").unwrap());
         assert!(xml.find("<mount ").unwrap() < xml.find("<fileserve>").unwrap());
+    }
+
+    const SAMPLE_25: &str = r#"<icecast>
+    <location>Earth</location>
+    <admin>admin@localhost</admin>
+    <hostname>localhost</hostname>
+    <limits><clients>100</clients><sources>2</sources></limits>
+    <authentication>
+        <source-password>hackme</source-password>
+        <relay-password>hackmelog</relay-password>
+        <admin-user>admin</admin-user>
+        <admin-password>hackmeadmin</admin-password>
+    </authentication>
+    <listen-socket>
+        <port>8000</port>
+        <bind-address>0.0.0.0</bind-address>
+    </listen-socket>
+    <http-headers>
+        <header type="cors" name="Access-Control-Allow-Origin" />
+    </http-headers>
+    <paths>
+        <logdir>./log</logdir>
+        <webroot>./web</webroot>
+        <adminroot>./admin</adminroot>
+        <reportxmldb>./report-db.xml</reportxmldb>
+    </paths>
+    <logging>
+        <accesslog>access.log</accesslog>
+        <errorlog>error.log</errorlog>
+        <loglevel>information</loglevel>
+        <logsize>10000</logsize>
+    </logging>
+    <security>
+        <tls-context>
+        </tls-context>
+    </security>
+</icecast>"#;
+
+    #[test]
+    fn keeps_the_icecast_25_layout() {
+        let mut doc = IceDocument::parse(SAMPLE_25).unwrap();
+        let mut cfg = doc.read();
+        assert_eq!(cfg.logging.loglevel, 3);
+        assert!(!cfg.sockets[0].ssl);
+        doc.apply(&cfg);
+        let xml = doc.to_xml();
+        assert!(xml.contains("<loglevel>information</loglevel>"));
+        assert!(!xml.contains("logarchive"));
+        assert!(!xml.contains("<ssl>"));
+        assert!(xml.contains("<reportxmldb>./report-db.xml</reportxmldb>"));
+        assert!(xml.contains(r#"<header type="cors" name="Access-Control-Allow-Origin" />"#));
+
+        cfg.logging.loglevel = 4;
+        cfg.sockets[0].ssl = true;
+        cfg.paths.ssl_certificate = "./icecast.pem".into();
+        doc.apply(&cfg);
+        let xml = doc.to_xml();
+        assert!(xml.contains("<loglevel>debug</loglevel>"));
+        assert!(xml.contains("<tls>auto_no_plain</tls>"));
+        assert!(!xml.contains("<ssl>"));
+        assert!(!xml.contains("<ssl-certificate>"));
+        assert!(xml.contains("<tls-certificate>./icecast.pem</tls-certificate>"));
+        let back = IceDocument::parse(&xml).unwrap().read();
+        assert!(back.sockets[0].ssl);
+        assert_eq!(back.paths.ssl_certificate, "./icecast.pem");
+        assert_eq!(back.logging.loglevel, 4);
+
+        let mut legacy = IceDocument::parse(SAMPLE).unwrap();
+        let mut old = legacy.read();
+        old.sockets[0].ssl = true;
+        legacy.apply(&old);
+        let xml = legacy.to_xml();
+        assert!(xml.contains("<ssl>1</ssl>"));
+        assert!(xml.contains("<loglevel>3</loglevel>"));
     }
 
     #[test]
