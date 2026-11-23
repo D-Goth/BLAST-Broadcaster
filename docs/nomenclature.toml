@@ -969,7 +969,7 @@ definition = "Parcourt un dossier récursivement, dans l'ordre alphabétique."
 
 [codes.PL-05]
 titre = "Développement des chemins"
-definition = "Remplace les dossiers par les fichiers audio qu'ils contiennent."
+definition = "Remplace les dossiers par les fichiers audio qu'ils contiennent et les playlists M3U par leurs titres existants."
 
 [codes.PL-06]
 titre = "Création d'entrée"
@@ -2447,3 +2447,23 @@ definition = "Écrit la playlist tout de suite, à la fermeture de l'application
 [codes.APP-44]
 titre = "Fermeture"
 definition = "À la sortie, demande au contrôleur d'écrire la playlist et attend jusqu'à 5 s."
+
+[codes.PL-20]
+titre = "Fichier M3U"
+definition = "Reconnaît une playlist .m3u ou .m3u8 à son extension."
+
+[codes.PL-21]
+titre = "Lecture d'un M3U"
+definition = "Lit les chemins d'une playlist M3U (UTF-8 ou Latin-1, chemins relatifs au fichier, préfixe file://), en ignorant les commentaires et les fichiers non audio."
+
+[codes.PL-22]
+titre = "Écriture d'un M3U"
+definition = "Écrit la playlist en M3U étendu (#EXTINF : durée, artiste - titre), avec des fins de ligne Windows sous Windows."
+
+[codes.CTL-163]
+titre = "Enregistrement en M3U"
+definition = "Écrit la playlist dans le fichier M3U choisi et indique le nombre de titres."
+
+[codes.UI-105]
+titre = "Enregistrer la playlist"
+definition = "Demande l'emplacement du fichier M3U, nommé par défaut avec la date du jour."

@@ -1,4 +1,4 @@
-import { $, $$, S, T, send, toast, fmt, ico, invoke, confirmClick, pickAudio } from "./core.js";
+import { $, $$, S, T, send, toast, fmt, ico, invoke, confirmClick, AUDIO_EXT } from "./core.js";
 import { freeDeck } from "./decks.js";
 import { virtualList } from "./vlist.js";
 
@@ -184,6 +184,18 @@ function openShuffleMenu(anchor) {
 
 const closeShuffleMenu = () => $("#shuffle-menu").classList.add("hidden");
 
+// [UI-105]
+async function saveM3u() {
+  if (!S.entries.length) return toast("warn", "La playlist est vide.");
+  const day = new Date().toISOString().slice(0, 10);
+  const path = await T.dialog.save({
+    title: "Enregistrer la playlist",
+    defaultPath: `blast-playlist-${day}.m3u8`,
+    filters: [{ name: "Playlist M3U", extensions: ["m3u8", "m3u"] }],
+  });
+  if (path) send({ type: "save_playlist", path });
+}
+
 export function init() {
   playlistView = virtualList($("#rows"), 36, playlistRow);
   historyView = virtualList($("#hrows"), 32, historyRow, historyEmpty);
@@ -218,9 +230,19 @@ export function init() {
     if (S.entries.length) send({ type: "clear" });
   });
   $("#add-files").addEventListener("click", async () => {
-    const paths = await pickAudio(true, "Ajouter des titres");
+    const picked = await T.dialog.open({
+      multiple: true,
+      directory: false,
+      title: "Ajouter des titres ou une playlist",
+      filters: [
+        { name: "Audio et playlists", extensions: [...AUDIO_EXT, "m3u", "m3u8"] },
+        { name: "Playlists M3U", extensions: ["m3u", "m3u8"] },
+      ],
+    });
+    const paths = picked == null ? [] : [].concat(picked);
     if (paths.length) send({ type: "add_paths", paths, index: null });
   });
+  $("#save-m3u").addEventListener("click", saveM3u);
   $("#add-folder").addEventListener("click", async () => {
     const picked = await T.dialog.open({ multiple: true, directory: true, title: "Ajouter un dossier" });
     const paths = picked == null ? [] : [].concat(picked);

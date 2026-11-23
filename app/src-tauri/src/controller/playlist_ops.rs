@@ -102,6 +102,24 @@ impl Controller {
         self.emit_playlist();
     }
 
+    // [CTL-163]
+    pub(super) fn save_m3u(&mut self, path: PathBuf) {
+        let entries = self.playlist.entries();
+        match playlist::write_m3u(&path, entries) {
+            Ok(()) => {
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                self.notice(
+                    "info",
+                    format!("Playlist enregistrée : {name} ({} titres).", entries.len()),
+                );
+            }
+            Err(e) => self.notice("error", format!("Enregistrement de la playlist : {e}")),
+        }
+    }
+
     // [CTL-154]
     pub(super) fn emit_blocked(&self) {
         let now = now_secs();
