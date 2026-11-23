@@ -65,16 +65,16 @@ function renderMeters(st) {
 // [UI-99]
 function renderClock(clock) {
   const title = $(".mixer-title");
-  const key = clock ? `${clock.id}|${clock.name}|${clock.color}` : "";
+  const key = clock ? `${clock.id}|${clock.name}|${clock.color}|${clock.program}` : "";
   if (title.dataset.clock === key) return;
   title.dataset.clock = key;
   title.textContent = "MIX";
-  title.title = clock ? `Grille de l'heure : ${clock.name}` : "Aucune grille pour cette heure : l'auto-mix suit la playlist";
+  title.title = clock ? `${clock.program ? "Émission" : "Grille"} de l'heure : ${clock.name}` : "Aucune grille pour cette heure : l'auto-mix suit la playlist";
   if (!clock) return;
   const tag = document.createElement("span");
   tag.className = "clock-tag";
   tag.style.setProperty("--clock-color", clock.color || "var(--accent)");
-  tag.textContent = clock.name;
+  tag.textContent = clock.program ? `\u25B6 ${clock.name}` : clock.name;
   title.append(" · ", tag);
 }
 

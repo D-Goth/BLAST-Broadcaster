@@ -310,6 +310,7 @@ impl Controller {
         c.sync_pads(&config.soundboard);
         c.sync_jingles(&config.jingles);
         c.load_library_tracks();
+        c.rot.refresh_lists();
         c.library_rescan();
         c
     }

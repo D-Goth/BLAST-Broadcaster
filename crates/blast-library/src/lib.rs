@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 pub use cache::HistoryCache;
 pub use history::History;
 pub use rotation::{
-    clock_index, pick_weighted, weight, CategoryRule, Clock, Rotation, RotationCategory,
-    SCHEDULE_SLOTS,
+    default_clock, path_key, pick_weighted, scheduled, weight, CategoryRule, Clock, PlaylistSets,
+    Program, Rotation, RotationCategory, Scheduled, SCHEDULE_SLOTS,
 };
 pub use sqlite::SqliteStore;
 

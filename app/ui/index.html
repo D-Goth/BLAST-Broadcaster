@@ -467,6 +467,7 @@
           <button class="chip-btn active" data-rot="library">Bibliothèque</button>
           <button class="chip-btn" data-rot="categories">Catégories</button>
           <button class="chip-btn" data-rot="clocks">Grilles</button>
+          <button class="chip-btn" data-rot="programs">Émissions</button>
           <button class="chip-btn" data-rot="schedule">Planning</button>
           <span class="spacer"></span>
           <span class="form-result" id="rotation-result"></span>
@@ -508,8 +509,10 @@
               <label>à<input type="number" name="bpm_max" min="20" max="400"></label>
             </div>
             <label>Dossiers (un par ligne ; vide = toute la bibliothèque)<textarea name="folders" rows="3"></textarea></label>
+            <label>Playlists M3U (une par ligne ; vide = pas de restriction, sinon le titre doit figurer dans l'une d'elles)<textarea name="playlists" rows="2"></textarea></label>
             <div class="form-actions">
               <button type="button" class="btn ghost small" id="cat-folder">Ajouter un dossier…</button>
+              <button type="button" class="btn ghost small" id="cat-m3u">Ajouter un M3U…</button>
               <span class="spacer"></span>
               <span class="muted" id="cat-count"></span>
               <button type="button" class="btn danger small" id="cat-delete">Supprimer</button>
@@ -537,8 +540,29 @@
           </form>
         </div>
 
+        <!-- [HTM-24] -->
+        <div class="rot-page rot-split" data-rotpage="programs" hidden>
+          <div class="rot-side">
+            <div id="prog-list" class="rot-list"></div>
+            <button type="button" class="btn small" id="prog-add">Nouvelle émission</button>
+          </div>
+          <form class="form rot-form" id="prog-form">
+            <div class="grid2">
+              <label>Nom<input name="name" placeholder="Spécial Halloween"></label>
+              <label>Couleur<input type="color" name="color"></label>
+            </div>
+            <label>Playlist M3U<input name="path" placeholder="Chemin du fichier .m3u ou .m3u8"></label>
+            <p class="muted">Placée dans le planning, une émission joue sa playlist dans l'ordre, sans règles de séparation. Elle commence quand la playlist d'attente est jouée ; si elle se termine avant la fin de l'heure, la grille hors planning prend le relais. Prépare-la avec <b>Enregistrer…</b> dans la playlist.</p>
+            <div class="form-actions">
+              <button type="button" class="btn ghost small" id="prog-pick">Choisir le M3U…</button>
+              <span class="spacer"></span>
+              <button type="button" class="btn danger small" id="prog-delete">Supprimer</button>
+            </div>
+          </form>
+        </div>
+
         <div class="rot-page" data-rotpage="schedule" hidden>
-          <p class="muted">Choisis une grille dans la palette, puis clique ou glisse sur les heures. Les heures vides utilisent la grille hors planning. L'auto-mix applique la grille de l'heure en cours.</p>
+          <p class="muted">Choisis une grille ou une émission (hachurée) dans la palette, puis clique ou glisse sur les heures. Les heures vides utilisent la grille hors planning. L'auto-mix applique la grille de l'heure en cours.</p>
           <div class="form-actions sched-tools">
             <div id="sched-palette" class="sched-palette"></div>
             <span class="spacer"></span>

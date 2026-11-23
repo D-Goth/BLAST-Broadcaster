@@ -115,6 +115,7 @@ pub struct ClockView {
     pub id: String,
     pub name: String,
     pub color: String,
+    pub program: bool,
 }
 
 // [CTL-149]

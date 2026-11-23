@@ -681,9 +681,20 @@ pub async fn rotation_counts(
         let tracks = blast_library::SqliteStore::open(&db)
             .and_then(|l| l.tracks())
             .map_err(|e| e.to_string())?;
+        let lists: blast_library::PlaylistSets = rules
+            .iter()
+            .flat_map(|r| r.playlists.iter())
+            .map(|p| {
+                let set = crate::playlist::read_m3u(std::path::Path::new(p))
+                    .iter()
+                    .map(|t| blast_library::path_key(&t.to_string_lossy()))
+                    .collect();
+                (blast_library::path_key(p), set)
+            })
+            .collect();
         Ok(rules
             .iter()
-            .map(|r| tracks.iter().filter(|t| r.matches(t)).count())
+            .map(|r| tracks.iter().filter(|t| r.matches_with(t, &lists)).count())
             .collect())
     })
     .await
