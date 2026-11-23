@@ -256,6 +256,29 @@ pub fn save_deck_gains(state: tauri::State<'_, App>, gains: [f32; 2]) -> Result<
     state.commit(move |cfg| cfg.audio.deck_gain_db = gains.map(|g| (g * 2.0).round() / 2.0))
 }
 
+// [APP-47]
+#[tauri::command]
+pub async fn deck_cover(
+    state: tauri::State<'_, App>,
+    deck: crate::controller::Deck,
+) -> Result<tauri::ipc::Response, String> {
+    let (reply, rx) = crossbeam_channel::bounded(1);
+    state
+        .tx
+        .send(UiCommand::Cover { deck, reply })
+        .map_err(|e| e.to_string())?;
+    let cover = tauri::async_runtime::spawn_blocking(move || {
+        rx.recv_timeout(std::time::Duration::from_secs(2))
+            .ok()
+            .flatten()
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(
+        cover.map(|c| c.data.clone()).unwrap_or_default(),
+    ))
+}
+
 // [APP-15]
 #[tauri::command]
 pub async fn test_aura(

@@ -103,6 +103,8 @@ pub struct DeckView {
     pub title: String,
     pub artist: String,
     pub path: Option<PathBuf>,
+    pub format: Option<String>,
+    pub cover: Option<u64>,
 }
 
 // [CTL-35]

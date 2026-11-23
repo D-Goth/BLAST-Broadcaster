@@ -92,6 +92,7 @@ fn main() {
             api::save_aura,
             api::save_chat,
             api::save_deck_gains,
+            api::deck_cover,
             api::test_aura,
             api::save_audio,
             api::save_voice,

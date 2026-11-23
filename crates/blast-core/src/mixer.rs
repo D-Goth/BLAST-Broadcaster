@@ -685,6 +685,8 @@ mod tests {
             source_rate: 1000,
             title: None,
             artist: None,
+            format: None,
+            cover: None,
         })
     }
 

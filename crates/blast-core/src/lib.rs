@@ -6,7 +6,10 @@ pub mod resample;
 #[cfg(feature = "output")]
 pub mod engine;
 
-pub use decode::{decode_file, is_audio_path, probe_file, DecodeError, Track, TrackInfo};
+pub use decode::{
+    decode_file, folder_cover, is_audio_path, probe_file, AudioFormat, Cover, DecodeError, Track,
+    TrackInfo,
+};
 pub use dsp::{
     master_preset, voice_preset, MasterParams, VoiceParams, MASTER_PRESETS, VOICE_PRESETS,
 };

@@ -413,6 +413,10 @@ impl Controller {
     fn handle(&mut self, cmd: UiCommand) {
         match cmd {
             UiCommand::Refresh => self.refresh(),
+            UiCommand::Cover { deck, reply } => {
+                let cover = self.decks[deck.index()].meta.cover.as_ref();
+                let _ = reply.send(cover.map(|(_, c)| c.clone()));
+            }
             UiCommand::Shutdown { done } => {
                 self.flush_queue();
                 let _ = done.send(());

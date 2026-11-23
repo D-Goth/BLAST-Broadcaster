@@ -43,6 +43,59 @@ function saveDeckGains() {
   invoke("save_deck_gains", { gains }).catch(() => {});
 }
 
+// [UI-142]
+const coverShown = { A: undefined, B: undefined };
+const coverUrl = { A: null, B: null };
+
+// [UI-143]
+function renderCover(id, el, d) {
+  const key = d.cover ?? null;
+  if (coverShown[id] === key) return;
+  coverShown[id] = key;
+  const box = $(".deck-cover", el);
+  const img = $("img", box);
+  const drop = () => {
+    if (coverUrl[id]) URL.revokeObjectURL(coverUrl[id]);
+    coverUrl[id] = null;
+    img.removeAttribute("src");
+    box.classList.remove("has");
+  };
+  if (key === null) return drop();
+  invoke("deck_cover", { deck: id })
+    .then((buf) => {
+      if (coverShown[id] !== key) return;
+      drop();
+      if (!buf || !buf.byteLength) return;
+      coverUrl[id] = URL.createObjectURL(new Blob([buf]));
+      img.src = coverUrl[id];
+      box.classList.add("has");
+    })
+    .catch(drop);
+}
+
+// [UI-144]
+function zoomCover(id) {
+  if (!coverUrl[id]) return;
+  const layer = document.createElement("div");
+  layer.className = "cover-zoom";
+  const img = document.createElement("img");
+  img.src = coverUrl[id];
+  layer.append(img);
+  const close = () => {
+    layer.remove();
+    document.removeEventListener("keydown", onKey, true);
+  };
+  const onKey = (e) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      close();
+    }
+  };
+  layer.addEventListener("click", close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.append(layer);
+}
+
 // [UI-22]
 function renderDeck(id, d) {
   const el = decks[id];
@@ -55,6 +108,8 @@ function renderDeck(id, d) {
   $(".deck-title", el).title = d.path || "";
   $(".deck-artist", el).innerHTML = d.artist ? "" : "&nbsp;";
   if (d.artist) $(".deck-artist", el).textContent = d.artist;
+  $(".deck-format", el).textContent = d.format || "\u00a0";
+  renderCover(id, el, d);
   renderDeckLevel(id, el, st);
   const remaining = Math.max(0, d.duration - d.position);
   $(".elapsed", el).textContent = fmt(d.position);
@@ -167,6 +222,7 @@ export function init() {
       send({ type: "deck_gain", deck: id, db: 0 });
       saveDeckGains();
     });
+    $(".deck-cover", el).addEventListener("click", () => zoomCover(id));
     $(".progress", el).addEventListener("click", (e) => {
       const r = e.currentTarget.getBoundingClientRect();
       send({ type: "seek", deck: id, fraction: (e.clientX - r.left) / r.width });

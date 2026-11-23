@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -65,6 +66,11 @@ pub enum UiCommand {
     #[serde(skip)]
     Shutdown {
         done: crossbeam_channel::Sender<()>,
+    },
+    #[serde(skip)]
+    Cover {
+        deck: Deck,
+        reply: crossbeam_channel::Sender<Option<Arc<blast_core::Cover>>>,
     },
     AddPaths {
         paths: Vec<PathBuf>,

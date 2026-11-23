@@ -17,7 +17,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 ✅ disponible · ⏳ prévu
 
 **Antenne**
-- ✅ Deux platines avec volume et VU-mètre propres, crossfade automatique ou manuel, auto-mix, bouton Suivant
+- ✅ Deux platines avec pochette, format du fichier, volume et VU-mètre propres, crossfade automatique ou manuel, auto-mix, bouton Suivant
 - ✅ Playlist de plusieurs dizaines de milliers de titres, mélange (avec espacement des artistes), retrait des doublons, enregistrement et ouverture en M3U, reprise automatique après un plantage
 - ✅ Grilles horaires (clockwheels) : catégories, grilles, émissions M3U, planning de la semaine, tirage pondéré
 - ✅ Règles de séparation artiste / titre, historique typé (morceaux, jingles, pubs) exportable
@@ -125,6 +125,7 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 | Titre suivant | Bouton **⏭** d'une platine : fondu vers l'autre platine ; si elle est vide, le prochain titre de la playlist y est chargé puis enchaîné |
 | Se déplacer | Cliquer sur la barre de progression |
 | Volume d'une platine | Curseur **VOL** sous les boutons de chaque platine (de −∞ à +6 dB, double-clic pour revenir à 0 dB), avec son VU-mètre gauche/droite ; le réglage est gardé d'une session à l'autre |
+| Pochette et format | Chaque platine affiche la pochette du titre (intégrée au fichier, sinon `cover`, `folder`, `front`, `album` ou `albumart` en .jpg/.png/.webp dans son dossier) et une ligne de format : codec · bits · kHz · kbps · mono/stéréo. Clic sur la pochette pour l'agrandir, Échap pour fermer |
 | Micro | **Appuyer pour parler** (ou **Espace** maintenu) : ouvert tant qu'on appuie ; **🔒 VERROU** (ou touche **M**) : verrouille le micro ouvert, re-cliquer pour le refermer |
 | Retour micro | **Réglages → Audio** : le micro part toujours vers la diffusion ; « Entendre mon micro » le renvoie aussi vers les enceintes/le casque (désactivé par défaut, pas d'écho ni de Larsen) |
 | Ducking | **AUTO** : la musique baisse automatiquement (niveau réglable, -12 dB par défaut) quand le micro est ouvert ; **Temps du ducking** règle la descente (0,2 s par défaut) et la remontée (0,8 s) de la musique |

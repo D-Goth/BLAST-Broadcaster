@@ -209,6 +209,54 @@ fn files_dropped_on_a_deck_are_loaded() {
     );
 }
 
+#[test]
+fn a_loaded_deck_shows_its_format_and_folder_cover() {
+    let mut h = Harness::new("cover");
+    let a = h.wav("a.wav");
+    std::fs::write(h.dir.join("Cover.JPG"), b"\xFF\xD8\xFFfake").unwrap();
+    h.c.handle(UiCommand::LoadPaths {
+        deck: Deck::A,
+        paths: vec![a],
+    });
+    h.work(2);
+    let st = h.last(EV_STATE);
+    assert_eq!(
+        st["decks"][0]["format"],
+        "PCM · 16 bits · 44,1 kHz · 1412 kbps · stéréo"
+    );
+    assert!(st["decks"][0]["cover"].is_u64());
+    assert!(st["decks"][1]["cover"].is_null());
+    let (reply, rx) = crossbeam_channel::bounded(1);
+    h.c.handle(UiCommand::Cover {
+        deck: Deck::A,
+        reply,
+    });
+    let cover = rx.recv().unwrap().expect("pochette");
+    assert_eq!(cover.mime, "image/jpeg");
+    assert_eq!(&cover.data[..3], b"\xFF\xD8\xFF");
+}
+
+#[test]
+fn format_labels_read_naturally() {
+    let f = |codec: &str, rate, channels, bits, kbps| {
+        super::decks::format_label(&blast_core::AudioFormat {
+            codec: codec.into(),
+            sample_rate: rate,
+            channels,
+            bits,
+            kbps,
+        })
+    };
+    assert_eq!(
+        f("MP3", 44_100, 2, None, Some(320)),
+        "MP3 · 44,1 kHz · 320 kbps · stéréo"
+    );
+    assert_eq!(
+        f("FLAC", 96_000, 1, Some(24), None),
+        "FLAC · 24 bits · 96 kHz · mono"
+    );
+}
+
 fn old_play(at: i64) -> NewPlay {
     NewPlay {
         path: "/x/old.mp3".into(),

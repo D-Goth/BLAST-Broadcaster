@@ -1,12 +1,14 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
+use std::sync::Arc;
 use symphonia::core::audio::SampleBuffer;
 use symphonia::core::codecs::{DecoderOptions, CODEC_TYPE_NULL};
 use symphonia::core::errors::Error as SymError;
 use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
-use symphonia::core::meta::{MetadataOptions, MetadataRevision, StandardTagKey};
+
+use symphonia::core::meta::{MetadataOptions, MetadataRevision, StandardTagKey, StandardVisualKey};
 use symphonia::core::probe::Hint;
 
 use crate::resample;
@@ -20,6 +22,25 @@ pub struct Track {
     pub source_rate: u32,
     pub title: Option<String>,
     pub artist: Option<String>,
+    pub format: Option<AudioFormat>,
+    pub cover: Option<Arc<Cover>>,
+}
+
+// [DEC-14]
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioFormat {
+    pub codec: String,
+    pub sample_rate: u32,
+    pub channels: u16,
+    pub bits: Option<u32>,
+    pub kbps: Option<u32>,
+}
+
+// [DEC-15]
+#[derive(Debug, Clone, PartialEq)]
+pub struct Cover {
+    pub mime: String,
+    pub data: Vec<u8>,
 }
 
 impl Track {
@@ -91,6 +112,8 @@ struct Tags {
     genre: Option<String>,
     year: Option<i32>,
     bpm: Option<f32>,
+    cover: Option<Cover>,
+    cover_front: bool,
 }
 
 // [DEC-03]
@@ -135,6 +158,83 @@ fn read_tags(rev: &MetadataRevision, t: &mut Tags) {
             ) if t.year.is_none() => t.year = parse_year(v),
             Some(StandardTagKey::Bpm) if t.bpm.is_none() => t.bpm = parse_bpm(v),
             _ => {}
+        }
+    }
+    for v in rev.visuals() {
+        let front = v.usage == Some(StandardVisualKey::FrontCover);
+        if v.data.is_empty()
+            || v.data.len() > COVER_MAX_BYTES
+            || (t.cover.is_some() && (t.cover_front || !front))
+        {
+            continue;
+        }
+        t.cover = Some(Cover {
+            mime: v.media_type.clone(),
+            data: v.data.to_vec(),
+        });
+        t.cover_front = front;
+    }
+}
+
+// [DEC-16]
+const COVER_MAX_BYTES: usize = 8 * 1024 * 1024;
+const FOLDER_COVERS: &[&str] = &["cover", "folder", "front", "album", "albumart"];
+
+// [DEC-17]
+pub fn folder_cover(path: &Path) -> Option<Cover> {
+    let dir = path.parent()?;
+    let mut best: Option<(usize, PathBuf)> = None;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let p = entry.path();
+        let (Some(stem), Some(ext)) = (
+            p.file_stem().and_then(|s| s.to_str()),
+            p.extension().and_then(|e| e.to_str()),
+        ) else {
+            continue;
+        };
+        if !matches!(
+            ext.to_ascii_lowercase().as_str(),
+            "jpg" | "jpeg" | "png" | "webp"
+        ) {
+            continue;
+        }
+        let stem = stem.to_ascii_lowercase();
+        let Some(rank) = FOLDER_COVERS.iter().position(|n| *n == stem) else {
+            continue;
+        };
+        if best.as_ref().is_none_or(|(r, _)| rank < *r) {
+            best = Some((rank, p.clone()));
+        }
+    }
+    let (_, p) = best?;
+    let len = std::fs::metadata(&p).ok()?.len() as usize;
+    if len == 0 || len > COVER_MAX_BYTES {
+        return None;
+    }
+    let mime = match p.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "png" => "image/png",
+        "webp" => "image/webp",
+        _ => "image/jpeg",
+    };
+    Some(Cover {
+        mime: mime.into(),
+        data: std::fs::read(&p).ok()?,
+    })
+}
+
+// [DEC-18]
+fn codec_label(params: &symphonia::core::codecs::CodecParameters) -> String {
+    let name = symphonia::default::get_codecs()
+        .get_codec(params.codec)
+        .map(|d| d.short_name)
+        .unwrap_or("?");
+    if name.starts_with("pcm") {
+        "PCM".into()
+    } else {
+        match name {
+            "vorbis" => "Vorbis".into(),
+            "opus" => "Opus".into(),
+            other => other.to_ascii_uppercase(),
         }
     }
 }
@@ -240,7 +340,12 @@ pub fn probe_file(path: &Path) -> Result<TrackInfo, DecodeError> {
 // [DEC-11]
 pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> {
     let mut probed = open(path)?;
-    let Tags { title, artist, .. } = collect_tags(&mut probed);
+    let Tags {
+        title,
+        artist,
+        cover,
+        ..
+    } = collect_tags(&mut probed);
     let mut format = probed.format;
 
     let track = format
@@ -254,6 +359,13 @@ pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> 
         .sample_rate
         .ok_or(DecodeError::UnknownSampleRate)?;
 
+    let codec = codec_label(&track.codec_params);
+    let mut bits = track.codec_params.bits_per_sample;
+    let mut source_channels = track
+        .codec_params
+        .channels
+        .map(|c| c.count() as u16)
+        .unwrap_or(0);
     let mut decoder =
         symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
 
@@ -283,6 +395,9 @@ pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> 
 
         let spec = *decoded.spec();
         let channels = spec.channels.count();
+        if source_channels == 0 {
+            source_channels = channels as u16;
+        }
         let frames = decoded.frames();
         if frames == 0 || channels == 0 {
             continue;
@@ -309,6 +424,27 @@ pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> 
         }
     }
 
+    let source_secs = samples.len() as f64 / 2.0 / source_rate as f64;
+    let kbps = std::fs::metadata(path)
+        .ok()
+        .filter(|_| source_secs > 0.1)
+        .map(|m| {
+            let embedded = cover.as_ref().map_or(0, |c| c.data.len() as u64);
+            (m.len().saturating_sub(embedded) as f64 * 8.0 / source_secs / 1000.0).round() as u32
+        });
+    if bits.is_none() {
+        bits = decoder.codec_params().bits_per_sample;
+    }
+    let lossless = matches!(codec.as_str(), "PCM" | "FLAC" | "ALAC" | "WAVPACK");
+    let format_info = AudioFormat {
+        codec,
+        sample_rate: source_rate,
+        channels: source_channels,
+        bits: bits.filter(|_| lossless),
+        kbps,
+    };
+    let cover = cover.or_else(|| folder_cover(path)).map(Arc::new);
+
     let samples = if source_rate != target_rate {
         resample::resample_stereo(&samples, source_rate, target_rate)
             .map_err(DecodeError::Resample)?
@@ -323,5 +459,7 @@ pub fn decode_file(path: &Path, target_rate: u32) -> Result<Track, DecodeError> 
         source_rate,
         title,
         artist,
+        format: Some(format_info),
+        cover,
     })
 }

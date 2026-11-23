@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 
-use blast_core::{decode_file, Command, DeckState, DeckStatus, Track};
+use blast_core::{decode_file, AudioFormat, Command, Cover, DeckState, DeckStatus, Track};
 use blast_library::Kind;
 
 use super::commands::Deck;
@@ -26,6 +26,8 @@ pub struct DeckMeta {
     pub loading: Option<u64>,
     pub finished: bool,
     pub kind: Kind,
+    pub format: Option<AudioFormat>,
+    pub cover: Option<(u64, Arc<Cover>)>,
 }
 
 // [CTL-42]
@@ -96,6 +98,8 @@ impl Controller {
             loading: Some(job),
             finished: false,
             kind: entry.kind,
+            format: None,
+            cover: None,
         };
         let tx = self.work_tx.clone();
         let rate = self.sample_rate;
@@ -131,6 +135,8 @@ impl Controller {
                 }
                 side.meta.artist = track.artist.clone().unwrap_or_default();
                 side.meta.finished = false;
+                side.meta.format = track.format.clone();
+                side.meta.cover = track.cover.clone().map(|c| (job, c));
                 side.status = DeckStatus {
                     state: DeckState::Loaded,
                     position: 0,
@@ -347,6 +353,8 @@ impl Controller {
             title: side.meta.title.clone(),
             artist: side.meta.artist.clone(),
             path: side.meta.path.clone(),
+            format: side.meta.format.as_ref().map(format_label),
+            cover: side.meta.cover.as_ref().map(|(id, _)| *id),
         }
     }
 
@@ -379,4 +387,28 @@ impl Controller {
         };
         self.emit(EV_STATE, &view);
     }
+}
+
+// [CTL-190]
+pub fn format_label(f: &AudioFormat) -> String {
+    let mut parts = vec![f.codec.clone()];
+    if let Some(b) = f.bits {
+        parts.push(format!("{b} bits"));
+    }
+    let khz = f.sample_rate as f64 / 1000.0;
+    parts.push(if khz.fract() == 0.0 {
+        format!("{khz:.0} kHz")
+    } else {
+        format!("{khz:.1} kHz").replace('.', ",")
+    });
+    if let Some(k) = f.kbps {
+        parts.push(format!("{k} kbps"));
+    }
+    parts.push(match f.channels {
+        0 => return parts.join(" · "),
+        1 => "mono".into(),
+        2 => "stéréo".into(),
+        n => format!("{n} canaux"),
+    });
+    parts.join(" · ")
 }

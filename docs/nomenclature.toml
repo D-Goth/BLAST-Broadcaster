@@ -3274,3 +3274,55 @@ definition = "Met à jour le VU-mètre de la platine et, hors glissement, le cur
 [codes.UI-141]
 titre = "Enregistrement des volumes"
 definition = "Envoie les volumes des deux platines aux réglages."
+
+[codes.DEC-14]
+titre = "Format audio d'un titre"
+definition = "Codec, fréquence d'origine, nombre de canaux, résolution (formats sans perte) et débit moyen calculé depuis la taille du fichier, pochette intégrée déduite."
+
+[codes.DEC-15]
+titre = "Pochette"
+definition = "Image (type MIME + octets) intégrée au fichier ou trouvée dans son dossier."
+
+[codes.DEC-16]
+titre = "Limites de pochette"
+definition = "Taille maximale acceptée (8 Mo) et noms de fichiers reconnus comme pochette de dossier, par ordre de préférence."
+
+[codes.DEC-17]
+titre = "Pochette de dossier"
+definition = "Cherche cover/folder/front/album/albumart en .jpg, .jpeg, .png ou .webp à côté du titre, sans tenir compte de la casse."
+
+[codes.DEC-18]
+titre = "Nom du codec"
+definition = "Nom court lisible du codec (MP3, FLAC, AAC, Vorbis, Opus ; PCM pour tous les WAV/AIFF non compressés)."
+
+[codes.CTL-190]
+titre = "Libellé du format"
+definition = "Texte affiché sous la platine : codec · bits · kHz · kbps · mono/stéréo."
+
+[codes.APP-47]
+titre = "Pochette d'une platine"
+definition = "Commande deck_cover : demande au contrôleur la pochette chargée et la renvoie en binaire brut (vide s'il n'y en a pas)."
+
+[codes.HTM-42]
+titre = "Identité de la platine A"
+definition = "Pochette, titre, artiste et format du titre chargé sur la platine A."
+
+[codes.HTM-43]
+titre = "Identité de la platine B"
+definition = "Pochette, titre, artiste et format du titre chargé sur la platine B."
+
+[codes.STY-22]
+titre = "Pochette et format des platines"
+definition = "Vignette 60 px avec note de remplacement, ligne de format en police fixe, agrandissement plein écran."
+
+[codes.UI-142]
+titre = "État des pochettes affichées"
+definition = "Identifiant de pochette affiché et URL blob en cours, par platine."
+
+[codes.UI-143]
+titre = "Affichage de la pochette"
+definition = "Ne redemande la pochette que si son identifiant change ; libère l'ancienne URL blob."
+
+[codes.UI-144]
+titre = "Agrandissement de la pochette"
+definition = "Clic sur la vignette : pochette en grand ; clic ou Échap pour fermer."
