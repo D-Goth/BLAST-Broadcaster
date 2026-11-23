@@ -1,60 +1,73 @@
 import { $, $$, S, T, send, toast, fmt, ico, invoke, confirmClick, pickAudio } from "./core.js";
 import { freeDeck } from "./decks.js";
+import { virtualList } from "./vlist.js";
 
 const KIND_LABEL = { morceau: "Morceau", jingle: "Jingle", pub: "Pub" };
 let history = { all: [], morceau: [], jingle: [], pub: [], stats: null, current: null, capacity: 200 };
 let filter = "all";
 
 // [UI-26]
+let playlistView = null;
+let historyView = null;
+
+// [UI-103]
+function playlistRow(i) {
+  const e = S.entries[i];
+  const row = document.createElement("div");
+  row.className = "row row-grid" + (e.error ? " error" : "");
+  row.dataset.id = e.id;
+  row.dataset.index = i;
+  row.title = e.error ? `${e.path}\n${e.error}` : e.path;
+  row.innerHTML = `
+    <span class="num">${i + 1}</span>
+    <span class="title"></span>
+    <span class="artist muted"></span>
+    <span class="dur">${e.duration != null ? fmt(e.duration) : "--:--"}</span>
+    <span class="actions">
+      <button class="btn ghost a" data-load="A" title="Charger dans la platine A">A</button>
+      <button class="btn ghost b" data-load="B" title="Charger dans la platine B">B</button>
+      <button class="btn ghost" data-remove title="Retirer de la playlist">&#10005;</button>
+    </span>`;
+  $(".title", row).textContent = e.title;
+  if (e.slot) {
+    const tag = document.createElement("span");
+    tag.className = "slot-tag";
+    tag.style.setProperty("--slot-color", e.slot.color || "var(--accent)");
+    tag.textContent = e.slot.name;
+    tag.title = "Ajouté par la grille";
+    $(".title", row).prepend(tag);
+  }
+  if (e.kind && e.kind !== "morceau") {
+    const tag = document.createElement("span");
+    tag.className = `kind-tag ${e.kind}`;
+    tag.textContent = KIND_LABEL[e.kind];
+    $(".title", row).prepend(tag);
+  }
+  if (e.blocked && !e.error) {
+    row.classList.add("blocked");
+    const w = document.createElement("span");
+    w.className = "wait";
+    w.innerHTML = ico("clock");
+    w.title = `En attente : ${e.blocked}`;
+    $(".title", row).prepend(w);
+    row.title = `${row.title}\nEn attente (règles de séparation) : ${e.blocked}`;
+  }
+  $(".artist", row).textContent = e.artist;
+  return row;
+}
+
 export function renderPlaylist(total) {
-  const rows = $("#rows");
-  rows.innerHTML = "";
-  S.entries.forEach((e, i) => {
-    const row = document.createElement("div");
-    row.className = "row row-grid" + (e.error ? " error" : "");
-    row.dataset.id = e.id;
-    row.dataset.index = i;
-    row.title = e.error ? `${e.path}\n${e.error}` : e.path;
-    row.innerHTML = `
-      <span class="num">${i + 1}</span>
-      <span class="title"></span>
-      <span class="artist muted"></span>
-      <span class="dur">${e.duration != null ? fmt(e.duration) : "--:--"}</span>
-      <span class="actions">
-        <button class="btn ghost a" data-load="A" title="Charger dans la platine A">A</button>
-        <button class="btn ghost b" data-load="B" title="Charger dans la platine B">B</button>
-        <button class="btn ghost" data-remove title="Retirer de la playlist">&#10005;</button>
-      </span>`;
-    $(".title", row).textContent = e.title;
-    if (e.slot) {
-      const tag = document.createElement("span");
-      tag.className = "slot-tag";
-      tag.style.setProperty("--slot-color", e.slot.color || "var(--accent)");
-      tag.textContent = e.slot.name;
-      tag.title = "Ajouté par la grille";
-      $(".title", row).prepend(tag);
-    }
-    if (e.kind && e.kind !== "morceau") {
-      const tag = document.createElement("span");
-      tag.className = `kind-tag ${e.kind}`;
-      tag.textContent = KIND_LABEL[e.kind];
-      $(".title", row).prepend(tag);
-    }
-    if (e.blocked && !e.error) {
-      row.classList.add("blocked");
-      const w = document.createElement("span");
-      w.className = "wait";
-      w.innerHTML = ico("clock");
-      w.title = `En attente : ${e.blocked}`;
-      $(".title", row).prepend(w);
-      row.title = `${row.title}\nEn attente (règles de séparation) : ${e.blocked}`;
-    }
-    $(".artist", row).textContent = e.artist;
-    rows.appendChild(row);
-  });
+  playlistView.setCount(S.entries.length);
   const n = S.entries.length;
   $("#playlist-info").textContent = n === 0 ? "0 titre" : `${n} titre${n > 1 ? "s" : ""} · ${fmt(total)}`;
   $("#empty").classList.toggle("hidden", n > 0 || $("#rows").hidden);
+}
+
+// [UI-104]
+export function setBlocked(list) {
+  const reasons = new Map(list);
+  for (const e of S.entries) e.blocked = reasons.get(e.id) || null;
+  playlistView.refresh();
 }
 
 // [UI-27]
@@ -62,6 +75,7 @@ function showPlaylistTab(tab) {
   $$("[data-ptab]").forEach((t) => t.classList.toggle("active", t.dataset.ptab === tab));
   $$("#playlist [data-ppage]").forEach((el) => (el.hidden = el.dataset.ppage !== tab));
   if (tab === "playlist") $("#empty").classList.toggle("hidden", S.entries.length > 0);
+  (tab === "playlist" ? playlistView : historyView).refresh();
 }
 
 // [UI-28]
@@ -78,35 +92,36 @@ export function setHistory(h) {
 }
 
 // [UI-82]
+function historyRow(i) {
+  const r = (history[filter] || [])[i];
+  const el = document.createElement("div");
+  const current = r.id === history.current;
+  el.className = "hrow hrow-grid" + (current ? " current" : "");
+  el.title = r.path;
+  el.innerHTML = `<span class="t"></span><span class="k"><span class="kind-tag"></span></span><span class="ti"></span><span class="ar muted"></span><span class="d"></span><span class="a"><span class="air-dot"></span></span><span class="n"></span>`;
+  $(".t", el).textContent = clockTime(r.started_at);
+  $(".kind-tag", el).textContent = KIND_LABEL[r.kind] || r.kind;
+  $(".kind-tag", el).classList.add(r.kind);
+  $(".ti", el).textContent = r.title || "—";
+  $(".ar", el).textContent = r.artist;
+  $(".d", el).textContent = current ? "en cours" : r.duration_played != null ? fmt(r.duration_played) : "--:--";
+  $(".air-dot", el).classList.toggle("on", r.on_air);
+  $(".air-dot", el).title = r.on_air ? "Diffusé pendant une diffusion en direct" : "Joué hors diffusion";
+  $(".n", el).textContent = r.listeners != null ? r.listeners : "–";
+  return el;
+}
+
+function historyEmpty() {
+  const e = document.createElement("div");
+  e.className = "hempty";
+  e.textContent = filter === "all"
+    ? "Aucune diffusion enregistrée pour l'instant : chaque titre passé à l'antenne apparaîtra ici."
+    : `Aucun passage de type « ${KIND_LABEL[filter]} » dans les ${history.capacity} derniers.`;
+  return e;
+}
+
 function renderHistory() {
-  const rows = history[filter] || [];
-  const box = $("#hrows");
-  box.innerHTML = "";
-  if (!rows.length) {
-    const e = document.createElement("div");
-    e.className = "hempty";
-    e.textContent = filter === "all"
-      ? "Aucune diffusion enregistrée pour l'instant : chaque titre passé à l'antenne apparaîtra ici."
-      : `Aucun passage de type « ${KIND_LABEL[filter]} » dans les ${history.capacity} derniers.`;
-    box.appendChild(e);
-  }
-  for (const r of rows) {
-    const el = document.createElement("div");
-    const current = r.id === history.current;
-    el.className = "hrow hrow-grid" + (current ? " current" : "");
-    el.title = r.path;
-    el.innerHTML = `<span class="t"></span><span class="k"><span class="kind-tag"></span></span><span class="ti"></span><span class="ar muted"></span><span class="d"></span><span class="a"><span class="air-dot"></span></span><span class="n"></span>`;
-    $(".t", el).textContent = clockTime(r.started_at);
-    $(".kind-tag", el).textContent = KIND_LABEL[r.kind] || r.kind;
-    $(".kind-tag", el).classList.add(r.kind);
-    $(".ti", el).textContent = r.title || "—";
-    $(".ar", el).textContent = r.artist;
-    $(".d", el).textContent = current ? "en cours" : r.duration_played != null ? fmt(r.duration_played) : "--:--";
-    $(".air-dot", el).classList.toggle("on", r.on_air);
-    $(".air-dot", el).title = r.on_air ? "Diffusé pendant une diffusion en direct" : "Joué hors diffusion";
-    $(".n", el).textContent = r.listeners != null ? r.listeners : "–";
-    box.appendChild(el);
-  }
+  historyView.setCount((history[filter] || []).length);
   const s = history.stats;
   $("#history-info").textContent = s ? `${s.plays} passage${s.plays > 1 ? "s" : ""} · ${s.tracks} titre${s.tracks > 1 ? "s" : ""}` : "";
   $("#history-info").title = `Affichage : ${history.capacity} derniers passages par catégorie, gardés en mémoire`;
@@ -170,6 +185,8 @@ function openShuffleMenu(anchor) {
 const closeShuffleMenu = () => $("#shuffle-menu").classList.add("hidden");
 
 export function init() {
+  playlistView = virtualList($("#rows"), 36, playlistRow);
+  historyView = virtualList($("#hrows"), 32, historyRow, historyEmpty);
   const rows = $("#rows");
   rows.addEventListener("dblclick", (e) => {
     const row = e.target.closest(".row");

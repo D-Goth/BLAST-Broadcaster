@@ -252,7 +252,7 @@ impl Controller {
         }
         if self.auto.last_rules_refresh.elapsed() > RULES_REFRESH_EVERY {
             self.auto.last_rules_refresh = Instant::now();
-            self.emit_playlist();
+            self.emit_blocked();
         }
     }
 

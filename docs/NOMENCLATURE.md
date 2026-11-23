@@ -40,8 +40,8 @@ ne pas le modifier à la main.
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
 | [`PL`](#pl) | Playlist côté application | 15 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 142 |
-| [`UI`](#ui) | Interface : modules JavaScript | 100 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 144 |
+| [`UI`](#ui) | Interface : modules JavaScript | 104 |
 | [`STY`](#sty) | Interface : feuille de style | 17 |
 | [`HTM`](#htm) | Interface : structure de la page | 23 |
 
@@ -5115,12 +5115,12 @@ pub struct Entry {
     pub path: PathBuf,
     pub title: String,
     pub artist: String,
+    #[serde(skip_serializing)]
     pub album: String,
+    #[serde(skip_serializing)]
     pub genre: String,
+    #[serde(skip_serializing)]
     pub year: Option<i32>,
-    pub duration: Option<f64>,
-    pub error: Option<String>,
-    pub blocked: Option<String>,
 …
 ```
 
@@ -5128,7 +5128,7 @@ pub struct Entry {
 
 Liste ordonnée d'entrées avec identifiants uniques.
 
-`app/src-tauri/src/playlist.rs` ligne 51
+`app/src-tauri/src/playlist.rs` ligne 55
 
 ```rust
 #[derive(Debug, Default)]
@@ -5142,7 +5142,7 @@ pub struct Playlist {
 
 Insérer à une position, retirer, déplacer, vider et totaliser la durée.
 
-`app/src-tauri/src/playlist.rs` ligne 58
+`app/src-tauri/src/playlist.rs` ligne 62
 
 ```rust
 impl Playlist {
@@ -5164,7 +5164,7 @@ impl Playlist {
 
 Parcourt un dossier récursivement, dans l'ordre alphabétique.
 
-`app/src-tauri/src/playlist.rs` ligne 177
+`app/src-tauri/src/playlist.rs` ligne 181
 
 ```rust
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -5186,7 +5186,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 
 Remplace les dossiers par les fichiers audio qu'ils contiennent.
 
-`app/src-tauri/src/playlist.rs` ligne 193
+`app/src-tauri/src/playlist.rs` ligne 197
 
 ```rust
 pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
@@ -5206,7 +5206,7 @@ pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
 
 Sonde un fichier ; un fichier illisible devient une entrée signalée en erreur.
 
-`app/src-tauri/src/playlist.rs` ligne 289
+`app/src-tauri/src/playlist.rs` ligne 293
 
 ```rust
 pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
@@ -5228,7 +5228,7 @@ pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
 
 Minuscules et accents retirés, pour comparer les noms de dossiers.
 
-`app/src-tauri/src/playlist.rs` ligne 206
+`app/src-tauri/src/playlist.rs` ligne 210
 
 ```rust
 fn fold(word: &str) -> String {
@@ -5250,7 +5250,7 @@ fn fold(word: &str) -> String {
 
 Le nom de dossier contient-il un des mots-clés, au singulier ou au pluriel ?
 
-`app/src-tauri/src/playlist.rs` ligne 221
+`app/src-tauri/src/playlist.rs` ligne 225
 
 ```rust
 fn folder_matches(folder: &str, keywords: &[String]) -> bool {
@@ -5272,7 +5272,7 @@ fn folder_matches(folder: &str, keywords: &[String]) -> bool {
 
 Jingle, pub ou morceau d'après le dossier le plus proche qui porte un mot-clé.
 
-`app/src-tauri/src/playlist.rs` ligne 236
+`app/src-tauri/src/playlist.rs` ligne 240
 
 ```rust
 pub fn classify(path: &Path, cats: &CategorySettings) -> Kind {
@@ -5294,7 +5294,7 @@ pub fn classify(path: &Path, cats: &CategorySettings) -> Kind {
 
 Nom et couleur de la catégorie qui a ajouté un titre à la playlist.
 
-`app/src-tauri/src/playlist.rs` ligne 27
+`app/src-tauri/src/playlist.rs` ligne 31
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
@@ -5308,7 +5308,7 @@ pub struct SlotTag {
 
 Date de modification en secondes, pour le scan incrémental.
 
-`app/src-tauri/src/playlist.rs` ligne 255
+`app/src-tauri/src/playlist.rs` ligne 259
 
 ```rust
 pub fn file_mtime(path: &Path) -> Option<i64> {
@@ -5324,7 +5324,7 @@ pub fn file_mtime(path: &Path) -> Option<i64> {
 
 Construit une entrée de playlist à partir d'un titre de la bibliothèque, sans relire le fichier.
 
-`app/src-tauri/src/playlist.rs` ligne 264
+`app/src-tauri/src/playlist.rs` ligne 268
 
 ```rust
 pub fn from_library(t: &blast_library::LibraryTrack, slot: SlotTag) -> Entry {
@@ -5346,7 +5346,7 @@ pub fn from_library(t: &blast_library::LibraryTrack, slot: SlotTag) -> Entry {
 
 Mélange de Fisher-Yates de toute la playlist.
 
-`app/src-tauri/src/playlist.rs` ligne 106
+`app/src-tauri/src/playlist.rs` ligne 110
 
 ```rust
 pub fn shuffle(&mut self, roll: &mut impl FnMut() -> f64) {
@@ -5362,7 +5362,7 @@ pub fn shuffle(&mut self, roll: &mut impl FnMut() -> f64) {
 
 Mélange puis regroupe par artiste et pioche à chaque fois dans le plus gros groupe qui n'est pas celui du titre précédent : les titres d'un même artiste sont répartis au plus loin ; les titres sans artiste ne sont pas contraints.
 
-`app/src-tauri/src/playlist.rs` ligne 115
+`app/src-tauri/src/playlist.rs` ligne 119
 
 ```rust
 pub fn shuffle_spread(&mut self, roll: &mut impl FnMut() -> f64) {
@@ -5384,7 +5384,7 @@ pub fn shuffle_spread(&mut self, roll: &mut impl FnMut() -> f64) {
 
 Retire les entrées dont le fichier, ou le titre et l'artiste (majuscules ignorées), sont déjà présents plus haut ; seules les entrées conservées comptent comme déjà vues.
 
-`app/src-tauri/src/playlist.rs` ligne 151
+`app/src-tauri/src/playlist.rs` ligne 155
 
 ```rust
 pub fn dedupe(&mut self) -> usize {
@@ -5961,7 +5961,7 @@ pub const EV_STATE: &str = "blast://state";
 
 Niveau et message.
 
-`app/src-tauri/src/controller/views.rs` ligne 22
+`app/src-tauri/src/controller/views.rs` ligne 23
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -5975,7 +5975,7 @@ pub struct Notice {
 
 Nom, type, muet et volume.
 
-`app/src-tauri/src/controller/views.rs` ligne 29
+`app/src-tauri/src/controller/views.rs` ligne 30
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -5991,7 +5991,7 @@ pub struct ObsInputView {
 
 État de connexion, scènes, stream, enregistrement et sources audio.
 
-`app/src-tauri/src/controller/views.rs` ligne 38
+`app/src-tauri/src/controller/views.rs` ligne 39
 
 ```rust
 #[derive(Serialize, Clone, Default)]
@@ -6013,7 +6013,7 @@ pub struct ObsView {
 
 Nom, couleur, fichier, prêt ou en erreur.
 
-`app/src-tauri/src/controller/views.rs` ligne 65
+`app/src-tauri/src/controller/views.rs` ligne 66
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6031,7 +6031,7 @@ pub struct PadView {
 
 Pads affectés et nombre total.
 
-`app/src-tauri/src/controller/views.rs` ligne 76
+`app/src-tauri/src/controller/views.rs` ligne 77
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6045,7 +6045,7 @@ pub struct PadsView {
 
 Disponibilité, ouverture, niveau, nom et erreur.
 
-`app/src-tauri/src/controller/views.rs` ligne 83
+`app/src-tauri/src/controller/views.rs` ligne 84
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6062,7 +6062,7 @@ pub struct MicView {
 
 État, position, durée, titre, artiste et fichier.
 
-`app/src-tauri/src/controller/views.rs` ligne 93
+`app/src-tauri/src/controller/views.rs` ligne 94
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6080,7 +6080,7 @@ pub struct DeckView {
 
 Platines, crossfader, vumètres, auto-mix, platine à l'antenne, sortie audio, micro, pads en cours, ducking et réduction.
 
-`app/src-tauri/src/controller/views.rs` ligne 104
+`app/src-tauri/src/controller/views.rs` ligne 105
 
 ```rust
 
@@ -6090,7 +6090,7 @@ Platines, crossfader, vumètres, auto-mix, platine à l'antenne, sortie audio, m
 
 Entrées avec motif d'attente et durée totale.
 
-`app/src-tauri/src/controller/views.rs` ligne 140
+`app/src-tauri/src/controller/views.rs` ligne 147
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6104,7 +6104,7 @@ pub struct PlaylistView<'a> {
 
 État, cible, auditeurs, pic et heure de passage en direct.
 
-`app/src-tauri/src/controller/views.rs` ligne 147
+`app/src-tauri/src/controller/views.rs` ligne 154
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6125,7 +6125,7 @@ pub struct CastOutputView {
 
 Diffusion en cours, titre, sorties, auditeurs, pic de session et début.
 
-`app/src-tauri/src/controller/views.rs` ligne 161
+`app/src-tauri/src/controller/views.rs` ligne 168
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -6143,7 +6143,7 @@ pub struct CastView {
 
 Tampons mémoire envoyés à l'interface : flux global, morceaux, jingles et pubs, avec statistiques, passage en cours et taille des tampons.
 
-`app/src-tauri/src/controller/views.rs` ligne 172
+`app/src-tauri/src/controller/views.rs` ligne 179
 
 ```rust
 #[derive(Serialize, Clone, Default)]
@@ -6565,7 +6565,7 @@ const PURGE_EVERY: Duration = Duration::from_secs(3600);
 
 ### [CTL-62] Rafraîchissement des règles
 
-Toutes les 30 s, la playlist est republiée pour mettre à jour les motifs d'attente.
+Toutes les 30 s, seuls les motifs d'attente sont republiés (événement blast://blocked).
 
 `app/src-tauri/src/controller/automation.rs` ligne 15
 
@@ -6763,7 +6763,7 @@ pub(super) fn housekeeping(&mut self) {
     }
     if self.auto.last_rules_refresh.elapsed() > RULES_REFRESH_EVERY {
         self.auto.last_rules_refresh = Instant::now();
-        self.emit_playlist();
+        self.emit_blocked();
 …
 ```
 
@@ -7538,7 +7538,7 @@ pub(super) fn finish_play(&mut self, id: i64, duration: f64) {
 
 Nom, fichier, durée, prêt, en erreur ou en cours de lecture.
 
-`app/src-tauri/src/controller/views.rs` ligne 185
+`app/src-tauri/src/controller/views.rs` ligne 192
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7557,7 +7557,7 @@ pub struct JingleView {
 
 Jingles du dossier, dossier choisi et lecture en cours du dossier.
 
-`app/src-tauri/src/controller/views.rs` ligne 197
+`app/src-tauri/src/controller/views.rs` ligne 204
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7974,7 +7974,7 @@ pub(super) fn emit_library(&self) {
 
 Identifiant, nom et couleur de la grille de l'heure.
 
-`app/src-tauri/src/controller/views.rs` ligne 105
+`app/src-tauri/src/controller/views.rs` ligne 112
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7989,7 +7989,7 @@ pub struct ClockView {
 
 Dossiers, nombre de titres, scan en cours et titres lus.
 
-`app/src-tauri/src/controller/views.rs` ligne 113
+`app/src-tauri/src/controller/views.rs` ligne 120
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -8058,6 +8058,38 @@ pub(super) fn dedupe(&mut self) {
     };
     self.notice("info", msg);
     self.emit_playlist();
+}
+```
+
+### [CTL-153] Vue des motifs d'attente
+
+Liste compacte (id, motif) des entrées bloquées par les règles de rotation.
+
+`app/src-tauri/src/controller/views.rs` ligne 106
+
+```rust
+#[derive(Serialize, Clone)]
+pub struct BlockedView {
+    pub blocked: Vec<(u64, String)>,
+}
+```
+
+### [CTL-154] Publication des motifs d'attente
+
+Émet blast://blocked sans renvoyer toute la playlist.
+
+`app/src-tauri/src/controller/playlist_ops.rs` ligne 105
+
+```rust
+pub(super) fn emit_blocked(&self) {
+    let now = now_secs();
+    let blocked = self
+        .playlist
+        .entries()
+        .iter()
+        .filter_map(|e| self.violation_for(e, now).map(|why| (e.id, why)))
+        .collect();
+    self.emit(EV_BLOCKED, &BlockedView { blocked });
 }
 ```
 
@@ -8316,9 +8348,9 @@ async function subscribe() {
     S.entries = e.payload.entries;
     playlist.renderPlaylist(e.payload.total);
   });
+  await listen("blast://blocked", (e) => playlist.setBlocked(e.payload.blocked));
   await listen("blast://notice", (e) => toast(e.payload.level, e.payload.message));
   await listen("blast://obs", (e) => obs.setObs(e.payload));
-  await listen("blast://history", (e) => playlist.setHistory(e.payload));
 …
 ```
 
@@ -8326,7 +8358,7 @@ async function subscribe() {
 
 Initialise les modules, s'abonne, charge thèmes et voix, active le glisser-déposer puis vérifie les mises à jour.
 
-`app/ui/js/main.js` ligne 41
+`app/ui/js/main.js` ligne 42
 
 ```js
 async function start() {
@@ -8499,35 +8531,24 @@ export function freeDeck() {
 
 Lignes, titres en attente, fichiers illisibles et durée totale.
 
-`app/ui/js/playlist.js` ligne 8
+`app/ui/js/playlist.js` ligne 9
 
 ```js
-export function renderPlaylist(total) {
-  const rows = $("#rows");
-  rows.innerHTML = "";
-  S.entries.forEach((e, i) => {
-    const row = document.createElement("div");
-    row.className = "row row-grid" + (e.error ? " error" : "");
-    row.dataset.id = e.id;
-    row.dataset.index = i;
-    row.title = e.error ? `${e.path}\n${e.error}` : e.path;
-    row.innerHTML = `
-      <span class="num">${i + 1}</span>
-      <span class="title"></span>
-…
+let playlistView = null;
 ```
 
 ### [UI-27] Onglets playlist
 
 Bascule entre PLAYLIST et HISTORIQUE.
 
-`app/ui/js/playlist.js` ligne 60
+`app/ui/js/playlist.js` ligne 73
 
 ```js
 function showPlaylistTab(tab) {
   $$("[data-ptab]").forEach((t) => t.classList.toggle("active", t.dataset.ptab === tab));
   $$("#playlist [data-ppage]").forEach((el) => (el.hidden = el.dataset.ppage !== tab));
   if (tab === "playlist") $("#empty").classList.toggle("hidden", S.entries.length > 0);
+  (tab === "playlist" ? playlistView : historyView).refresh();
 }
 ```
 
@@ -8535,7 +8556,7 @@ function showPlaylistTab(tab) {
 
 Heure seule aujourd'hui, date et heure sinon.
 
-`app/ui/js/playlist.js` ligne 67
+`app/ui/js/playlist.js` ligne 81
 
 ```js
 function clockTime(secs) {
@@ -8549,7 +8570,7 @@ function clockTime(secs) {
 
 Reçoit les tampons et affiche celui du filtre choisi.
 
-`app/ui/js/playlist.js` ligne 74
+`app/ui/js/playlist.js` ligne 88
 
 ```js
 export function setHistory(h) {
@@ -8562,7 +8583,7 @@ export function setHistory(h) {
 
 Exporte la catégorie et la période choisies dans un fichier CSV.
 
-`app/ui/js/playlist.js` ligne 141
+`app/ui/js/playlist.js` ligne 156
 
 ```js
 async function exportHistory() {
@@ -9485,25 +9506,25 @@ async function pickDir() {
 }
 ```
 
-### [UI-82] Liste de l'historique
+### [UI-82] Ligne de l'historique
 
-Lignes du filtre choisi, avec le type de chaque passage.
+Construit une ligne du filtre choisi à la demande de la liste virtuelle, avec le type du passage.
 
-`app/ui/js/playlist.js` ligne 80
+`app/ui/js/playlist.js` ligne 94
 
 ```js
-function renderHistory() {
-  const rows = history[filter] || [];
-  const box = $("#hrows");
-  box.innerHTML = "";
-  if (!rows.length) {
-    const e = document.createElement("div");
-    e.className = "hempty";
-    e.textContent = filter === "all"
-      ? "Aucune diffusion enregistrée pour l'instant : chaque titre passé à l'antenne apparaîtra ici."
-      : `Aucun passage de type « ${KIND_LABEL[filter]} » dans les ${history.capacity} derniers.`;
-    box.appendChild(e);
-  }
+function historyRow(i) {
+  const r = (history[filter] || [])[i];
+  const el = document.createElement("div");
+  const current = r.id === history.current;
+  el.className = "hrow hrow-grid" + (current ? " current" : "");
+  el.title = r.path;
+  el.innerHTML = `<span class="t"></span><span class="k"><span class="kind-tag"></span></span><span class="ti"></span><span class="ar muted"></span><span class="d"></span><span class="a"><span class="air-dot"></span></span><span class="n"></span>`;
+  $(".t", el).textContent = clockTime(r.started_at);
+  $(".kind-tag", el).textContent = KIND_LABEL[r.kind] || r.kind;
+  $(".kind-tag", el).classList.add(r.kind);
+  $(".ti", el).textContent = r.title || "—";
+  $(".ar", el).textContent = r.artist;
 …
 ```
 
@@ -9511,7 +9532,7 @@ function renderHistory() {
 
 Ouvre le choix de la catégorie et de la période, le mois en cours par défaut.
 
-`app/ui/js/playlist.js` ligne 123
+`app/ui/js/playlist.js` ligne 138
 
 ```js
 function openExportMenu(anchor) {
@@ -9847,7 +9868,7 @@ function renderClock(clock) {
 
 Mélanger, mélanger en espaçant les artistes, retirer les doublons.
 
-`app/ui/js/playlist.js` ligne 160
+`app/ui/js/playlist.js` ligne 175
 
 ```js
 function openShuffleMenu(anchor) {
@@ -9857,6 +9878,74 @@ function openShuffleMenu(anchor) {
   const m = menu.getBoundingClientRect();
   menu.style.left = `${Math.min(r.left, window.innerWidth - m.width - 8)}px`;
   menu.style.top = `${r.bottom + 6}px`;
+}
+```
+
+### [UI-101] Marge de la liste virtuelle
+
+Nombre de lignes rendues en plus au-dessus et au-dessous de la zone visible.
+
+`app/ui/js/vlist.js` ligne 1
+
+```js
+const OVERSCAN = 8;
+```
+
+### [UI-102] Liste virtuelle
+
+Ne crée que les lignes visibles d'une longue liste ; un espaceur donne la hauteur totale et le rendu suit le défilement.
+
+`app/ui/js/vlist.js` ligne 4
+
+```js
+export function virtualList(container, rowHeight, renderRow, renderEmpty) {
+  const spacer = document.createElement("div");
+  spacer.className = "vspacer";
+  container.replaceChildren(spacer);
+  let count = 0;
+  let pending = false;
+
+  function draw() {
+    pending = false;
+    spacer.style.height = `${count * rowHeight}px`;
+    if (count === 0) {
+      spacer.replaceChildren(...(renderEmpty ? [renderEmpty()] : []));
+…
+```
+
+### [UI-103] Ligne de la playlist
+
+Construit une ligne de la playlist à la demande de la liste virtuelle.
+
+`app/ui/js/playlist.js` ligne 13
+
+```js
+function playlistRow(i) {
+  const e = S.entries[i];
+  const row = document.createElement("div");
+  row.className = "row row-grid" + (e.error ? " error" : "");
+  row.dataset.id = e.id;
+  row.dataset.index = i;
+  row.title = e.error ? `${e.path}\n${e.error}` : e.path;
+  row.innerHTML = `
+    <span class="num">${i + 1}</span>
+    <span class="title"></span>
+    <span class="artist muted"></span>
+    <span class="dur">${e.duration != null ? fmt(e.duration) : "--:--"}</span>
+…
+```
+
+### [UI-104] Motifs d'attente
+
+Applique les motifs d'attente reçus aux entrées et redessine seulement les lignes visibles.
+
+`app/ui/js/playlist.js` ligne 66
+
+```js
+export function setBlocked(list) {
+  const reasons = new Map(list);
+  for (const e of S.entries) e.blocked = reasons.get(e.id) || null;
+  playlistView.refresh();
 }
 ```
 
@@ -9946,7 +10035,7 @@ Grille des platines, du mixeur et de la partie basse.
 
 Cadres, effet Rainbow, temps, barre de progression et zone de fondu.
 
-`app/ui/style.css` ligne 194
+`app/ui/style.css` ligne 195
 
 ```css
 @property --angle {
@@ -9960,7 +10049,7 @@ Cadres, effet Rainbow, temps, barre de progression et zone de fondu.
 
 Crossfader, fondu, préréglage antenne, vumètres et témoin CLIP.
 
-`app/ui/style.css` ligne 301
+`app/ui/style.css` ligne 302
 
 ```css
 .mixer {
@@ -9978,7 +10067,7 @@ Crossfader, fondu, préréglage antenne, vumètres et témoin CLIP.
 
 Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
-`app/ui/style.css` ligne 352
+`app/ui/style.css` ligne 353
 
 ```css
 .playlist {
@@ -9996,7 +10085,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Étiquette qui suit le pointeur et curseur pendant le glisser.
 
-`app/ui/style.css` ligne 434
+`app/ui/style.css` ligne 438
 
 ```css
 .drag-ghost {
@@ -10018,7 +10107,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
-`app/ui/style.css` ligne 453
+`app/ui/style.css` ligne 457
 
 ```css
 .fx { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -10028,7 +10117,7 @@ Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
 VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
-`app/ui/style.css` ligne 471
+`app/ui/style.css` ligne 475
 
 ```css
 .vfx-main { display: grid; grid-template-columns: 78px 1fr 60px; gap: 8px; height: 48px; }
@@ -10038,17 +10127,17 @@ VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
 Grille de pads, état de lecture et menu de pad.
 
-`app/ui/style.css` ligne 508
+`app/ui/style.css` ligne 512
 
 ```css
-.soundfx { flex: 1; min-height: 160px; }
+.soundfx { flex: 1 0 196px; min-height: 196px; overflow: hidden; }
 ```
 
 ### [STY-12] Panneau OBS
 
 Boutons matériels, scènes et sources audio.
 
-`app/ui/style.css` ligne 550
+`app/ui/style.css` ligne 554
 
 ```css
 .obs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -10058,7 +10147,7 @@ Boutons matériels, scènes et sources audio.
 
 Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos.
 
-`app/ui/style.css` ligne 578
+`app/ui/style.css` ligne 582
 
 ```css
 .about-head { display: flex; flex-direction: column; gap: 4px; }
@@ -10068,7 +10157,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 682
+`app/ui/style.css` ligne 686
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -10078,7 +10167,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 701
+`app/ui/style.css` ligne 705
 
 ```css
 .statusbar {
@@ -10096,7 +10185,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 736
+`app/ui/style.css` ligne 740
 
 ```css
 .hidden { display: none !important; }
@@ -10106,7 +10195,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 712
+`app/ui/style.css` ligne 716
 
 ```css
 html.glass body {

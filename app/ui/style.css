@@ -189,7 +189,8 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
   gap: 12px;
 }
 .bottom { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; min-height: 0; }
-.side { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.side { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+.side > .voicefx { flex: none; }
 
 /* [STY-05] */
 @property --angle {
@@ -431,6 +432,9 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
 .shuffle-menu { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 6px; }
 .shuffle-menu .btn { justify-content: flex-start; text-align: left; }
 
+.vspacer { position: relative; }
+.row.vrow, .hrow.vrow { position: absolute; left: 0; right: 0; }
+
 /* [STY-08] */
 .drag-ghost {
   position: fixed;
@@ -506,7 +510,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .ptt .ico { width: 15px; height: 15px; }
 
 /* [STY-11] */
-.soundfx { flex: 1; min-height: 160px; }
+.soundfx { flex: 1 0 196px; min-height: 196px; overflow: hidden; }
 #sfx-vol, #jingle-vol { width: 80px; }
 .pager { padding: 2px 8px; font-size: 14px; }
 .pads { flex: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(28px, 1fr)); gap: 6px; min-height: 0; overflow: hidden; }
@@ -564,12 +568,12 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .hw.on-warn { border-color: var(--meter-mid); color: var(--meter-mid); }
 .hw.on-warn .led { background: var(--meter-mid); box-shadow: 0 0 6px var(--meter-mid); }
 .obs-label { font-size: 10px; font-weight: 800; letter-spacing: 2px; color: var(--text-muted); }
-.obs-scenes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 28px; gap: 5px; overflow-y: auto; min-height: 30px; flex: 1; align-content: start; }
+.obs-scenes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 28px; gap: 5px; overflow-y: auto; min-height: 28px; flex: 1 1 0; align-content: start; }
 .scene { -webkit-appearance: none; appearance: none; font: inherit; font-size: 11px; font-weight: 700; padding: 0 4px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel-alt); color: var(--text); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scene:hover { border-color: var(--accent); }
 .scene.current { background: var(--accent); border-color: var(--accent); color: #fff; }
 .obs-empty { grid-column: 1 / -1; font-size: 11px; color: var(--text-muted); text-align: center; padding: 8px; }
-.obs-audio { display: grid; grid-template-columns: minmax(0, 1fr) 1fr 40px; gap: 6px; align-items: center; }
+.obs-audio { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) 1fr 40px; gap: 6px; align-items: center; }
 .obs-audio select { -webkit-appearance: none; appearance: none; font: inherit; font-size: 11px; color: var(--text); background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; }
 .obs-audio input { accent-color: var(--accent); }
 .obs-audio output { font-family: var(--mono); font-size: 11px; text-align: right; }

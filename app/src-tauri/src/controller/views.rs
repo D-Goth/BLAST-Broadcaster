@@ -18,6 +18,7 @@ pub const EV_OBS: &str = "blast://obs";
 pub const EV_HISTORY: &str = "blast://history";
 pub const EV_JINGLES: &str = "blast://jingles";
 pub const EV_LIBRARY: &str = "blast://library";
+pub const EV_BLOCKED: &str = "blast://blocked";
 
 // [CTL-28]
 #[derive(Serialize, Clone)]
@@ -102,6 +103,12 @@ pub struct DeckView {
 }
 
 // [CTL-35]
+// [CTL-153]
+#[derive(Serialize, Clone)]
+pub struct BlockedView {
+    pub blocked: Vec<(u64, String)>,
+}
+
 // [CTL-148]
 #[derive(Serialize, Clone)]
 pub struct ClockView {
