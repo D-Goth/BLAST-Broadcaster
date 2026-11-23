@@ -133,8 +133,8 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 | Règles de séparation | **Réglages → Automation** : pas le même artiste avant 120 min, pas le même titre avant 240 min (réglables). L'auto-mix et le bouton Suivant sautent les titres en attente, marqués d'une horloge dans la playlist |
 | Soundboard | 36 pads sur 3 pages ; clic ou **F1 à F12** pour jouer (re-clic = stop), **STOP** coupe tout ; glisser un fichier (ou un titre de la playlist) sur un pad pour l'assigner ; clic droit : choisir, renommer, vider |
 | Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |
-| Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut |
-| Serveur Icecast | Bouton **ICECAST** de la barre du haut : ajoute ton Icecast local (détecté dans Program Files) ou un VPS. **Démarrer / Arrêter**, tableau de bord en direct (auditeurs, pic, sources, débit, graphique, mountpoints), **Configuration** et **Mountpoints** par formulaires (une sauvegarde de `icecast.xml` avant chaque écriture), **Auditeurs** avec déconnexion, **Journal**. **Diffuser BLAST ici** crée la sortie correspondante dans Réglages → Diffusion |
+| Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut pour lancer ou arrêter la diffusion (durée et auditeurs s'y affichent) ; le **+** à côté ouvre le détail de chaque sortie |
+| Serveur Icecast | **Réglages → Serveur Icecast** : ajoute ton Icecast local (détecté dans Program Files) ou un VPS. **Démarrer / Arrêter**, tableau de bord en direct (auditeurs, pic, sources, débit, graphique, mountpoints), **Configuration** et **Mountpoints** par formulaires (une sauvegarde de `icecast.xml` avant chaque écriture), **Auditeurs** avec déconnexion, **Journal**. **Diffuser BLAST ici** crée la sortie correspondante dans Réglages → Diffusion |
 | OBS | **Réglages → Aura / OBS** : adresse, port, mot de passe et source texte « Now Playing » ; puis onglet **AURA · OBS** (à côté de SOUND FX) ou bouton **OBS** de la barre du haut |
 | Pilotage OBS | STREAM, REC, PAUSE REC, REPLAY, SNAP (capture dans `~/Images/BLAST`), MUTE et volume d'une source audio, changement de scène ; minuteurs ▶ stream et ⏺ enregistrement dans la barre du haut |
 
@@ -168,7 +168,7 @@ La différence qui surprend en venant de SHOUTcast : le **point de montage** (mo
 
 Le chemin le plus court :
 
-1. Bouton **ICECAST** de la barre du haut : ajoute ton installation (détectée dans Program Files sous Windows).
+1. **Réglages → Serveur Icecast** : ajoute ton installation (détectée dans Program Files sous Windows).
 2. Onglet **CONFIGURATION** : si le fichier est en lecture seule (Program Files), **Copier la configuration dans
    BLAST** ; change les trois mots de passe (le bouton dé en génère), puis **Enregistrer et démarrer**. Laisse vide
    le champ « Compatibilité Shoutcast » des ports, réservé aux vieux logiciels.

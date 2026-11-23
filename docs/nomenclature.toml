@@ -2839,12 +2839,12 @@ titre = "Clé d'un serveur Icecast"
 definition = "Nom du mot de passe admin d'un serveur Icecast dans le trousseau."
 
 [codes.STY-18]
-titre = "Fenêtre Icecast"
-definition = "Pastille de la barre du haut, liste des serveurs, en-tête, tuiles, graphique, tableaux, formulaires, journal et barre d'enregistrement."
+titre = "Onglet Serveur Icecast"
+definition = "Mise en page de l'onglet dans les Réglages : liste des serveurs, en-tête, tuiles, graphique, tableaux, formulaires, journal et barre d'enregistrement."
 
 [codes.HTM-26]
-titre = "Fenêtre Icecast"
-definition = "Liste des serveurs à gauche, contenu du serveur choisi à droite."
+titre = "Onglet Serveur Icecast"
+definition = "Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi à droite."
 
 [codes.HTM-27]
 titre = "Accueil Icecast"
@@ -2960,11 +2960,12 @@ definition = "Formulaire de connexion, choix du dossier et du fichier, détectio
 
 [codes.UI-126]
 titre = "Pastille ICECAST"
-definition = "État global et total des auditeurs dans la barre du haut, actualisés toutes les 10 s quand la fenêtre est fermée."
+definition = "Pastille de la barre du haut, retirée : le module vit dans l'onglet Serveur Icecast des Réglages."
+retire = true
 
 [codes.UI-127]
-titre = "Ouverture de la fenêtre Icecast"
-definition = "Charge les profils, choisit un serveur et lance les actualisations ; fermeture par Échap ou clic hors du panneau."
+titre = "Ouverture de l'onglet Icecast"
+definition = "À l'affichage de l'onglet, charge les profils, choisit un serveur et lance les actualisations ; elles s'arrêtent quand on change d'onglet ou qu'on ferme les Réglages."
 
 [codes.UI-128]
 titre = "Démarrer, arrêter, redémarrer"
@@ -2985,3 +2986,19 @@ definition = "Lit le niveau en chiffre (1 à 4, Icecast 2.4) ou en toutes lettre
 [codes.UI-130]
 titre = "Sortie BLAST vers /live"
 definition = "Depuis le tableau de bord sans flux en cours, crée en un clic la sortie Icecast vers /live avec le mot de passe des sources."
+
+[codes.UI-131]
+titre = "Bouton DIFFUSER"
+definition = "Lance ou arrête la diffusion ; sans sortie configurée, prévient au lieu d'ouvrir les Réglages."
+
+[codes.UI-132]
+titre = "Détail de la diffusion"
+definition = "Panneau ouvert par le « + » du bouton DIFFUSER : état et durée, titre en cours, état et auditeurs de chaque sortie, total et pic, démarrer ou arrêter, accès aux sorties."
+
+[codes.HTM-37]
+titre = "Panneau de diffusion"
+definition = "Panneau flottant sous le bouton DIFFUSER : en-tête, titre, sorties, total et boutons."
+
+[codes.STY-19]
+titre = "Bouton DIFFUSER et son détail"
+definition = "Bouton « + » accolé à DIFFUSER et panneau de détail des sorties."

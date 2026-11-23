@@ -1,5 +1,4 @@
 import { settingsOpen } from "./settings.js";
-import { isOpen as icecastOpen } from "./icecast.js";
 import { closePadMenu, playPad, currentPage, PADS_PER_PAGE } from "./pads.js";
 import { pttDown, pttUp, toggleLock } from "./voice.js";
 
@@ -12,7 +11,7 @@ const typing = (e) => {
 export function init() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closePadMenu();
-    if (settingsOpen() || icecastOpen() || typing(e)) return;
+    if (settingsOpen() || typing(e)) return;
     if (e.code === "Space") {
       e.preventDefault();
       if (!e.repeat) pttDown();

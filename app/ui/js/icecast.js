@@ -1,5 +1,5 @@
 import { $, $$, T, invoke, toast, setResult, confirmClick } from "./core.js";
-import { openSettings } from "./settings.js";
+import { openSettings, settingsOpen } from "./settings.js";
 
 // [UI-108]
 const I = {
@@ -18,7 +18,6 @@ const I = {
   logKind: "error",
   busy: false,
   timer: null,
-  pillTimer: null,
 };
 
 const HISTORY_MS = 10 * 60 * 1000;
@@ -87,7 +86,6 @@ function renderServers() {
     b.addEventListener("click", () => selectServer(s.id));
     box.appendChild(b);
   }
-  $("#ice-store").textContent = `Mots de passe admin : ${I.view.secret_store}`;
   renderWelcome();
 }
 
@@ -197,7 +195,6 @@ async function refreshStatus(id = I.sel) {
   } catch (e) {
     I.status[id] = { error: String(e), running: false, reachable: false };
   }
-  renderPill();
   if (!isOpen()) return;
   renderServers();
   if (id === I.sel) {
@@ -783,24 +780,6 @@ async function power(action) {
   renderSavebar();
 }
 
-// [UI-126]
-function renderPill() {
-  const pill = $("#ice-pill");
-  const servers = (I.view && I.view.servers) || [];
-  const states = servers.map((s) => I.status[s.id]);
-  const live = states.filter((s) => stateOf(s) === "live").length;
-  const running = states.filter((s) => stateOf(s) !== "off").length;
-  const err = servers.some((s) => s.remote && I.status[s.id] && !I.status[s.id].reachable);
-  pill.className = "obs-pill ice-pill" + (live ? " live" : running ? " running" : err ? " error" : "");
-  const total = states.reduce((a, s) => a + (s && s.stats ? s.stats.listeners : 0), 0);
-  const count = $("#ice-pill-count");
-  count.textContent = String(total);
-  count.classList.toggle("hidden", !running);
-  pill.title = servers.length
-    ? servers.map((s) => `${s.name} : ${stateOf(I.status[s.id]) === "off" ? "arrêté ou injoignable" : (I.status[s.id].stats ? I.status[s.id].stats.listeners : "?") + " auditeur(s)"}`).join("\n")
-    : "Serveurs Icecast : lancer, configurer, surveiller";
-}
-
 async function pollAll() {
   if (!I.view) return;
   for (const s of I.view.servers) {
@@ -824,14 +803,14 @@ function schedule() {
 async function quickLink() {
   try {
     const msg = await invoke("ice_link_output", { id: I.sel, mount: "/live" });
-    toast("info", msg, [{ label: "Voir la sortie", run: () => { closeIcecast(); openSettings("cast"); } }]);
+    toast("info", msg, [{ label: "Voir la sortie", run: () => openSettings("cast") }]);
   } catch (e) {
     toast("error", String(e));
   }
 }
 
 // [UI-127]
-export const isOpen = () => !$("#icecast").classList.contains("hidden");
+export const isOpen = () => settingsOpen() && !$('[data-page="icecast"]').classList.contains("hidden");
 
 export async function openIcecast() {
   try {
@@ -840,7 +819,6 @@ export async function openIcecast() {
     toast("error", String(e));
     return;
   }
-  $("#icecast").classList.remove("hidden");
   if (I.sel && I.sel !== "new" && !I.view.servers.some((s) => s.id === I.sel)) I.sel = null;
   if (!I.sel && I.view.servers.length) I.sel = I.view.servers[0].id;
   renderServers();
@@ -848,25 +826,15 @@ export async function openIcecast() {
   pollAll();
 }
 
-function closeIcecast() {
-  $("#icecast").classList.add("hidden");
+function leaveIcecast() {
   closeMenu();
   clearInterval(I.timer);
 }
 
 export function init() {
-  $("#ice-pill").addEventListener("click", openIcecast);
-  $("#ice-close").addEventListener("click", closeIcecast);
-  $("#icecast").addEventListener("pointerdown", (e) => {
-    if (e.target.id === "icecast") closeIcecast();
-  });
+  document.addEventListener("blast:settings-tab", (e) => (e.detail === "icecast" ? openIcecast() : leaveIcecast()));
   document.addEventListener("pointerdown", (e) => {
     if (!e.target.closest("#ice-menu") && !e.target.closest(".acts")) closeMenu();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape" || !isOpen()) return;
-    if (!$("#ice-menu").classList.contains("hidden")) closeMenu();
-    else closeIcecast();
   });
   $("#ice-add").addEventListener("click", () => {
     I.sel = null;
@@ -960,7 +928,7 @@ export function init() {
     try {
       const msg = await invoke("ice_link_output", { id: I.sel, mount: m.mount_name });
       setResult("#ice-mount-result", "ok", "Sortie ajoutée.");
-      toast("info", msg, [{ label: "Voir la sortie", run: () => { closeIcecast(); openSettings("cast"); } }]);
+      toast("info", msg, [{ label: "Voir la sortie", run: () => openSettings("cast") }]);
     } catch (e) {
       setResult("#ice-mount-result", "err", String(e));
     }
@@ -1009,7 +977,6 @@ export function init() {
         I.sel = I.view.servers.length ? I.view.servers[0].id : null;
         renderServers();
         if (I.sel) selectServer(I.sel);
-        renderPill();
       } catch (e) {
         setResult("#ice-profile-result", "err", String(e));
       }
@@ -1017,12 +984,4 @@ export function init() {
   );
 
   window.addEventListener("resize", () => isOpen() && I.tab === "dash" && drawChart());
-  invoke("ice_list")
-    .then((v) => {
-      I.view = v;
-      renderPill();
-      pollAll();
-    })
-    .catch(() => {});
-  I.pillTimer = setInterval(() => !isOpen() && pollAll(), 10000);
 }
