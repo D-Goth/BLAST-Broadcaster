@@ -155,7 +155,7 @@ Shoutcast v2 (DNAS 2) n'a été testé que contre un serveur simulé.
 Gérer son propre serveur Icecast depuis BLAST, sans éditer `icecast.xml` à la main.
 
 ```
- fenêtre ICECAST (ui/js/icecast.js) ── invoke("ice_*") ──▶ icecast.rs (IceManager, profils, trousseau)
+ onglet Serveur Icecast (ui/js/icecast.js) ── invoke("ice_*") ──▶ icecast.rs (IceManager, profils, trousseau)
                                                              │
                                   blast-ice ◀────────────────┘
                                   ├─ config.rs  : icecast.xml ⇄ IceConfig, validation, sauvegardes
@@ -184,8 +184,7 @@ envoyer le vrai mot de passe admin à chaque requête. Le mot de passe admin est
 système, jamais dans `config.toml`. Pour un serveur local sans mot de passe enregistré, il est relu dans `icecast.xml`.
 Une connexion admin en HTTP vers un hôte distant est signalée : le mot de passe y circule en clair.
 
-**Tableau de bord** : `ice_status` toutes les 2 s quand l'onglet est ouvert, toutes les 10 s pour la pastille ICECAST
-de la barre du haut. Le débit sortant est calculé sur 30 s à partir des octets envoyés. Les mountpoints déclarés sans
+**Tableau de bord** : `ice_status` toutes les 2 s tant que l'onglet est affiché, rien quand les Réglages sont fermés. Le débit sortant est calculé sur 30 s à partir des octets envoyés. Les mountpoints déclarés sans
 source apparaissent « en attente », avec leur secours.
 
 Testé contre Icecast 2.4.4 : lecture et réécriture de la configuration, lancement et arrêt, statistiques admin,

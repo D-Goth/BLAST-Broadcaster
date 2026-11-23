@@ -43,9 +43,9 @@ ne pas le modifier à la main.
 | [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
 | [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 157 |
-| [`UI`](#ui) | Interface : modules JavaScript | 130 |
-| [`STY`](#sty) | Interface : feuille de style | 18 |
-| [`HTM`](#htm) | Interface : structure de la page | 36 |
+| [`UI`](#ui) | Interface : modules JavaScript | 131 |
+| [`STY`](#sty) | Interface : feuille de style | 19 |
+| [`HTM`](#htm) | Interface : structure de la page | 37 |
 
 ## CORE
 
@@ -10862,7 +10862,7 @@ export function setCast(c) {
 
 Chronomètre depuis le passage en direct.
 
-`app/ui/js/cast.js` ligne 58
+`app/ui/js/cast.js` ligne 113
 
 ```js
 function renderCastTimer() {
@@ -11041,8 +11041,8 @@ export async function openSettings(tab) {
     toast("error", String(e));
     return;
   }
-  if (tab) showTab(tab);
   $("#settings").classList.remove("hidden");
+  showTab(tab || $(".modal-tabs .tab.active").dataset.tab);
 }
 ```
 
@@ -11050,13 +11050,14 @@ export async function openSettings(tab) {
 
 Affiche l'onglet choisi.
 
-`app/ui/js/settings.js` ligne 188
+`app/ui/js/settings.js` ligne 191
 
 ```js
 function showTab(tab) {
   $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
   $$(".tab-page").forEach((p) => p.classList.toggle("hidden", p.dataset.page !== tab));
   if (tab === "about") renderAbout();
+  document.dispatchEvent(new CustomEvent("blast:settings-tab", { detail: tab }));
 }
 ```
 
@@ -11064,7 +11065,7 @@ function showTab(tab) {
 
 Demande confirmation puis supprime.
 
-`app/ui/js/settings.js` ligne 195
+`app/ui/js/settings.js` ligne 199
 
 ```js
 async function deleteOutput() {
@@ -11439,13 +11440,13 @@ function renderInputs(connected) {
 
 Espace pour parler, M pour le verrou, F1 à F12 pour les pads, Échap pour fermer.
 
-`app/ui/js/shortcuts.js` ligne 11
+`app/ui/js/shortcuts.js` ligne 10
 
 ```js
 export function init() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closePadMenu();
-    if (settingsOpen() || icecastOpen() || typing(e)) return;
+    if (settingsOpen() || typing(e)) return;
     if (e.code === "Space") {
       e.preventDefault();
       if (!e.repeat) pttDown();
@@ -12138,7 +12139,7 @@ const I = {
 
 Échappement HTML, octets, durées, accès aux champs par chemin (auth.admin_password).
 
-`app/ui/js/icecast.js` ligne 32
+`app/ui/js/icecast.js` ligne 31
 
 ```js
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -12148,7 +12149,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 
 Un bouton par serveur avec son état et ses auditeurs.
 
-`app/ui/js/icecast.js` ligne 73
+`app/ui/js/icecast.js` ligne 72
 
 ```js
 function renderServers() {
@@ -12170,7 +12171,7 @@ function renderServers() {
 
 Charge sa configuration si le serveur est local puis son état ; prévient si un brouillon est abandonné.
 
-`app/ui/js/icecast.js` ligne 129
+`app/ui/js/icecast.js` ligne 127
 
 ```js
 async function selectServer(id) {
@@ -12192,7 +12193,7 @@ async function selectServer(id) {
 
 Affiche une page ; les onglets réservés aux serveurs locaux sont désactivés pour un serveur distant ou non enregistré.
 
-`app/ui/js/icecast.js` ligne 146
+`app/ui/js/icecast.js` ligne 144
 
 ```js
 function showITab(tab) {
@@ -12214,7 +12215,7 @@ function showITab(tab) {
 
 Interroge ice_status, enregistre l'historique des auditeurs et le débit sortant calculé sur 30 s.
 
-`app/ui/js/icecast.js` ligne 190
+`app/ui/js/icecast.js` ligne 188
 
 ```js
 async function refreshStatus(id = I.sel) {
@@ -12226,9 +12227,9 @@ async function refreshStatus(id = I.sel) {
   } catch (e) {
     I.status[id] = { error: String(e), running: false, reachable: false };
   }
-  renderPill();
   if (!isOpen()) return;
   renderServers();
+  if (id === I.sel) {
 …
 ```
 
@@ -12236,7 +12237,7 @@ async function refreshStatus(id = I.sel) {
 
 Pastille d'état, adresse, version, origine du processus et boutons selon l'état.
 
-`app/ui/js/icecast.js` ligne 168
+`app/ui/js/icecast.js` ligne 166
 
 ```js
 function renderHead() {
@@ -12258,7 +12259,7 @@ function renderHead() {
 
 Bandeau d'information, tuiles et tableau des mountpoints (actifs et déclarés en attente de source).
 
-`app/ui/js/icecast.js` ligne 225
+`app/ui/js/icecast.js` ligne 222
 
 ```js
 function renderDash() {
@@ -12280,7 +12281,7 @@ function renderDash() {
 
 Courbe en escalier des 10 dernières minutes, aux couleurs du thème.
 
-`app/ui/js/icecast.js` ligne 308
+`app/ui/js/icecast.js` ligne 305
 
 ```js
 function drawChart() {
@@ -12302,7 +12303,7 @@ function drawChart() {
 
 Menu flottant : voir les auditeurs, changer le titre, déplacer les auditeurs, couper la source.
 
-`app/ui/js/icecast.js` ligne 363
+`app/ui/js/icecast.js` ligne 360
 
 ```js
 function openMenu(anchor, html, bind) {
@@ -12320,7 +12321,7 @@ function openMenu(anchor, html, bind) {
 
 Lit icecast.xml et prépare un brouillon modifiable.
 
-`app/ui/js/icecast.js` ligne 429
+`app/ui/js/icecast.js` ligne 426
 
 ```js
 async function loadConfig() {
@@ -12342,7 +12343,7 @@ async function loadConfig() {
 
 Remplit les champs data-k depuis le brouillon et les désactive si le fichier est en lecture seule.
 
-`app/ui/js/icecast.js` ligne 461
+`app/ui/js/icecast.js` ligne 458
 
 ```js
 function fillConfig() {
@@ -12364,7 +12365,7 @@ function fillConfig() {
 
 Une ligne par port ; le dernier port ne peut pas être retiré.
 
-`app/ui/js/icecast.js` ligne 499
+`app/ui/js/icecast.js` ligne 496
 
 ```js
 function renderSockets() {
@@ -12386,7 +12387,7 @@ function renderSockets() {
 
 Liste et formulaire des mountpoints du brouillon.
 
-`app/ui/js/icecast.js` ligne 535
+`app/ui/js/icecast.js` ligne 532
 
 ```js
 function renderMounts() {
@@ -12408,7 +12409,7 @@ function renderMounts() {
 
 Envoie le brouillon, redémarre si demandé et recharge les profils.
 
-`app/ui/js/icecast.js` ligne 602
+`app/ui/js/icecast.js` ligne 599
 
 ```js
 async function saveConfig(restart) {
@@ -12430,7 +12431,7 @@ async function saveConfig(restart) {
 
 Auditeurs du mountpoint choisi, du plus ancien au plus récent, avec déconnexion confirmée.
 
-`app/ui/js/icecast.js` ligne 619
+`app/ui/js/icecast.js` ligne 616
 
 ```js
 async function loadListeners() {
@@ -12452,7 +12453,7 @@ async function loadListeners() {
 
 Fin du journal choisi, erreurs et avertissements colorés, défilement suivi.
 
-`app/ui/js/icecast.js` ligne 661
+`app/ui/js/icecast.js` ligne 658
 
 ```js
 async function loadLog() {
@@ -12474,7 +12475,7 @@ async function loadLog() {
 
 Formulaire de connexion, choix du dossier et du fichier, détection de l'exécutable, avertissement HTTP pour un VPS.
 
-`app/ui/js/icecast.js` ligne 681
+`app/ui/js/icecast.js` ligne 678
 
 ```js
 function fillProfile() {
@@ -12492,43 +12493,25 @@ function fillProfile() {
 …
 ```
 
-### [UI-126] Pastille ICECAST
+### [UI-126] Pastille ICECAST *(retiré)*
 
-État global et total des auditeurs dans la barre du haut, actualisés toutes les 10 s quand la fenêtre est fermée.
+Pastille de la barre du haut, retirée : le module vit dans l'onglet Serveur Icecast des Réglages.
 
-`app/ui/js/icecast.js` ligne 786
+### [UI-127] Ouverture de l'onglet Icecast
 
-```js
-function renderPill() {
-  const pill = $("#ice-pill");
-  const servers = (I.view && I.view.servers) || [];
-  const states = servers.map((s) => I.status[s.id]);
-  const live = states.filter((s) => stateOf(s) === "live").length;
-  const running = states.filter((s) => stateOf(s) !== "off").length;
-  const err = servers.some((s) => s.remote && I.status[s.id] && !I.status[s.id].reachable);
-  pill.className = "obs-pill ice-pill" + (live ? " live" : running ? " running" : err ? " error" : "");
-  const total = states.reduce((a, s) => a + (s && s.stats ? s.stats.listeners : 0), 0);
-  const count = $("#ice-pill-count");
-  count.textContent = String(total);
-  count.classList.toggle("hidden", !running);
-…
-```
+À l'affichage de l'onglet, charge les profils, choisit un serveur et lance les actualisations ; elles s'arrêtent quand on change d'onglet ou qu'on ferme les Réglages.
 
-### [UI-127] Ouverture de la fenêtre Icecast
-
-Charge les profils, choisit un serveur et lance les actualisations ; fermeture par Échap ou clic hors du panneau.
-
-`app/ui/js/icecast.js` ligne 833
+`app/ui/js/icecast.js` ligne 812
 
 ```js
-export const isOpen = () => !$("#icecast").classList.contains("hidden");
+export const isOpen = () => settingsOpen() && !$('[data-page="icecast"]').classList.contains("hidden");
 ```
 
 ### [UI-128] Démarrer, arrêter, redémarrer
 
 Commandes du serveur local, avec retour dans une notification.
 
-`app/ui/js/icecast.js` ligne 768
+`app/ui/js/icecast.js` ligne 765
 
 ```js
 async function power(action) {
@@ -12550,7 +12533,7 @@ async function power(action) {
 
 Installations détectées pas encore ajoutées.
 
-`app/ui/js/icecast.js` ligne 94
+`app/ui/js/icecast.js` ligne 92
 
 ```js
 function renderWelcome() {
@@ -12572,17 +12555,55 @@ function renderWelcome() {
 
 Depuis le tableau de bord sans flux en cours, crée en un clic la sortie Icecast vers /live avec le mot de passe des sources.
 
-`app/ui/js/icecast.js` ligne 823
+`app/ui/js/icecast.js` ligne 802
 
 ```js
 async function quickLink() {
   try {
     const msg = await invoke("ice_link_output", { id: I.sel, mount: "/live" });
-    toast("info", msg, [{ label: "Voir la sortie", run: () => { closeIcecast(); openSettings("cast"); } }]);
+    toast("info", msg, [{ label: "Voir la sortie", run: () => openSettings("cast") }]);
   } catch (e) {
     toast("error", String(e));
   }
 }
+```
+
+### [UI-131] Bouton DIFFUSER
+
+Lance ou arrête la diffusion ; sans sortie configurée, prévient au lieu d'ouvrir les Réglages.
+
+`app/ui/js/cast.js` ligne 59
+
+```js
+function toggleCast() {
+  if (!cast.outputs.length) {
+    toast("warn", "Aucune sortie de diffusion : ajoute-en une dans Réglages → Diffusion.");
+    return;
+  }
+  send({ type: cast.casting ? "cast_stop" : "cast_start" });
+}
+```
+
+### [UI-132] Détail de la diffusion
+
+Panneau ouvert par le « + » du bouton DIFFUSER : état et durée, titre en cours, état et auditeurs de chaque sortie, total et pic, démarrer ou arrêter, accès aux sorties.
+
+`app/ui/js/cast.js` ligne 70
+
+```js
+function renderCastPanel() {
+  if (!panelOpen()) return;
+  const active = cast.outputs.filter((o) => o.enabled);
+  const live = active.filter((o) => statusOf(o) === "live").length;
+  $("#cp-state").textContent = cast.casting ? `En direct sur ${live}/${active.length} sortie${active.length > 1 ? "s" : ""}` : "Diffusion arrêtée";
+  $("#cp-time").textContent = cast.casting && cast.since ? hms(Date.now() - cast.since) : "";
+  $("#cp-song").textContent = cast.casting && cast.song ? `♪ ${cast.song}` : "";
+  const box = $("#cp-outputs");
+  box.innerHTML = "";
+  if (!cast.outputs.length) box.innerHTML = `<div class="muted">Aucune sortie configurée.</div>`;
+  for (const o of cast.outputs) {
+    const row = document.createElement("div");
+…
 ```
 
 
@@ -12655,7 +12676,7 @@ Logo, ON AIR, DIFFUSER, OBS, horloge, thèmes, réglages et adaptation aux petit
 
 Grille des platines, du mixeur et de la partie basse.
 
-`app/ui/style.css` ligne 178
+`app/ui/style.css` ligne 198
 
 ```css
 .layout {
@@ -12671,7 +12692,7 @@ Grille des platines, du mixeur et de la partie basse.
 
 Cadres, effet Rainbow, temps, barre de progression et zone de fondu.
 
-`app/ui/style.css` ligne 195
+`app/ui/style.css` ligne 215
 
 ```css
 @property --angle {
@@ -12685,7 +12706,7 @@ Cadres, effet Rainbow, temps, barre de progression et zone de fondu.
 
 Crossfader, fondu, préréglage antenne, vumètres et témoin CLIP.
 
-`app/ui/style.css` ligne 302
+`app/ui/style.css` ligne 322
 
 ```css
 .mixer {
@@ -12703,7 +12724,7 @@ Crossfader, fondu, préréglage antenne, vumètres et témoin CLIP.
 
 Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
-`app/ui/style.css` ligne 353
+`app/ui/style.css` ligne 373
 
 ```css
 .playlist {
@@ -12721,7 +12742,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Étiquette qui suit le pointeur et curseur pendant le glisser.
 
-`app/ui/style.css` ligne 438
+`app/ui/style.css` ligne 458
 
 ```css
 .drag-ghost {
@@ -12743,7 +12764,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
-`app/ui/style.css` ligne 457
+`app/ui/style.css` ligne 477
 
 ```css
 .fx { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -12753,7 +12774,7 @@ Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
 VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
-`app/ui/style.css` ligne 475
+`app/ui/style.css` ligne 495
 
 ```css
 .vfx-main { display: grid; grid-template-columns: 78px 1fr 60px; gap: 8px; height: 48px; }
@@ -12763,7 +12784,7 @@ VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
 Grille de pads, état de lecture et menu de pad.
 
-`app/ui/style.css` ligne 514
+`app/ui/style.css` ligne 534
 
 ```css
 .soundfx { flex: 1 0 196px; min-height: 196px; overflow: hidden; }
@@ -12773,7 +12794,7 @@ Grille de pads, état de lecture et menu de pad.
 
 Boutons matériels, scènes et sources audio.
 
-`app/ui/style.css` ligne 556
+`app/ui/style.css` ligne 576
 
 ```css
 .obs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -12783,7 +12804,7 @@ Boutons matériels, scènes et sources audio.
 
 Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos.
 
-`app/ui/style.css` ligne 584
+`app/ui/style.css` ligne 604
 
 ```css
 .about-head { display: flex; flex-direction: column; gap: 4px; }
@@ -12793,7 +12814,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 783
+`app/ui/style.css` ligne 800
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -12803,7 +12824,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 802
+`app/ui/style.css` ligne 819
 
 ```css
 .statusbar {
@@ -12821,7 +12842,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 837
+`app/ui/style.css` ligne 854
 
 ```css
 .hidden { display: none !important; }
@@ -12831,7 +12852,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 813
+`app/ui/style.css` ligne 830
 
 ```css
 html.glass body {
@@ -12841,14 +12862,24 @@ html.glass body {
 }
 ```
 
-### [STY-18] Fenêtre Icecast
+### [STY-18] Onglet Serveur Icecast
 
-Pastille de la barre du haut, liste des serveurs, en-tête, tuiles, graphique, tableaux, formulaires, journal et barre d'enregistrement.
+Mise en page de l'onglet dans les Réglages : liste des serveurs, en-tête, tuiles, graphique, tableaux, formulaires, journal et barre d'enregistrement.
 
-`app/ui/style.css` ligne 689
+`app/ui/style.css` ligne 709
 
 ```css
-.ice-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.tab-page.ice-tab { padding: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr); overflow: hidden; }
+```
+
+### [STY-19] Bouton DIFFUSER et son détail
+
+Bouton « + » accolé à DIFFUSER et panneau de détail des sorties.
+
+`app/ui/style.css` ligne 142
+
+```css
+.cast-group { display: flex; align-items: stretch; }
 ```
 
 
@@ -12890,7 +12921,7 @@ Logo, ON AIR, DIFFUSER, OBS, horloge, thème et réglages.
 
 Titre, temps, progression et commandes de la platine A.
 
-`app/ui/index.html` ligne 66
+`app/ui/index.html` ligne 65
 
 ```html
 <article class="deck" data-deck="A">
@@ -12905,7 +12936,7 @@ Titre, temps, progression et commandes de la platine A.
 
 Crossfader, fondu, auto-mix, préréglage antenne et vumètres.
 
-`app/ui/index.html` ligne 93
+`app/ui/index.html` ligne 92
 
 ```html
 <section class="mixer">
@@ -12920,7 +12951,7 @@ Crossfader, fondu, auto-mix, préréglage antenne et vumètres.
 
 Titre, temps, progression et commandes de la platine B.
 
-`app/ui/index.html` ligne 119
+`app/ui/index.html` ligne 118
 
 ```html
 <article class="deck" data-deck="B">
@@ -12935,7 +12966,7 @@ Titre, temps, progression et commandes de la platine B.
 
 Barre d'outils, lignes de playlist et historique de diffusion.
 
-`app/ui/index.html` ligne 148
+`app/ui/index.html` ligne 147
 
 ```html
 <section class="playlist" id="playlist">
@@ -12950,7 +12981,7 @@ Barre d'outils, lignes de playlist et historique de diffusion.
 
 Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
-`app/ui/index.html` ligne 189
+`app/ui/index.html` ligne 188
 
 ```html
 <section class="fx voicefx" id="voicefx">
@@ -12965,7 +12996,7 @@ Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
 Pads et panneau de pilotage d'OBS.
 
-`app/ui/index.html` ligne 229
+`app/ui/index.html` ligne 228
 
 ```html
 <section class="fx soundfx" id="soundfx">
@@ -12980,7 +13011,7 @@ Pads et panneau de pilotage d'OBS.
 
 Renommer, choisir un son, vider.
 
-`app/ui/index.html` ligne 283
+`app/ui/index.html` ligne 282
 
 ```html
 <div id="pad-menu" class="pad-menu hidden">
@@ -12995,7 +13026,7 @@ Renommer, choisir un son, vider.
 
 Sortie audio et résumé de diffusion.
 
-`app/ui/index.html` ligne 315
+`app/ui/index.html` ligne 314
 
 ```html
 <footer class="statusbar">
@@ -13010,7 +13041,7 @@ Sortie audio et résumé de diffusion.
 
 Fenêtre des réglages et ses onglets.
 
-`app/ui/index.html` ligne 323
+`app/ui/index.html` ligne 322
 
 ```html
 <div id="settings" class="modal hidden" role="dialog" aria-modal="true">
@@ -13018,7 +13049,7 @@ Fenêtre des réglages et ses onglets.
     <aside class="modal-tabs">
       <div class="modal-title">RÉGLAGES</div>
       <button class="tab active" data-tab="cast">Diffusion</button>
-      <button class="tab" data-tab="aura">Aura / OBS</button>
+      <button class="tab" data-tab="icecast">Serveur Icecast</button>
 ```
 
 ### [HTM-12] Réglages : Diffusion
@@ -13100,7 +13131,7 @@ Version, mises à jour et diagnostic.
 
 Dossier, relecture, volume, arrêt et grille des jingles.
 
-`app/ui/index.html` ligne 236
+`app/ui/index.html` ligne 235
 
 ```html
 <div class="fx-head" data-fxpage="jingles" hidden>
@@ -13115,7 +13146,7 @@ Dossier, relecture, volume, arrêt et grille des jingles.
 
 Tout, Morceaux, Jingles, Pubs.
 
-`app/ui/index.html` ligne 157
+`app/ui/index.html` ligne 156
 
 ```html
 <div class="hfilters" data-ppage="history" hidden>
@@ -13130,7 +13161,7 @@ Tout, Morceaux, Jingles, Pubs.
 
 Catégorie et période de l'export CSV de l'historique.
 
-`app/ui/index.html` ligne 291
+`app/ui/index.html` ligne 290
 
 ```html
 <div id="export-menu" class="pad-menu export-menu hidden">
@@ -13190,7 +13221,7 @@ Bibliothèque, catégories, grilles et planning de la semaine.
 
 Actions de mélange et de nettoyage de la playlist.
 
-`app/ui/index.html` ligne 308
+`app/ui/index.html` ligne 307
 
 ```html
 <div id="shuffle-menu" class="pad-menu shuffle-menu hidden">
@@ -13219,7 +13250,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Égaliseur micro et temps du ducking ; repliés sur une même ligne, une section ouverte prend toute la largeur.
 
-`app/ui/index.html` ligne 208
+`app/ui/index.html` ligne 207
 
 ```html
 <div class="vfx-more">
@@ -13230,26 +13261,26 @@ Actions de mélange et de nettoyage de la playlist.
     <label><span>Médium</span><input type="range" id="eq-mid" min="-12" max="12" step="0.5"><output id="eq-mid-v"></output></label>
 ```
 
-### [HTM-26] Fenêtre Icecast
+### [HTM-26] Onglet Serveur Icecast
 
-Liste des serveurs à gauche, contenu du serveur choisi à droite.
+Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi à droite.
 
-`app/ui/index.html` ligne 645
+`app/ui/index.html` ligne 642
 
 ```html
-<div id="icecast" class="modal hidden" role="dialog" aria-modal="true">
-  <div class="modal-panel ice-panel">
-    <aside class="modal-tabs">
-      <div class="modal-title">ICECAST</div>
-      <div class="ice-servers" id="ice-servers"></div>
-      <button class="btn small wide" id="ice-add">+ Ajouter un serveur</button>
+<section class="tab-page hidden ice-tab" data-page="icecast">
+  <div class="ice-side">
+    <div class="form-section">Serveurs</div>
+    <div class="ice-servers" id="ice-servers"></div>
+    <button class="btn small wide" id="ice-add">+ Ajouter un serveur</button>
+  </div>
 ```
 
 ### [HTM-27] Accueil Icecast
 
 Présentation, installations détectées et ajout d'un serveur local ou distant.
 
-`app/ui/index.html` ligne 658
+`app/ui/index.html` ligne 650
 
 ```html
 <div class="ice-welcome" id="ice-welcome">
@@ -13264,7 +13295,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 État, nom, adresse, version, boutons page web, Redémarrer, Arrêter et Démarrer.
 
-`app/ui/index.html` ligne 671
+`app/ui/index.html` ligne 663
 
 ```html
 <header class="ice-head">
@@ -13279,7 +13310,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints ; sans flux, explication du point de montage et bouton de sortie vers /live.
 
-`app/ui/index.html` ligne 693
+`app/ui/index.html` ligne 685
 
 ```html
 <div class="ice-page" data-ipage="dash">
@@ -13294,7 +13325,7 @@ Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des audi
 
 Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute, limites, chemins, journalisation.
 
-`app/ui/index.html` ligne 720
+`app/ui/index.html` ligne 712
 
 ```html
 <div class="ice-page hidden" data-ipage="config">
@@ -13309,7 +13340,7 @@ Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute,
 
 Explication (onglet facultatif), liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST.
 
-`app/ui/index.html` ligne 785
+`app/ui/index.html` ligne 777
 
 ```html
 <div class="ice-page hidden" data-ipage="mounts">
@@ -13324,7 +13355,7 @@ Explication (onglet facultatif), liste des mountpoints déclarés et formulaire 
 
 Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
-`app/ui/index.html` ligne 836
+`app/ui/index.html` ligne 828
 
 ```html
 <div class="ice-page hidden" data-ipage="listeners">
@@ -13339,7 +13370,7 @@ Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
 Erreurs, accès ou console, suivi en direct.
 
-`app/ui/index.html` ligne 853
+`app/ui/index.html` ligne 845
 
 ```html
 <div class="ice-page hidden" data-ipage="log">
@@ -13354,7 +13385,7 @@ Erreurs, accès ou console, suivi en direct.
 
 Profil : emplacement, installation, configuration, accès admin et démarrage.
 
-`app/ui/index.html` ligne 866
+`app/ui/index.html` ligne 858
 
 ```html
 <div class="ice-page hidden" data-ipage="profile">
@@ -13369,7 +13400,7 @@ Profil : emplacement, installation, configuration, accès admin et démarrage.
 
 Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer et redémarrer.
 
-`app/ui/index.html` ligne 904
+`app/ui/index.html` ligne 896
 
 ```html
 <footer class="ice-savebar hidden" id="ice-savebar">
@@ -13384,7 +13415,7 @@ Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer e
 
 Menu flottant des actions sur un mountpoint.
 
-`app/ui/index.html` ligne 918
+`app/ui/index.html` ligne 924
 
 ```html
 <div id="ice-menu" class="pad-menu ice-menu hidden"></div>
@@ -13393,4 +13424,19 @@ Menu flottant des actions sur un mountpoint.
 <div id="ghost" class="drag-ghost"></div>
 
 <script type="module" src="js/main.js"></script>
+```
+
+### [HTM-37] Panneau de diffusion
+
+Panneau flottant sous le bouton DIFFUSER : en-tête, titre, sorties, total et boutons.
+
+`app/ui/index.html` ligne 911
+
+```html
+<div id="cast-panel" class="pad-menu cast-panel hidden">
+  <div class="cast-panel-head"><b id="cp-state"></b><span class="spacer"></span><span class="muted" id="cp-time"></span></div>
+  <div class="muted cp-song" id="cp-song"></div>
+  <div class="cp-outputs" id="cp-outputs"></div>
+  <div class="cp-total muted" id="cp-total"></div>
+  <div class="form-actions">
 ```

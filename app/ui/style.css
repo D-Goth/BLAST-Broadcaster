@@ -139,6 +139,26 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
   cursor: pointer;
 }
 .cast-btn:hover { border-color: var(--accent); color: var(--text); }
+/* [STY-19] */
+.cast-group { display: flex; align-items: stretch; }
+.cast-group .cast-btn { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.cast-more { -webkit-appearance: none; appearance: none; font: inherit; font-weight: 800; font-size: 14px; line-height: 1; padding: 0 9px; border: 1px solid var(--border); border-left: 0; border-radius: 0 6px 6px 0; background: var(--panel-alt); color: var(--text-muted); cursor: pointer; box-shadow: inset 1px 0 0 var(--border); }
+.cast-more:hover { color: var(--text); border-color: var(--accent); }
+.pad-menu.cast-panel { width: 400px; gap: 10px; }
+.cast-panel .btn { white-space: nowrap; }
+.cast-panel-head { display: flex; align-items: center; font-size: 13px; }
+.cast-panel-head span { font-family: var(--mono); font-size: 12px; }
+.cp-song { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-song:empty, .cp-total:empty { display: none; }
+.cp-outputs { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow: auto; }
+.cp-out { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-alt); }
+.cp-out.off { opacity: .55; }
+.cp-main { display: flex; flex-direction: column; min-width: 0; }
+.cp-main b { font-size: 13px; }
+.cp-main small { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-count { font-family: var(--mono); font-size: 12px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.cp-count .ico { width: 12px; height: 12px; }
+.cp-total { font-size: 12px; }
 .cast-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); }
 .cast-btn.live { color: var(--text); border-color: var(--meter-low); }
 .cast-btn.live .cast-dot { background: var(--meter-low); box-shadow: 0 0 10px var(--meter-low); animation: blink 1.6s ease-in-out infinite; }
@@ -589,8 +609,8 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .about-paths code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
 .modal { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .55); }
 .modal-panel {
-  width: min(1080px, 94vw);
-  height: min(680px, 90vh);
+  width: min(1180px, 95vw);
+  height: min(740px, 92vh);
   display: grid;
   grid-template-columns: 190px 1fr;
   background: var(--panel);
@@ -687,13 +707,10 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .sched-cell:hover { outline: 1px solid var(--text); }
 
 /* [STY-18] */
-.ice-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
-.ice-pill.running .ice-dot { background: var(--meter-mid); }
-.ice-pill.live .ice-dot { background: var(--meter-low); box-shadow: 0 0 8px var(--meter-low); }
-.ice-pill.error .ice-dot { background: var(--accent); }
-.ice-pill.live, .ice-pill.running { color: var(--text); }
-.ice-count { font-family: var(--mono); font-weight: 700; letter-spacing: 0; color: var(--text); }
-.ice-panel { width: min(1240px, 96vw); height: min(780px, 92vh); grid-template-columns: 220px 1fr; }
+.tab-page.ice-tab { padding: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr); overflow: hidden; }
+.tab-page.ice-tab.hidden { display: none; }
+.ice-side { display: flex; flex-direction: column; gap: 8px; padding: 16px 12px; border-right: 1px solid var(--border); min-height: 0; }
+.ice-side .form-section { margin: 0 4px; }
 .ice-servers { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; margin-bottom: 4px; }
 .ice-server { -webkit-appearance: none; appearance: none; font: inherit; text-align: left; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-alt); color: var(--text); cursor: pointer; display: grid; grid-template-columns: 8px 1fr auto; gap: 2px 8px; align-items: center; }
 .ice-server.active { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }

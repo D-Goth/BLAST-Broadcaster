@@ -178,18 +178,22 @@ export async function openSettings(tab) {
     toast("error", String(e));
     return;
   }
-  if (tab) showTab(tab);
   $("#settings").classList.remove("hidden");
+  showTab(tab || $(".modal-tabs .tab.active").dataset.tab);
 }
 
 export const settingsOpen = () => !$("#settings").classList.contains("hidden");
-const closeSettings = () => $("#settings").classList.add("hidden");
+const closeSettings = () => {
+  $("#settings").classList.add("hidden");
+  document.dispatchEvent(new CustomEvent("blast:settings-tab", { detail: null }));
+};
 
 // [UI-50]
 function showTab(tab) {
   $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
   $$(".tab-page").forEach((p) => p.classList.toggle("hidden", p.dataset.page !== tab));
   if (tab === "about") renderAbout();
+  document.dispatchEvent(new CustomEvent("blast:settings-tab", { detail: tab }));
 }
 
 // [UI-51]
