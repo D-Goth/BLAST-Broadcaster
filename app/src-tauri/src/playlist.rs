@@ -103,6 +103,70 @@ impl Playlist {
         changed
     }
 
+    // [PL-13]
+    pub fn shuffle(&mut self, roll: &mut impl FnMut() -> f64) {
+        let n = self.entries.len();
+        for i in (1..n).rev() {
+            let j = ((roll() * (i + 1) as f64) as usize).min(i);
+            self.entries.swap(i, j);
+        }
+    }
+
+    // [PL-14]
+    pub fn shuffle_spread(&mut self, roll: &mut impl FnMut() -> f64) {
+        self.shuffle(roll);
+        let mut groups: Vec<(String, Vec<Entry>)> = Vec::new();
+        for (i, e) in std::mem::take(&mut self.entries).into_iter().enumerate() {
+            let artist = e.artist.trim().to_lowercase();
+            let key = if artist.is_empty() {
+                format!("\u{0}{i}")
+            } else {
+                artist
+            };
+            match groups.iter_mut().find(|(k, _)| *k == key) {
+                Some((_, list)) => list.push(e),
+                None => groups.push((key, vec![e])),
+            }
+        }
+        let mut last: Option<String> = None;
+        while !groups.is_empty() {
+            let pick = groups
+                .iter()
+                .enumerate()
+                .filter(|(_, (k, _))| groups.len() == 1 || Some(k) != last.as_ref())
+                .max_by(|a, b| a.1 .1.len().cmp(&b.1 .1.len()).then_with(|| b.0.cmp(&a.0)))
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            let (key, list) = &mut groups[pick];
+            if let Some(e) = list.pop() {
+                self.entries.push(e);
+            }
+            last = Some(key.clone());
+            if list.is_empty() {
+                groups.remove(pick);
+            }
+        }
+    }
+
+    // [PL-15]
+    pub fn dedupe(&mut self) -> usize {
+        let before = self.entries.len();
+        let mut seen_paths = std::collections::HashSet::new();
+        let mut seen_tracks = std::collections::HashSet::new();
+        self.entries.retain(|e| {
+            let title = e.title.trim().to_lowercase();
+            let track = (!title.is_empty()).then(|| (title, e.artist.trim().to_lowercase()));
+            let keep = !seen_paths.contains(&e.path)
+                && track.as_ref().is_none_or(|t| !seen_tracks.contains(t));
+            if keep {
+                seen_paths.insert(e.path.clone());
+                seen_tracks.extend(track);
+            }
+            keep
+        });
+        before - self.entries.len()
+    }
+
     #[cfg(test)]
     pub fn take_next(&mut self) -> Option<Entry> {
         let pos = self.entries.iter().position(|e| e.error.is_none())?;
@@ -307,6 +371,67 @@ mod tests {
             Kind::Jingle
         );
         assert_eq!(classify(Path::new("/r/pub/a.mp3"), &custom), Kind::Morceau);
+    }
+
+    fn artists(p: &Playlist) -> Vec<String> {
+        p.entries().iter().map(|e| e.artist.clone()).collect()
+    }
+
+    fn named(title: &str, artist: &str, path: &str) -> Entry {
+        Entry {
+            title: title.into(),
+            artist: artist.into(),
+            path: path.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn shuffles_and_spreads_artists() {
+        let mut seed = 0.37_f64;
+        let mut roll = move || {
+            seed = (seed * 9301.0 + 0.49297).fract();
+            seed
+        };
+        let mut p = Playlist::default();
+        let mut items: Vec<Entry> = (0..6)
+            .map(|i| named(&format!("a{i}"), "dgoth", &format!("/a{i}")))
+            .collect();
+        items.extend((0..5).map(|i| named(&format!("b{i}"), "shakyvibrato242", &format!("/b{i}"))));
+        p.insert(items, None);
+        p.shuffle(&mut roll);
+        assert_eq!(p.entries().len(), 11);
+        p.shuffle_spread(&mut roll);
+        let a = artists(&p);
+        assert_eq!(a.len(), 11);
+        assert!(a.windows(2).all(|w| w[0] != w[1]), "{a:?}");
+        let mut ids: Vec<u64> = p.entries().iter().map(|e| e.id).collect();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), 11);
+    }
+
+    #[test]
+    fn removes_duplicates() {
+        let mut p = Playlist::default();
+        p.insert(
+            vec![
+                named("The Unchosen", "dgoth", "/1.mp3"),
+                named("the unchosen ", "DGOTH", "/2.mp3"),
+                named("Autre", "dgoth", "/1.mp3"),
+                named("Autre", "dgoth", "/3.mp3"),
+                named("", "", "/4.mp3"),
+                named("", "", "/5.mp3"),
+            ],
+            None,
+        );
+        assert_eq!(p.dedupe(), 2);
+        let paths: Vec<_> = p
+            .entries()
+            .iter()
+            .map(|e| e.path.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(paths, ["/1.mp3", "/3.mp3", "/4.mp3", "/5.mp3"]);
     }
 
     #[test]

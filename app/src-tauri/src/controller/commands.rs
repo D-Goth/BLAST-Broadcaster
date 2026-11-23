@@ -78,6 +78,10 @@ pub enum UiCommand {
         to: usize,
     },
     Clear,
+    Shuffle {
+        spread: bool,
+    },
+    Dedupe,
     LoadEntry {
         id: u64,
         deck: Deck,

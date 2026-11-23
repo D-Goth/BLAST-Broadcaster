@@ -78,6 +78,30 @@ impl Controller {
     }
 
     // [CTL-107]
+    // [CTL-151]
+    pub(super) fn shuffle(&mut self, spread: bool) {
+        let rot = &mut self.rot;
+        let mut roll = || rot.roll();
+        if spread {
+            self.playlist.shuffle_spread(&mut roll);
+        } else {
+            self.playlist.shuffle(&mut roll);
+        }
+        self.emit_playlist();
+    }
+
+    // [CTL-152]
+    pub(super) fn dedupe(&mut self) {
+        let n = self.playlist.dedupe();
+        let msg = match n {
+            0 => "Aucun doublon dans la playlist.".to_string(),
+            1 => "1 doublon retiré de la playlist.".to_string(),
+            n => format!("{n} doublons retirés de la playlist."),
+        };
+        self.notice("info", msg);
+        self.emit_playlist();
+    }
+
     pub(super) fn emit_playlist(&self) {
         let now = now_secs();
         let entries: Vec<Entry> = self
