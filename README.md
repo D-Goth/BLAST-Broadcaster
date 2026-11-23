@@ -8,31 +8,38 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 
 ![BLAST Broadcaster — thème Black-Lab](docs/img/interface-black-lab.png)
 
-> Statut : **piliers 1 et 3**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX, Sound FX (36 pads) pilotage d'OBS, historique de diffusion avec règles de séparation, traitement audio antenne et effets de voix. Historique typé (morceaux, jingles, pubs), box à jingles, verre dépoli, grilles horaires (pilier 2), serveur Icecast intégré et chat multi-plateformes avec demandes des viewers (M8 : Twitch direct, et YouTube, TikTok, Kick, Facebook… par Social Stream Ninja).
+> Statut : **les trois piliers sont en place** (automatisation et historique, grilles horaires, son antenne), avec
+> la diffusion, le serveur Icecast intégré, le pilotage d'OBS et le chat multi-plateformes. Voir la
+> [feuille de route](ROADMAP.md) pour la suite.
 
-## Fonctionnalités prévues
+## Fonctionnalités
+
+✅ disponible · ⏳ prévu
 
 **Antenne**
-- Platines A/B (jusqu'à 4), crossfade automatique ou manuel, cue points, pré-écoute (PFL) sur sortie casque séparée
-- Soundbox (cart wall) : jingles, virgules, effets, sur raccourcis clavier ou contrôleur MIDI
-- File d'attente éditable en direct, auto-DJ avec rotations (clockwheels) et règles de séparation
-- Micro avec ducking automatique, traitement audio (AGC, compresseur, limiteur, égaliseur)
-- Voice tracking
+- ✅ Deux platines, crossfade automatique ou manuel, auto-mix, bouton Suivant
+- ✅ Playlist de plusieurs dizaines de milliers de titres, mélange (avec espacement des artistes), retrait des doublons, enregistrement et ouverture en M3U, reprise automatique après un plantage
+- ✅ Grilles horaires (clockwheels) : catégories, grilles, émissions M3U, planning de la semaine, tirage pondéré
+- ✅ Règles de séparation artiste / titre, historique typé (morceaux, jingles, pubs) exportable
+- ✅ Box à jingles, Sound FX (36 pads, F1 à F12)
+- ✅ Micro avec ducking automatique (niveau, descente et remontée réglables), égaliseur, effets de voix
+- ✅ Son antenne : AGC, compresseur, limiteur à anticipation (presets Doux, Radio FM, Puissant)
+- ⏳ Jusqu'à 4 platines, cue points, pré-écoute casque (PFL), contrôleur MIDI, voice tracking
 
 **Diffusion**
-- Plusieurs sorties simultanées : MP3, AAC, Opus, Ogg Vorbis, FLAC
-- Serveurs Icecast, Shoutcast v1 et v2, métadonnées « titre en cours »
-- Gestion de son propre serveur Icecast (local ou VPS) : lancement, configuration sans éditer le XML, surveillance
-- Historique de diffusion exportable
+- ✅ Plusieurs sorties simultanées en MP3, chacune avec son serveur et son débit
+- ✅ Icecast, Shoutcast v1 et v2, titre en cours, reconnexion automatique, auditeurs et pic en direct
+- ✅ Gestion de son propre serveur Icecast : lancement, configuration sans éditer le XML, surveillance
+- ⏳ Formats AAC, Opus, Ogg Vorbis ; configuration d'un Icecast sur VPS par SSH
 
 **Live**
-- Pilotage complet d'OBS Studio via obs-websocket (module Aura)
-- Chat agrégé Twitch, YouTube, Kick, avec commandes viewers (`!request`, `!np`, `!sfx`)
-- Overlay « Now Playing » automatique
+- ✅ Pilotage d'OBS Studio via obs-websocket (module Aura), titre en cours vers une source texte OBS
+- ✅ Chat Twitch direct, et YouTube, TikTok, Kick, Facebook… par Social Stream Ninja
+- ✅ Commandes viewers : `!np`, `!request` (demandes à valider), `!sfx`, annonce des titres
 
 **Interface**
-- Thèmes personnalisables et partageables (Light, Dark et Black-Lab fournis)
-- Couleur par platine, mode rainbow optionnel synchronisé au BPM
+- ✅ Thèmes personnalisables et partageables (Light, Dark et Black-Lab fournis), couleur par platine, mode rainbow
+- ✅ Verre dépoli sur une image de fond, Linux et Windows
 
 ## Modules
 
@@ -110,7 +117,7 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 
 | Action | Comment |
 |---|---|
-| Ajouter des titres | **+ Fichiers** (sélection multiple), **+ Dossier** (sous-dossiers compris), ou glisser depuis Dolphin sur la playlist |
+| Ajouter des titres | **+ Fichiers** (sélection multiple, playlists M3U comprises), **+ Dossier** (sous-dossiers compris), ou glisser depuis Dolphin ou l'Explorateur Windows sur la playlist |
 | Charger une platine | Glisser un titre (ou un fichier depuis Dolphin) sur la platine, boutons **A** / **B** de la ligne, ou double-clic (platine libre) |
 | Réordonner | Glisser un titre dans la playlist |
 | Enchaîner | **FONDU → A/B** démarre l'autre platine et fond vers elle, puis arrête la précédente |
@@ -143,13 +150,13 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 **Diffusion** : le bouton passe au vert (**EN DIRECT n/n**) quand toutes les sorties actives sont connectées.
 Il affiche aussi la **durée de diffusion** et le **nombre d'auditeurs** (👤 en cours · max), relevés toutes les 10 secondes
 sur le serveur (`status-json.xsl` pour Icecast, `7.html` pour Shoutcast v1, `stats` pour Shoutcast v2). Le détail par sortie
-est dans l'infobulle du bouton et dans Réglages → Diffusion. En cas de coupure,
+est dans le panneau ouvert par le **+** à côté du bouton, dans son infobulle et dans Réglages → Diffusion. En cas de coupure,
 BLAST se reconnecte tout seul toutes les 5 secondes ; un mot de passe refusé arrête la sortie concernée.
 Le titre en cours (« Artiste - Titre » de la platine à l'antenne) est envoyé au serveur à chaque changement.
 
 **Mots de passe** : rangés dans le trousseau du système (KWallet sous KDE), jamais dans le fichier de réglages.
 Si le trousseau est indisponible, BLAST le signale et garde le mot de passe en mémoire pour la session uniquement.
-Les autres réglages sont dans `~/.config/fr.black-lab.blast/config.toml`.
+Les autres réglages sont dans `~/.config/fr.black-lab.blast/config.toml` (Windows : `%APPDATA%\fr.black-lab.blast\config.toml`).
 
 Le micro se choisit dans **Réglages → Audio** (pris en compte au redémarrage). Le VU-mètre MIC montre le niveau
 d'entrée même micro fermé, pour régler son gain avant de prendre l'antenne.
