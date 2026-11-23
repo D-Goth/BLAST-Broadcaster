@@ -2856,7 +2856,7 @@ definition = "État, nom, adresse, version, boutons page web, Redémarrer, Arrê
 
 [codes.HTM-29]
 titre = "Tableau de bord Icecast"
-definition = "Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints."
+definition = "Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints ; sans flux, explication du point de montage et bouton de sortie vers /live."
 
 [codes.HTM-30]
 titre = "Configuration Icecast"
@@ -2864,7 +2864,7 @@ definition = "Fichier, droit d'écriture et formulaire : serveur, sécurité, po
 
 [codes.HTM-31]
 titre = "Mountpoints Icecast"
-definition = "Liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST."
+definition = "Explication (onglet facultatif), liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST."
 
 [codes.HTM-32]
 titre = "Auditeurs Icecast"
@@ -2981,3 +2981,7 @@ definition = "Reconnaît un fichier au format 2.5 : bloc security/tls-context, b
 [codes.ICE-45]
 titre = "Niveau de journal"
 definition = "Lit le niveau en chiffre (1 à 4, Icecast 2.4) ou en toutes lettres (error, warning, information, debug, Icecast 2.5) ; il est réécrit dans la forme du fichier."
+
+[codes.UI-130]
+titre = "Sortie BLAST vers /live"
+definition = "Depuis le tableau de bord sans flux en cours, crée en un clic la sortie Icecast vers /live avec le mot de passe des sources."

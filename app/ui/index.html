@@ -710,7 +710,10 @@
                 <thead><tr><th>Mountpoint</th><th>État</th><th>Titre en cours</th><th class="right">Auditeurs</th><th class="right">Pic</th><th>Format</th><th>Source</th><th class="right">Depuis</th><th></th></tr></thead>
                 <tbody></tbody>
               </table>
-              <div class="muted ice-none hidden" id="ice-mount-none">Aucun mountpoint actif : connecte une source (le bouton DIFFUSER de BLAST, par exemple).</div>
+              <div class="ice-none hidden" id="ice-mount-none">
+                <p class="muted">Aucun flux en cours. Un point de montage (mountpoint) est l'adresse d'un flux sur le serveur, par exemple <code>/live</code> : les auditeurs écoutent <code>http://adresse:port/live</code>. Pas besoin de le déclarer : il apparaît dès que BLAST se connecte avec le mot de passe des sources.</p>
+                <div class="form-actions"><button class="btn accent small" id="ice-quick-link" title="Ajoute dans Réglages → Diffusion une sortie Icecast vers /live avec le mot de passe des sources">Créer la sortie BLAST vers /live</button><span class="muted">puis DIFFUSER</span></div>
+              </div>
             </div>
           </div>
 
@@ -781,6 +784,7 @@
 
           <!-- [HTM-31] -->
           <div class="ice-page hidden" data-ipage="mounts">
+            <p class="muted ice-intro">Facultatif. Icecast accepte n'importe quel point de montage avec le mot de passe des sources : déclare-en un ici seulement pour lui donner des règles (limite d'auditeurs, mot de passe propre, flux de secours si ta diffusion tombe, nom et genre imposés).</p>
             <div class="cast-layout">
               <div class="out-list">
                 <div class="out-items" id="ice-mount-list"></div>
