@@ -200,11 +200,68 @@ pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
     for p in paths {
         if p.is_dir() {
             walk(p, &mut out);
+        } else if is_m3u(p) {
+            out.extend(read_m3u(p).into_iter().filter(|t| t.is_file()));
         } else if is_audio_path(p) {
             out.push(p.clone());
         }
     }
     out
+}
+
+// [PL-20]
+pub fn is_m3u(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("m3u") || e.eq_ignore_ascii_case("m3u8"))
+}
+
+// [PL-21]
+pub fn read_m3u(path: &Path) -> Vec<PathBuf> {
+    let Ok(bytes) = std::fs::read(path) else {
+        return Vec::new();
+    };
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
+    let text = match std::str::from_utf8(bytes) {
+        Ok(t) => t.to_string(),
+        Err(_) => bytes.iter().map(|&b| b as char).collect(),
+    };
+    let base = path.parent().unwrap_or(Path::new(""));
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|l| {
+            let l = l.strip_prefix("file://").unwrap_or(l);
+            let p = PathBuf::from(l);
+            if p.is_absolute() {
+                p
+            } else {
+                base.join(p)
+            }
+        })
+        .filter(|p| is_audio_path(p))
+        .collect()
+}
+
+// [PL-22]
+pub fn write_m3u(path: &Path, entries: &[Entry]) -> Result<(), String> {
+    let nl = if cfg!(windows) { "\r\n" } else { "\n" };
+    let mut text = format!("#EXTM3U{nl}");
+    for e in entries {
+        let secs = e.duration.map_or(-1, |d| d.round() as i64);
+        let label = if e.artist.trim().is_empty() {
+            e.title.clone()
+        } else {
+            format!("{} - {}", e.artist, e.title)
+        };
+        text.push_str(&format!(
+            "#EXTINF:{secs},{label}{nl}{}{nl}",
+            e.path.display()
+        ));
+    }
+    let tmp = path.with_extension("m3u.tmp");
+    std::fs::write(&tmp, text).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, path).map_err(|e| e.to_string())
 }
 
 // [PL-07]
@@ -431,6 +488,31 @@ mod tests {
             duration: Some(1.0),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn m3u_round_trip() {
+        let dir = std::env::temp_dir().join(format!("blast-m3u-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        let a = dir.join("sub").join("a.mp3");
+        std::fs::write(&a, b"x").unwrap();
+        let mut entry = e("a");
+        entry.path = a.clone();
+        entry.artist = "Artiste é".into();
+        let list = dir.join("prog.m3u8");
+        write_m3u(&list, &[entry, e("absent.mp3")]).unwrap();
+        let text = std::fs::read_to_string(&list).unwrap();
+        assert!(text.starts_with("#EXTM3U"));
+        assert!(text.contains("#EXTINF:1,Artiste é - a"));
+        let relative = dir.join("rel.m3u");
+        std::fs::write(
+            &relative,
+            b"#EXTM3U\r\n#EXTINF:3,x\r\nsub/a.mp3\r\nnotes.txt\r\n",
+        )
+        .unwrap();
+        let expanded = expand(&[list, relative]);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(expanded, vec![a.clone(), dir.join("sub").join("a.mp3")]);
     }
 
     #[test]

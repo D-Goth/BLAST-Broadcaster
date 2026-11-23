@@ -82,6 +82,9 @@ pub enum UiCommand {
         to: usize,
     },
     Clear,
+    SavePlaylist {
+        path: PathBuf,
+    },
     Shuffle {
         spread: bool,
     },

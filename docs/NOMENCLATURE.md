@@ -38,10 +38,10 @@ ne pas le modifier à la main.
 | [`SEC`](#sec) | Mots de passe dans le trousseau du système | 6 |
 | [`JRN`](#jrn) | Journal de diagnostic (blast.log) | 8 |
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
-| [`PL`](#pl) | Playlist côté application | 19 |
+| [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 152 |
-| [`UI`](#ui) | Interface : modules JavaScript | 104 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 153 |
+| [`UI`](#ui) | Interface : modules JavaScript | 105 |
 | [`STY`](#sty) | Interface : feuille de style | 17 |
 | [`HTM`](#htm) | Interface : structure de la page | 23 |
 
@@ -5206,7 +5206,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 
 ### [PL-05] Développement des chemins
 
-Remplace les dossiers par les fichiers audio qu'ils contiennent.
+Remplace les dossiers par les fichiers audio qu'ils contiennent et les playlists M3U par leurs titres existants.
 
 `app/src-tauri/src/playlist.rs` ligne 197
 
@@ -5216,19 +5216,21 @@ pub fn expand(paths: &[PathBuf]) -> Vec<PathBuf> {
     for p in paths {
         if p.is_dir() {
             walk(p, &mut out);
+        } else if is_m3u(p) {
+            out.extend(read_m3u(p).into_iter().filter(|t| t.is_file()));
         } else if is_audio_path(p) {
             out.push(p.clone());
         }
     }
     out
-}
+…
 ```
 
 ### [PL-06] Création d'entrée
 
 Sonde un fichier ; un fichier illisible devient une entrée signalée en erreur.
 
-`app/src-tauri/src/playlist.rs` ligne 293
+`app/src-tauri/src/playlist.rs` ligne 350
 
 ```rust
 pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
@@ -5250,7 +5252,7 @@ pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
 
 Minuscules et accents retirés, pour comparer les noms de dossiers.
 
-`app/src-tauri/src/playlist.rs` ligne 210
+`app/src-tauri/src/playlist.rs` ligne 267
 
 ```rust
 fn fold(word: &str) -> String {
@@ -5272,7 +5274,7 @@ fn fold(word: &str) -> String {
 
 Le nom de dossier contient-il un des mots-clés, au singulier ou au pluriel ?
 
-`app/src-tauri/src/playlist.rs` ligne 225
+`app/src-tauri/src/playlist.rs` ligne 282
 
 ```rust
 fn folder_matches(folder: &str, keywords: &[String]) -> bool {
@@ -5294,7 +5296,7 @@ fn folder_matches(folder: &str, keywords: &[String]) -> bool {
 
 Jingle, pub ou morceau d'après le dossier le plus proche qui porte un mot-clé.
 
-`app/src-tauri/src/playlist.rs` ligne 240
+`app/src-tauri/src/playlist.rs` ligne 297
 
 ```rust
 pub fn classify(path: &Path, cats: &CategorySettings) -> Kind {
@@ -5330,7 +5332,7 @@ pub struct SlotTag {
 
 Date de modification en secondes, pour le scan incrémental.
 
-`app/src-tauri/src/playlist.rs` ligne 259
+`app/src-tauri/src/playlist.rs` ligne 316
 
 ```rust
 pub fn file_mtime(path: &Path) -> Option<i64> {
@@ -5346,7 +5348,7 @@ pub fn file_mtime(path: &Path) -> Option<i64> {
 
 Construit une entrée de playlist à partir d'un titre de la bibliothèque, sans relire le fichier.
 
-`app/src-tauri/src/playlist.rs` ligne 268
+`app/src-tauri/src/playlist.rs` ligne 325
 
 ```rust
 pub fn from_library(t: &blast_library::LibraryTrack, slot: SlotTag) -> Entry {
@@ -5428,7 +5430,7 @@ pub fn dedupe(&mut self) -> usize {
 
 Forme d'une entrée dans playlist.json : chemin, tags, durée, type et étiquette de grille.
 
-`app/src-tauri/src/playlist.rs` ligne 326
+`app/src-tauri/src/playlist.rs` ligne 383
 
 ```rust
 #[derive(Serialize, Deserialize)]
@@ -5450,7 +5452,7 @@ struct SavedEntry {
 
 Contenu de playlist.json : version du format, titres des platines en cours, entrées dans l'ordre.
 
-`app/src-tauri/src/playlist.rs` ligne 351
+`app/src-tauri/src/playlist.rs` ligne 408
 
 ```rust
 #[derive(Serialize, Deserialize, Default)]
@@ -5466,7 +5468,7 @@ struct SavedQueue {
 
 Écrit playlist.json dans un fichier temporaire, force l'écriture sur disque puis le renomme.
 
-`app/src-tauri/src/playlist.rs` ligne 360
+`app/src-tauri/src/playlist.rs` ligne 417
 
 ```rust
 pub fn save_queue(path: &Path, entries: &[Entry], decks: &[PathBuf]) -> Result<(), String> {
@@ -5488,7 +5490,7 @@ pub fn save_queue(path: &Path, entries: &[Entry], decks: &[PathBuf]) -> Result<(
 
 Relit playlist.json sans relire les tags des fichiers.
 
-`app/src-tauri/src/playlist.rs` ligne 396
+`app/src-tauri/src/playlist.rs` ligne 453
 
 ```rust
 pub fn load_queue(path: &Path) -> Result<(Vec<Entry>, Vec<PathBuf>), String> {
@@ -5503,6 +5505,64 @@ pub fn load_queue(path: &Path) -> Result<(Vec<Entry>, Vec<PathBuf>), String> {
             path: s.path,
             title: s.title,
             artist: s.artist,
+…
+```
+
+### [PL-20] Fichier M3U
+
+Reconnaît une playlist .m3u ou .m3u8 à son extension.
+
+`app/src-tauri/src/playlist.rs` ligne 212
+
+```rust
+pub fn is_m3u(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("m3u") || e.eq_ignore_ascii_case("m3u8"))
+}
+```
+
+### [PL-21] Lecture d'un M3U
+
+Lit les chemins d'une playlist M3U (UTF-8 ou Latin-1, chemins relatifs au fichier, préfixe file://), en ignorant les commentaires et les fichiers non audio.
+
+`app/src-tauri/src/playlist.rs` ligne 219
+
+```rust
+pub fn read_m3u(path: &Path) -> Vec<PathBuf> {
+    let Ok(bytes) = std::fs::read(path) else {
+        return Vec::new();
+    };
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
+    let text = match std::str::from_utf8(bytes) {
+        Ok(t) => t.to_string(),
+        Err(_) => bytes.iter().map(|&b| b as char).collect(),
+    };
+    let base = path.parent().unwrap_or(Path::new(""));
+    text.lines()
+        .map(str::trim)
+…
+```
+
+### [PL-22] Écriture d'un M3U
+
+Écrit la playlist en M3U étendu (#EXTINF : durée, artiste - titre), avec des fins de ligne Windows sous Windows.
+
+`app/src-tauri/src/playlist.rs` ligne 246
+
+```rust
+pub fn write_m3u(path: &Path, entries: &[Entry]) -> Result<(), String> {
+    let nl = if cfg!(windows) { "\r\n" } else { "\n" };
+    let mut text = format!("#EXTM3U{nl}");
+    for e in entries {
+        let secs = e.duration.map_or(-1, |d| d.round() as i64);
+        let label = if e.artist.trim().is_empty() {
+            e.title.clone()
+        } else {
+            format!("{} - {}", e.artist, e.title)
+        };
+        text.push_str(&format!(
+            "#EXTINF:{secs},{label}{nl}{}{nl}",
 …
 ```
 
@@ -5894,7 +5954,7 @@ fn handle(&mut self, cmd: UiCommand) {
 
 Republie toutes les vues et l'avertissement de démarrage éventuel.
 
-`app/src-tauri/src/controller/mod.rs` ligne 455
+`app/src-tauri/src/controller/mod.rs` ligne 456
 
 ```rust
 fn refresh(&mut self) {
@@ -5915,7 +5975,7 @@ fn refresh(&mut self) {
 
 Applique traitement antenne, automation, OBS, voix, pads et sorties modifiés.
 
-`app/src-tauri/src/controller/mod.rs` ligne 469
+`app/src-tauri/src/controller/mod.rs` ligne 470
 
 ```rust
 fn apply_config(&mut self, cfg: AppConfig) {
@@ -5937,7 +5997,7 @@ fn apply_config(&mut self, cfg: AppConfig) {
 
 Dirige chaque résultat de fond vers son traitement.
 
-`app/src-tauri/src/controller/mod.rs` ligne 490
+`app/src-tauri/src/controller/mod.rs` ligne 491
 
 ```rust
 fn on_work(&mut self, w: Work) {
@@ -5959,7 +6019,7 @@ fn on_work(&mut self, w: Work) {
 
 Met à jour platines, vumètres et micro à chaque tick ; gère fin de titre, fondus et fin des sons de pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 524
+`app/src-tauri/src/controller/mod.rs` ligne 525
 
 ```rust
 fn on_event(&mut self, e: Event) {
@@ -5981,7 +6041,7 @@ fn on_event(&mut self, e: Event) {
 
 Platine désignée par la position du crossfader.
 
-`app/src-tauri/src/controller/mod.rs` ligne 568
+`app/src-tauri/src/controller/mod.rs` ligne 569
 
 ```rust
 fn on_air_side(&self) -> usize {
@@ -8182,7 +8242,7 @@ pub struct BlockedView {
 
 Émet blast://blocked sans renvoyer toute la playlist.
 
-`app/src-tauri/src/controller/playlist_ops.rs` ligne 105
+`app/src-tauri/src/controller/playlist_ops.rs` ligne 123
 
 ```rust
 pub(super) fn emit_blocked(&self) {
@@ -8340,6 +8400,28 @@ pub(super) fn flush_queue(&mut self) {
         journal::warn(format!(
             "sauvegarde de la playlist {} : {e}",
             path.display()
+…
+```
+
+### [CTL-163] Enregistrement en M3U
+
+Écrit la playlist dans le fichier M3U choisi et indique le nombre de titres.
+
+`app/src-tauri/src/controller/playlist_ops.rs` ligne 105
+
+```rust
+pub(super) fn save_m3u(&mut self, path: PathBuf) {
+    let entries = self.playlist.entries();
+    match playlist::write_m3u(&path, entries) {
+        Ok(()) => {
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            self.notice(
+                "info",
+                format!("Playlist enregistrée : {name} ({} titres).", entries.len()),
+            );
 …
 ```
 
@@ -10199,6 +10281,25 @@ export function setBlocked(list) {
 }
 ```
 
+### [UI-105] Enregistrer la playlist
+
+Demande l'emplacement du fichier M3U, nommé par défaut avec la date du jour.
+
+`app/ui/js/playlist.js` ligne 187
+
+```js
+async function saveM3u() {
+  if (!S.entries.length) return toast("warn", "La playlist est vide.");
+  const day = new Date().toISOString().slice(0, 10);
+  const path = await T.dialog.save({
+    title: "Enregistrer la playlist",
+    defaultPath: `blast-playlist-${day}.m3u8`,
+    filters: [{ name: "Playlist M3U", extensions: ["m3u8", "m3u"] }],
+  });
+  if (path) send({ type: "save_playlist", path });
+}
+```
+
 
 ## STY
 
@@ -10554,7 +10655,7 @@ Barre d'outils, lignes de playlist et historique de diffusion.
 
 Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
-`app/ui/index.html` ligne 182
+`app/ui/index.html` ligne 183
 
 ```html
 <section class="fx voicefx" id="voicefx">
@@ -10569,7 +10670,7 @@ Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
 Pads et panneau de pilotage d'OBS.
 
-`app/ui/index.html` ligne 212
+`app/ui/index.html` ligne 213
 
 ```html
 <section class="fx soundfx" id="soundfx">
@@ -10584,7 +10685,7 @@ Pads et panneau de pilotage d'OBS.
 
 Renommer, choisir un son, vider.
 
-`app/ui/index.html` ligne 266
+`app/ui/index.html` ligne 267
 
 ```html
 <div id="pad-menu" class="pad-menu hidden">
@@ -10599,7 +10700,7 @@ Renommer, choisir un son, vider.
 
 Sortie audio et résumé de diffusion.
 
-`app/ui/index.html` ligne 298
+`app/ui/index.html` ligne 299
 
 ```html
 <footer class="statusbar">
@@ -10614,7 +10715,7 @@ Sortie audio et résumé de diffusion.
 
 Fenêtre des réglages et ses onglets.
 
-`app/ui/index.html` ligne 306
+`app/ui/index.html` ligne 307
 
 ```html
 <div id="settings" class="modal hidden" role="dialog" aria-modal="true">
@@ -10629,7 +10730,7 @@ Fenêtre des réglages et ses onglets.
 
 Liste et formulaire des sorties Icecast / Shoutcast.
 
-`app/ui/index.html` ligne 323
+`app/ui/index.html` ligne 324
 
 ```html
 <section class="tab-page" data-page="cast">
@@ -10644,7 +10745,7 @@ Liste et formulaire des sorties Icecast / Shoutcast.
 
 Connexion à obs-websocket et source « Now Playing ».
 
-`app/ui/index.html` ligne 376
+`app/ui/index.html` ligne 377
 
 ```html
 <section class="tab-page hidden" data-page="aura">
@@ -10659,7 +10760,7 @@ Connexion à obs-websocket et source « Now Playing ».
 
 Règles de séparation et conservation de l'historique.
 
-`app/ui/index.html` ligne 396
+`app/ui/index.html` ligne 397
 
 ```html
 <section class="tab-page hidden" data-page="automation">
@@ -10674,7 +10775,7 @@ Règles de séparation et conservation de l'historique.
 
 Micro, retour et sortie audio.
 
-`app/ui/index.html` ligne 430
+`app/ui/index.html` ligne 431
 
 ```html
 <section class="tab-page hidden" data-page="audio">
@@ -10689,7 +10790,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 575
+`app/ui/index.html` ligne 576
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -10704,7 +10805,7 @@ Version, mises à jour et diagnostic.
 
 Dossier, relecture, volume, arrêt et grille des jingles.
 
-`app/ui/index.html` ligne 219
+`app/ui/index.html` ligne 220
 
 ```html
 <div class="fx-head" data-fxpage="jingles" hidden>
@@ -10734,7 +10835,7 @@ Tout, Morceaux, Jingles, Pubs.
 
 Catégorie et période de l'export CSV de l'historique.
 
-`app/ui/index.html` ligne 274
+`app/ui/index.html` ligne 275
 
 ```html
 <div id="export-menu" class="pad-menu export-menu hidden">
@@ -10749,7 +10850,7 @@ Catégorie et période de l'export CSV de l'historique.
 
 Mots-clés de dossier des jingles et des pubs.
 
-`app/ui/index.html` ligne 415
+`app/ui/index.html` ligne 416
 
 ```html
 <form class="form" id="categories-form">
@@ -10764,7 +10865,7 @@ Mots-clés de dossier des jingles et des pubs.
 
 Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement.
 
-`app/ui/index.html` ligne 550
+`app/ui/index.html` ligne 551
 
 ```html
 <section class="tab-page hidden" data-page="appearance">
@@ -10779,7 +10880,7 @@ Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissemen
 
 Bibliothèque, catégories, grilles et planning de la semaine.
 
-`app/ui/index.html` ligne 463
+`app/ui/index.html` ligne 464
 
 ```html
 <section class="tab-page hidden" data-page="rotation">
@@ -10794,7 +10895,7 @@ Bibliothèque, catégories, grilles et planning de la semaine.
 
 Actions de mélange et de nettoyage de la playlist.
 
-`app/ui/index.html` ligne 291
+`app/ui/index.html` ligne 292
 
 ```html
 <div id="shuffle-menu" class="pad-menu shuffle-menu hidden">

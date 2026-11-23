@@ -424,6 +424,7 @@ impl Controller {
             }
             UiCommand::Shuffle { spread } => self.shuffle(spread),
             UiCommand::Dedupe => self.dedupe(),
+            UiCommand::SavePlaylist { path } => self.save_m3u(path),
             UiCommand::Clear => {
                 self.playlist.clear();
                 self.emit_playlist();
