@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use blast_core::{is_audio_path, probe_file};
 use blast_library::Kind;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::config::CategorySettings;
 
@@ -29,7 +29,7 @@ pub struct Entry {
 }
 
 // [PL-10]
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct SlotTag {
     pub name: String,
     pub color: String,
@@ -323,6 +323,103 @@ pub fn make_entry(path: &Path, cats: &CategorySettings) -> Entry {
     }
 }
 
+// [PL-16]
+#[derive(Serialize, Deserialize)]
+struct SavedEntry {
+    path: PathBuf,
+    title: String,
+    #[serde(default)]
+    artist: String,
+    #[serde(default)]
+    album: String,
+    #[serde(default)]
+    genre: String,
+    #[serde(default)]
+    year: Option<i32>,
+    #[serde(default)]
+    duration: Option<f64>,
+    #[serde(default)]
+    error: Option<String>,
+    #[serde(default)]
+    kind: Kind,
+    #[serde(default)]
+    bpm: Option<f32>,
+    #[serde(default)]
+    slot: Option<SlotTag>,
+}
+
+// [PL-17]
+#[derive(Serialize, Deserialize, Default)]
+struct SavedQueue {
+    version: u32,
+    #[serde(default)]
+    decks: Vec<PathBuf>,
+    entries: Vec<SavedEntry>,
+}
+
+// [PL-18]
+pub fn save_queue(path: &Path, entries: &[Entry], decks: &[PathBuf]) -> Result<(), String> {
+    use std::io::Write;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let queue = SavedQueue {
+        version: 1,
+        decks: decks.to_vec(),
+        entries: entries
+            .iter()
+            .map(|e| SavedEntry {
+                path: e.path.clone(),
+                title: e.title.clone(),
+                artist: e.artist.clone(),
+                album: e.album.clone(),
+                genre: e.genre.clone(),
+                year: e.year,
+                duration: e.duration,
+                error: e.error.clone(),
+                kind: e.kind,
+                bpm: e.bpm,
+                slot: e.slot.clone(),
+            })
+            .collect(),
+    };
+    let tmp = path.with_extension("json.tmp");
+    let file = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+    let mut out = std::io::BufWriter::new(file);
+    serde_json::to_writer(&mut out, &queue).map_err(|e| e.to_string())?;
+    out.flush().map_err(|e| e.to_string())?;
+    out.get_ref().sync_all().map_err(|e| e.to_string())?;
+    drop(out);
+    std::fs::rename(&tmp, path).map_err(|e| e.to_string())
+}
+
+// [PL-19]
+pub fn load_queue(path: &Path) -> Result<(Vec<Entry>, Vec<PathBuf>), String> {
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let queue: SavedQueue =
+        serde_json::from_reader(std::io::BufReader::new(file)).map_err(|e| e.to_string())?;
+    let entries = queue
+        .entries
+        .into_iter()
+        .map(|s| Entry {
+            id: 0,
+            path: s.path,
+            title: s.title,
+            artist: s.artist,
+            album: s.album,
+            genre: s.genre,
+            year: s.year,
+            duration: s.duration,
+            error: s.error,
+            blocked: None,
+            kind: s.kind,
+            bpm: s.bpm,
+            slot: s.slot,
+        })
+        .collect();
+    Ok((entries, queue.decks))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -334,6 +431,29 @@ mod tests {
             duration: Some(1.0),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn queue_round_trip() {
+        let dir = std::env::temp_dir().join(format!("blast-queue-{}", std::process::id()));
+        let file = dir.join("playlist.json");
+        let mut a = e("a.mp3");
+        a.artist = "X".into();
+        a.kind = Kind::Jingle;
+        a.slot = Some(SlotTag {
+            name: "Hits".into(),
+            color: "#f00".into(),
+        });
+        let b = e("b.mp3");
+        save_queue(&file, &[a, b], &[PathBuf::from("deck.mp3")]).unwrap();
+        let (entries, decks) = load_queue(&file).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].artist, "X");
+        assert_eq!(entries[0].kind, Kind::Jingle);
+        assert_eq!(entries[0].slot.as_ref().unwrap().name, "Hits");
+        assert_eq!(entries[1].title, "b.mp3");
+        assert_eq!(decks, vec![PathBuf::from("deck.mp3")]);
     }
 
     fn titles(p: &Playlist) -> Vec<String> {

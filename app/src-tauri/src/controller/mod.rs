@@ -6,6 +6,7 @@ mod jingles;
 mod obs;
 mod pads;
 mod playlist_ops;
+mod queue;
 mod rotation;
 mod views;
 mod voice;
@@ -40,6 +41,7 @@ use decks::DeckSide;
 use jingles::JingleState;
 use obs::ObsState;
 use pads::PadState;
+use queue::QueueState;
 use rotation::RotationState;
 use views::{Notice, EV_NOTICE};
 use voice::MicState;
@@ -183,7 +185,7 @@ pub fn spawn(
         .spawn(move || {
             let audio = Audio::start(&config);
             let (library, warning) = open_library(&db_path, config.automation.memory_size, warning);
-            Controller::new(
+            let mut c = Controller::new(
                 Box::new(TauriUi(app)),
                 rx,
                 secrets,
@@ -191,8 +193,9 @@ pub fn spawn(
                 warning,
                 audio,
                 library,
-            )
-            .run()
+            );
+            c.restore_queue(db_path.with_file_name("playlist.json"));
+            c.run()
         })
         .map_err(|e| format!("contrôleur : {e}"))?;
     Ok(tx)
@@ -251,6 +254,7 @@ struct Controller {
     jingles: JingleState,
     categories: CategorySettings,
     rot: RotationState,
+    queue: QueueState,
 }
 
 impl Controller {
@@ -295,6 +299,7 @@ impl Controller {
             jingles: JingleState::default(),
             categories: config.categories.clone(),
             rot: RotationState::new(config.rotation.clone(), &config.library),
+            queue: QueueState::default(),
         };
         c.send(Command::SetMasterParams(master_preset(&c.master_preset)));
         if c.obs.settings.auto_connect {
@@ -329,7 +334,9 @@ impl Controller {
             self.pump_caster();
             self.poll_listeners();
             self.housekeeping();
+            self.save_queue_if_due();
         }
+        self.flush_queue();
         self.cast.caster.stop_all();
     }
 
@@ -388,6 +395,10 @@ impl Controller {
     fn handle(&mut self, cmd: UiCommand) {
         match cmd {
             UiCommand::Refresh => self.refresh(),
+            UiCommand::Shutdown { done } => {
+                self.flush_queue();
+                let _ = done.send(());
+            }
             UiCommand::CastStart => self.start_casting(),
             UiCommand::CastStop => self.stop_casting(),
             UiCommand::Next { deck } => self.next(deck),
