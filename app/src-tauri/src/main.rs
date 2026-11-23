@@ -90,6 +90,7 @@ fn main() {
             api::delete_output,
             api::test_output,
             api::save_aura,
+            api::save_chat,
             api::test_aura,
             api::save_audio,
             api::save_voice,

@@ -25,7 +25,7 @@ L'interface (M3a) a été avancée avant la diffusion (M2) pour que la suite s'a
 | **M6b** | Compresseur multibande, normalisation EBU R128 des titres à l'import, presets voix personnalisables | Finitions du son |
 | **M7** | Aura (repris du prototype Aura Control) : connexion obs-websocket avec reconnexion, scènes, stream, enregistrement et pause, replay, capture, volume et mute des sources, minuteurs, Now Playing vers une source texte OBS | Lancer le live vidéo depuis BLAST ✅ |
 | **M7b** | Sortie « antenne » vers OBS (micro inclus) via une sortie audio virtuelle, raccourcis clavier OBS configurables | OBS diffuse exactement ce qui part à l'antenne |
-| **M8** | Live : chat Twitch (lecture anonyme, jeton seulement pour écrire), YouTube, Kick ; commandes viewers ; bot Now Playing — repris du prototype Aura Control | Interaction avec le public |
+| **M8** | Live : chat Twitch (lecture anonyme, jeton seulement pour écrire) ✅, commandes viewers (`!np`, `!request` avec file à valider, `!sfx`) ✅, bot Now Playing ✅ ; YouTube et Kick à venir | Interaction avec le public |
 | **M9** | Formats supplémentaires : Opus, Vorbis, AAC | Plusieurs formats en parallèle |
 | **M10** | Rotations avancées, planificateur, voice tracking, historique exportable | Programmation complète d'une grille |
 | **M11** | Packaging Linux (AppImage, .deb, Flatpak), Windows (MSI), macOS (DMG) | Installation en un clic |

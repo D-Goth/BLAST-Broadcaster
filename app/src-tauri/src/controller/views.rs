@@ -19,6 +19,9 @@ pub const EV_HISTORY: &str = "blast://history";
 pub const EV_JINGLES: &str = "blast://jingles";
 pub const EV_LIBRARY: &str = "blast://library";
 pub const EV_BLOCKED: &str = "blast://blocked";
+pub const EV_CHAT_STATE: &str = "blast://chat-state";
+pub const EV_CHAT_EVENT: &str = "blast://chat-event";
+pub const EV_CHAT_HISTORY: &str = "blast://chat-history";
 
 // [CTL-28]
 #[derive(Serialize, Clone)]

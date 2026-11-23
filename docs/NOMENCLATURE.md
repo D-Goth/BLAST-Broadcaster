@@ -31,21 +31,21 @@ ne pas le modifier à la main.
 | [`PROT`](#prot) | Protocoles Icecast / Shoutcast et statistiques (blast-cast) | 23 |
 | [`AURA`](#aura) | Pilotage d'OBS par obs-websocket (blast-aura) | 21 |
 | [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 60 |
-| [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 4 |
+| [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 18 |
 | [`ICE`](#ice) | Serveur Icecast : configuration icecast.xml, statistiques, administration et processus (blast-ice) | 45 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
-| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 44 |
-| [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 16 |
-| [`SEC`](#sec) | Mots de passe dans le trousseau du système | 7 |
+| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 45 |
+| [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 17 |
+| [`SEC`](#sec) | Mots de passe dans le trousseau du système | 8 |
 | [`ICM`](#icm) | Gestion des serveurs Icecast côté application | 30 |
 | [`JRN`](#jrn) | Journal de diagnostic (blast.log) | 8 |
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
 | [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 157 |
-| [`UI`](#ui) | Interface : modules JavaScript | 131 |
-| [`STY`](#sty) | Interface : feuille de style | 19 |
-| [`HTM`](#htm) | Interface : structure de la page | 37 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 174 |
+| [`UI`](#ui) | Interface : modules JavaScript | 137 |
+| [`STY`](#sty) | Interface : feuille de style | 20 |
+| [`HTM`](#htm) | Interface : structure de la page | 39 |
 
 ## CORE
 
@@ -3479,10 +3479,11 @@ Chat en direct (blast-live, en préparation)
 
 Twitch, YouTube ou Kick.
 
-`crates/blast-live/src/lib.rs` ligne 1
+`crates/blast-live/src/lib.rs` ligne 8
 
 ```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Platform {
     Twitch,
     YouTube,
@@ -3492,24 +3493,31 @@ pub enum Platform {
 
 ### [LIVE-02] Message de chat
 
-Plateforme, auteur et texte.
+Identifiant, plateforme, nom affiché et identifiant de connexion, couleur, badges, texte, action (/me), message de BLAST lui-même, heure d'envoi.
 
-`crates/blast-live/src/lib.rs` ligne 9
+`crates/blast-live/src/lib.rs` ligne 17
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ChatMessage {
+    pub id: String,
     pub platform: Platform,
     pub author: String,
+    pub login: String,
+    pub color: String,
+    pub badges: Vec<String>,
     pub text: String,
-}
+    pub action: bool,
+    pub own: bool,
+    pub at_ms: u64,
+…
 ```
 
 ### [LIVE-03] Commande de chat
 
 Demande de titre, titre en cours ou déclenchement d'un son.
 
-`crates/blast-live/src/lib.rs` ligne 17
+`crates/blast-live/src/lib.rs` ligne 53
 
 ```rust
 #[derive(Debug, Clone, PartialEq)]
@@ -3522,9 +3530,9 @@ pub enum ChatCommand {
 
 ### [LIVE-04] Lecture des commandes
 
-Reconnaît !request, !np et !sfx dans un message.
+Reconnaît !request (ou !sr), !np (ou !song) et !sfx dans un message.
 
-`crates/blast-live/src/lib.rs` ligne 25
+`crates/blast-live/src/lib.rs` ligne 61
 
 ```rust
 pub fn parse_command(text: &str) -> Option<ChatCommand> {
@@ -3540,6 +3548,262 @@ pub fn parse_command(text: &str) -> Option<ChatCommand> {
         "sfx" if !arg.is_empty() => Some(ChatCommand::Sfx(arg.to_string())),
         _ => None,
 …
+```
+
+### [LIVE-05] Événement de chat
+
+État de connexion (connecté, écriture possible, détail), message, annonce (abonnement, raid…), effacement des messages d'un viewer ou de tout le chat, suppression d'un message.
+
+`crates/blast-live/src/lib.rs` ligne 32
+
+```rust
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ChatEvent {
+    Status {
+        connected: bool,
+        writable: bool,
+        detail: String,
+    },
+    Message(ChatMessage),
+    Notice {
+        text: String,
+    },
+…
+```
+
+### [LIVE-06] Ligne IRC
+
+Tags, préfixe, commande et paramètres d'une ligne du protocole IRC de Twitch.
+
+`crates/blast-live/src/irc.rs` ligne 3
+
+```rust
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct IrcMessage {
+    pub tags: HashMap<String, String>,
+    pub prefix: String,
+    pub command: String,
+    pub params: Vec<String>,
+}
+```
+
+### [LIVE-07] Valeur de tag
+
+Décode les caractères échappés d'une valeur de tag IRC (\s pour l'espace, \: pour le point-virgule…).
+
+`crates/blast-live/src/irc.rs` ligne 26
+
+```rust
+fn unescape(v: &str) -> String {
+    let mut out = String::with_capacity(v.len());
+    let mut chars = v.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some(':') => out.push(';'),
+            Some('s') => out.push(' '),
+            Some('\\') => out.push('\\'),
+…
+```
+
+### [LIVE-08] Lecture d'une ligne IRC
+
+Découpe tags, préfixe, commande, paramètres et texte final.
+
+`crates/blast-live/src/irc.rs` ligne 48
+
+```rust
+pub fn parse_line(line: &str) -> Option<IrcMessage> {
+    let mut rest = line.trim_end_matches(['\r', '\n']);
+    if rest.is_empty() {
+        return None;
+    }
+    let mut msg = IrcMessage::default();
+    if let Some(r) = rest.strip_prefix('@') {
+        let (tags, after) = r.split_once(' ')?;
+        for pair in tags.split(';') {
+            let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+            msg.tags.insert(k.to_string(), unescape(v));
+        }
+…
+```
+
+### [LIVE-09] Rythmes du client Twitch
+
+Pause de la boucle, délai minimal entre deux messages envoyés (20 par 30 s), silence maximal avant reconnexion, attente maximale entre deux essais.
+
+`crates/blast-live/src/twitch.rs` ligne 12
+
+```rust
+const IDLE: Duration = Duration::from_millis(15);
+```
+
+### [LIVE-10] Réglages de connexion Twitch
+
+Chaîne, compte et jeton (facultatifs), serveur, port et chiffrement ; l'écriture n'est possible qu'avec un compte et un jeton.
+
+`crates/blast-live/src/twitch.rs` ligne 18
+
+```rust
+#[derive(Debug, Clone, PartialEq)]
+pub struct TwitchConfig {
+    pub channel: String,
+    pub login: String,
+    pub token: String,
+    pub host: String,
+    pub port: u16,
+    pub tls: bool,
+}
+```
+
+### [LIVE-11] Nom de chaîne
+
+Accepte un nom, #nom ou un lien twitch.tv/… et renvoie le nom en minuscules.
+
+`crates/blast-live/src/twitch.rs` ligne 46
+
+```rust
+pub fn normalize_channel(input: &str) -> String {
+    let s = input.trim();
+    let s = s
+        .rsplit_once("twitch.tv/")
+        .map(|(_, rest)| rest)
+        .unwrap_or(s);
+    s.trim_start_matches('#')
+        .split(['/', '?', ' '])
+        .next()
+        .unwrap_or("")
+        .to_lowercase()
+}
+```
+
+### [LIVE-12] Transport
+
+Connexion TCP non bloquante, chiffrée par rustls (certificat vérifié par le magasin du système) ou en clair pour les tests.
+
+`crates/blast-live/src/twitch.rs` ligne 67
+
+```rust
+enum Transport {
+    Plain(TcpStream),
+    Tls(Box<rustls::ClientConnection>, TcpStream),
+}
+```
+
+### [LIVE-13] Fin de session
+
+Arrêt demandé, reconnexion demandée par Twitch, connexion perdue ou refus définitif (jeton refusé).
+
+`crates/blast-live/src/twitch.rs` ligne 192
+
+```rust
+enum End {
+    Stopped,
+    Reconnect,
+    Lost(String),
+    Fatal(String),
+}
+```
+
+### [LIVE-14] Badges
+
+Noms des badges d'un message (broadcaster, moderator, vip, subscriber…).
+
+`crates/blast-live/src/twitch.rs` ligne 207
+
+```rust
+fn badges(tag: &str) -> Vec<String> {
+    tag.split(',')
+        .filter_map(|b| b.split('/').next())
+        .filter(|b| !b.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+```
+
+### [LIVE-15] Message Twitch
+
+Convertit un PRIVMSG en message de chat, avec le nom affiché, la couleur, les badges et les actions /me.
+
+`crates/blast-live/src/twitch.rs` ligne 216
+
+```rust
+fn to_message(m: &IrcMessage) -> ChatMessage {
+    let raw = m.trailing();
+    let (text, action) = match raw
+        .strip_prefix("\u{1}ACTION ")
+        .and_then(|t| t.strip_suffix('\u{1}'))
+    {
+        Some(t) => (t.to_string(), true),
+        None => (raw.to_string(), false),
+    };
+    let login = m.nick().to_string();
+    let display = m.tag("display-name");
+    ChatMessage {
+…
+```
+
+### [LIVE-16] Session IRC
+
+Identification (anonyme justinfan ou compte + jeton), rejoint la chaîne, répond aux PING, traduit les messages, envoie la file d'attente au rythme autorisé et renvoie localement les messages envoyés.
+
+`crates/blast-live/src/twitch.rs` ligne 246
+
+```rust
+fn session(
+    cfg: &TwitchConfig,
+    emit: &(dyn Fn(ChatEvent) + Send),
+    out: &Receiver<String>,
+    stop: &AtomicBool,
+) -> End {
+    let mut t = match Transport::open(cfg) {
+        Ok(t) => t,
+        Err(e) => return End::Lost(format!("connexion impossible : {e}")),
+    };
+    let writable = cfg.writable();
+    let nick = if writable {
+…
+```
+
+### [LIVE-17] Boucle de connexion
+
+Enchaîne les sessions avec une attente croissante (1 à 30 s) ; s'arrête sur un jeton refusé.
+
+`crates/blast-live/src/twitch.rs` ligne 399
+
+```rust
+fn run(
+    cfg: TwitchConfig,
+    emit: Box<dyn Fn(ChatEvent) + Send>,
+    out: Receiver<String>,
+    stop: Arc<AtomicBool>,
+) {
+    let writable = cfg.writable();
+    let mut backoff = 1;
+    while !stop.load(Ordering::Relaxed) {
+        emit(ChatEvent::Status {
+            connected: false,
+            writable,
+…
+```
+
+### [LIVE-18] Client Twitch
+
+Fil de connexion, file des messages à envoyer et arrêt propre.
+
+`crates/blast-live/src/twitch.rs` ligne 450
+
+```rust
+pub struct TwitchClient {
+    out: Sender<String>,
+    stop: Arc<AtomicBool>,
+    handle: Option<JoinHandle<()>>,
+    pub config: TwitchConfig,
+}
 ```
 
 
@@ -4797,13 +5061,13 @@ pub struct SettingsView {
     outputs: Vec<OutputView>,
     aura: AuraSettings,
     aura_has_password: bool,
+    chat: crate::config::ChatSettings,
+    chat_has_token: bool,
     audio: AudioSettings,
     automation: AutomationSettings,
     categories: CategorySettings,
     jingles: JingleSettings,
     library_dirs: Vec<PathBuf>,
-    rotation: blast_library::Rotation,
-    library: Option<blast_library::LibraryStats>,
 …
 ```
 
@@ -4811,7 +5075,7 @@ pub struct SettingsView {
 
 Construit la vue des réglages, enregistre une modification puis la transmet au contrôleur, range un mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 64
+`app/src-tauri/src/api.rs` ligne 66
 
 ```rust
 impl App {
@@ -4833,7 +5097,7 @@ impl App {
 
 Transmet une commande de l'interface au contrôleur.
 
-`app/src-tauri/src/api.rs` ligne 122
+`app/src-tauri/src/api.rs` ligne 126
 
 ```rust
 #[tauri::command]
@@ -4846,7 +5110,7 @@ pub fn blast(state: tauri::State<'_, App>, cmd: UiCommand) -> Result<(), String>
 
 Liste les thèmes intégrés et ceux de l'utilisateur.
 
-`app/src-tauri/src/api.rs` ligne 128
+`app/src-tauri/src/api.rs` ligne 132
 
 ```rust
 #[tauri::command]
@@ -4860,7 +5124,7 @@ pub fn themes(app: tauri::AppHandle) -> Vec<serde_json::Value> {
 
 Crée et renvoie le dossier des thèmes de l'utilisateur.
 
-`app/src-tauri/src/api.rs` ligne 135
+`app/src-tauri/src/api.rs` ligne 139
 
 ```rust
 #[tauri::command]
@@ -4875,7 +5139,7 @@ pub fn themes_dir(app: tauri::AppHandle) -> Option<String> {
 
 Renvoie la vue des réglages.
 
-`app/src-tauri/src/api.rs` ligne 143
+`app/src-tauri/src/api.rs` ligne 147
 
 ```rust
 #[tauri::command]
@@ -4888,7 +5152,7 @@ pub fn get_settings(state: tauri::State<'_, App>) -> SettingsView {
 
 Valide et enregistre une sortie, range son mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 149
+`app/src-tauri/src/api.rs` ligne 153
 
 ```rust
 #[tauri::command]
@@ -4910,7 +5174,7 @@ pub fn save_output(
 
 Supprime une sortie et son mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 175
+`app/src-tauri/src/api.rs` ligne 179
 
 ```rust
 #[tauri::command]
@@ -4925,7 +5189,7 @@ pub fn delete_output(state: tauri::State<'_, App>, id: String) -> Result<Setting
 
 Teste une sortie sans l'enregistrer.
 
-`app/src-tauri/src/api.rs` ligne 183
+`app/src-tauri/src/api.rs` ligne 187
 
 ```rust
 #[tauri::command]
@@ -4947,7 +5211,7 @@ pub async fn test_output(
 
 Enregistre les réglages OBS et leur mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 202
+`app/src-tauri/src/api.rs` ligne 206
 
 ```rust
 #[tauri::command]
@@ -4969,7 +5233,7 @@ pub fn save_aura(
 
 Teste la connexion à OBS.
 
-`app/src-tauri/src/api.rs` ligne 217
+`app/src-tauri/src/api.rs` ligne 240
 
 ```rust
 #[tauri::command]
@@ -4991,7 +5255,7 @@ pub async fn test_aura(
 
 Enregistre la sortie audio, prise en compte au redémarrage.
 
-`app/src-tauri/src/api.rs` ligne 247
+`app/src-tauri/src/api.rs` ligne 270
 
 ```rust
 #[tauri::command]
@@ -5011,7 +5275,7 @@ pub fn save_audio(
 
 Enregistre les réglages de Voice FX en conservant le choix du micro.
 
-`app/src-tauri/src/api.rs` ligne 260
+`app/src-tauri/src/api.rs` ligne 283
 
 ```rust
 #[tauri::command]
@@ -5033,7 +5297,7 @@ pub fn save_voice(state: tauri::State<'_, App>, voice: VoiceSettings) -> Result<
 
 Enregistre le micro et son activation, pris en compte au redémarrage.
 
-`app/src-tauri/src/api.rs` ligne 277
+`app/src-tauri/src/api.rs` ligne 300
 
 ```rust
 #[tauri::command]
@@ -5055,7 +5319,7 @@ pub fn save_input(
 
 Affecte un son à un pad.
 
-`app/src-tauri/src/api.rs` ligne 294
+`app/src-tauri/src/api.rs` ligne 317
 
 ```rust
 #[tauri::command]
@@ -5077,7 +5341,7 @@ pub fn save_pad(state: tauri::State<'_, App>, pad: PadConfig) -> Result<(), Stri
 
 Vide un pad.
 
-`app/src-tauri/src/api.rs` ligne 318
+`app/src-tauri/src/api.rs` ligne 341
 
 ```rust
 #[tauri::command]
@@ -5090,7 +5354,7 @@ pub fn clear_pad(state: tauri::State<'_, App>, index: u16) -> Result<(), String>
 
 Enregistre le volume de la Sound FX.
 
-`app/src-tauri/src/api.rs` ligne 324
+`app/src-tauri/src/api.rs` ligne 347
 
 ```rust
 #[tauri::command]
@@ -5103,7 +5367,7 @@ pub fn save_sfx_volume(state: tauri::State<'_, App>, volume_db: f32) -> Result<(
 
 Choisit le préréglage du traitement antenne.
 
-`app/src-tauri/src/api.rs` ligne 330
+`app/src-tauri/src/api.rs` ligne 353
 
 ```rust
 #[tauri::command]
@@ -5122,7 +5386,7 @@ pub fn save_master_preset(state: tauri::State<'_, App>, preset: String) -> Resul
 
 Enregistre les règles de séparation et la durée de conservation.
 
-`app/src-tauri/src/api.rs` ligne 342
+`app/src-tauri/src/api.rs` ligne 365
 
 ```rust
 #[tauri::command]
@@ -5144,7 +5408,7 @@ pub fn save_automation(
 
 Exporte en CSV l'historique complet de la base, filtré par catégorie et par période.
 
-`app/src-tauri/src/api.rs` ligne 399
+`app/src-tauri/src/api.rs` ligne 422
 
 ```rust
 #[tauri::command]
@@ -5166,7 +5430,7 @@ pub fn export_history(
 
 Version, dépôt, journal, dossier de réglages et préférences de mise à jour.
 
-`app/src-tauri/src/api.rs` ligne 433
+`app/src-tauri/src/api.rs` ligne 456
 
 ```rust
 #[derive(Serialize)]
@@ -5185,7 +5449,7 @@ pub struct AppInfo {
 
 Renvoie les informations de l'onglet À propos.
 
-`app/src-tauri/src/api.rs` ligne 445
+`app/src-tauri/src/api.rs` ligne 468
 
 ```rust
 #[tauri::command]
@@ -5207,7 +5471,7 @@ pub fn app_info(state: tauri::State<'_, App>) -> AppInfo {
 
 Interroge GitHub ; au démarrage, ne signale que les versions plus récentes et non ignorées.
 
-`app/src-tauri/src/api.rs` ligne 464
+`app/src-tauri/src/api.rs` ligne 487
 
 ```rust
 #[tauri::command]
@@ -5229,7 +5493,7 @@ pub async fn check_update(
 
 Enregistre la vérification au démarrage et la version ignorée.
 
-`app/src-tauri/src/api.rs` ligne 499
+`app/src-tauri/src/api.rs` ligne 522
 
 ```rust
 #[tauri::command]
@@ -5251,7 +5515,7 @@ pub fn save_updates(
 
 Ouvre dans le navigateur un lien du dépôt GitHub, et seulement celui-ci.
 
-`app/src-tauri/src/api.rs` ligne 516
+`app/src-tauri/src/api.rs` ligne 539
 
 ```rust
 #[tauri::command]
@@ -5268,7 +5532,7 @@ pub fn open_link(url: String) -> Result<(), String> {
 
 Ouvre le dossier du journal ou des réglages.
 
-`app/src-tauri/src/api.rs` ligne 526
+`app/src-tauri/src/api.rs` ligne 549
 
 ```rust
 #[tauri::command]
@@ -5288,7 +5552,7 @@ pub fn open_folder(state: tauri::State<'_, App>, which: String) -> Result<(), St
 
 Enregistre les mots-clés de dossier des jingles et des pubs ; la playlist est reclassée aussitôt.
 
-`app/src-tauri/src/api.rs` ligne 357
+`app/src-tauri/src/api.rs` ligne 380
 
 ```rust
 #[tauri::command]
@@ -5310,7 +5574,7 @@ pub fn save_categories(
 
 Enregistre le dossier des jingles (vérifié) et leur volume.
 
-`app/src-tauri/src/api.rs` ligne 377
+`app/src-tauri/src/api.rs` ligne 400
 
 ```rust
 #[tauri::command]
@@ -5332,7 +5596,7 @@ pub fn save_jingles(
 
 JPEG, PNG, WebP et AVIF.
 
-`app/src-tauri/src/api.rs` ligne 539
+`app/src-tauri/src/api.rs` ligne 562
 
 ```rust
 const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
@@ -5342,7 +5606,7 @@ const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
 
 40 Mo.
 
-`app/src-tauri/src/api.rs` ligne 541
+`app/src-tauri/src/api.rs` ligne 564
 
 ```rust
 const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
@@ -5352,7 +5616,7 @@ const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
 
 Réglages du verre dépoli et chemin de l'image de fond copiée.
 
-`app/src-tauri/src/api.rs` ligne 544
+`app/src-tauri/src/api.rs` ligne 567
 
 ```rust
 #[derive(Serialize)]
@@ -5366,7 +5630,7 @@ pub struct AppearanceView {
 
 Lit les réglages et vérifie que l'image de fond existe encore ; gère le dossier de BLAST où l'image est copiée et le ménage des anciennes images.
 
-`app/src-tauri/src/api.rs` ligne 559
+`app/src-tauri/src/api.rs` ligne 582
 
 ```rust
 fn appearance_view(&self) -> AppearanceView {
@@ -5388,7 +5652,7 @@ fn appearance_view(&self) -> AppearanceView {
 
 Renvoie l'apparence au démarrage de l'interface.
 
-`app/src-tauri/src/api.rs` ligne 588
+`app/src-tauri/src/api.rs` ligne 611
 
 ```rust
 #[tauri::command]
@@ -5401,7 +5665,7 @@ pub fn get_appearance(state: tauri::State<'_, App>) -> AppearanceView {
 
 Enregistre activation, flou, opacité et assombrissement, bornés à des valeurs sûres.
 
-`app/src-tauri/src/api.rs` ligne 594
+`app/src-tauri/src/api.rs` ligne 617
 
 ```rust
 #[tauri::command]
@@ -5423,7 +5687,7 @@ pub fn save_appearance(
 
 Copie l'image choisie dans le dossier de BLAST sous un nom unique, active le verre et supprime l'image précédente.
 
-`app/src-tauri/src/api.rs` ligne 610
+`app/src-tauri/src/api.rs` ligne 633
 
 ```rust
 #[tauri::command]
@@ -5445,7 +5709,7 @@ pub fn set_background(
 
 Retire l'image de fond ; le verre s'affiche alors sur un dégradé du thème.
 
-`app/src-tauri/src/api.rs` ligne 638
+`app/src-tauri/src/api.rs` ligne 661
 
 ```rust
 #[tauri::command]
@@ -5460,7 +5724,7 @@ pub fn clear_background(state: tauri::State<'_, App>) -> Result<AppearanceView, 
 
 Enregistre les dossiers de la bibliothèque (vérifiés) ; le contrôleur les relit aussitôt.
 
-`app/src-tauri/src/api.rs` ligne 646
+`app/src-tauri/src/api.rs` ligne 669
 
 ```rust
 #[tauri::command]
@@ -5480,7 +5744,7 @@ pub fn save_library_dirs(
 
 Valide puis enregistre catégories, grilles, planning et grille hors planning.
 
-`app/src-tauri/src/api.rs` ligne 659
+`app/src-tauri/src/api.rs` ligne 682
 
 ```rust
 #[tauri::command]
@@ -5502,7 +5766,7 @@ pub fn save_rotation(
 
 Compte les titres de la bibliothèque qui correspondent à des règles de catégorie, pour l'aperçu en direct.
 
-`app/src-tauri/src/api.rs` ligne 674
+`app/src-tauri/src/api.rs` ligne 697
 
 ```rust
 #[tauri::command]
@@ -5524,7 +5788,7 @@ pub async fn rotation_counts(
 
 À la sortie, demande au contrôleur d'écrire la playlist et attend jusqu'à 5 s.
 
-`app/src-tauri/src/main.rs` ligne 144
+`app/src-tauri/src/main.rs` ligne 145
 
 ```rust
 fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
@@ -5539,6 +5803,28 @@ fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
         .lock()
         .map(|c| c.icecast.servers.clone())
         .unwrap_or_default();
+…
+```
+
+### [APP-45] Enregistrement du chat
+
+Enregistre les réglages du chat ; le jeton va au trousseau, sans le préfixe oauth:, ou en est retiré.
+
+`app/src-tauri/src/api.rs` ligne 221
+
+```rust
+#[tauri::command]
+pub fn save_chat(
+    state: tauri::State<'_, App>,
+    chat: crate::config::ChatSettings,
+    token: Option<String>,
+    forget_token: Option<bool>,
+) -> Result<SettingsView, String> {
+    if forget_token.unwrap_or(false) {
+        state.secrets.delete(crate::secrets::CHAT_KEY);
+    }
+    let warning = state.store_password(
+        crate::secrets::CHAT_KEY,
 …
 ```
 
@@ -5661,7 +5947,7 @@ pub struct UpdateSettings {
 
 Contenu de config.toml ; aucun mot de passe n'y figure.
 
-`app/src-tauri/src/config.rs` ligne 156
+`app/src-tauri/src/config.rs` ligne 185
 
 ```rust
 
@@ -5671,7 +5957,7 @@ Contenu de config.toml ; aucun mot de passe n'y figure.
 
 Lit config.toml ; un fichier illisible est mis de côté et remplacé par les valeurs par défaut.
 
-`app/src-tauri/src/config.rs` ligne 258
+`app/src-tauri/src/config.rs` ligne 288
 
 ```rust
 pub fn load(path: &Path) -> (AppConfig, Option<String>) {
@@ -5693,7 +5979,7 @@ pub fn load(path: &Path) -> (AppConfig, Option<String>) {
 
 Écrit config.toml via un fichier temporaire renommé, pour ne jamais laisser de fichier à moitié écrit.
 
-`app/src-tauri/src/config.rs` ligne 279
+`app/src-tauri/src/config.rs` ligne 309
 
 ```rust
 pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
@@ -5741,7 +6027,7 @@ pub struct JingleSettings {
 
 Verre dépoli activé ou non, flou, opacité des panneaux, assombrissement du fond et image de fond.
 
-`app/src-tauri/src/config.rs` ligne 164
+`app/src-tauri/src/config.rs` ligne 193
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5759,7 +6045,7 @@ pub struct AppearanceSettings {
 
 Dossiers de musique lus pour alimenter les grilles.
 
-`app/src-tauri/src/config.rs` ligne 157
+`app/src-tauri/src/config.rs` ligne 186
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -5773,7 +6059,7 @@ pub struct LibrarySettings {
 
 Nom, local ou distant, dossier d'installation, exécutable, fichier de configuration, adresse, port, HTTPS, identifiant admin, lancement au démarrage et arrêt à la fermeture. Le mot de passe admin est dans le trousseau.
 
-`app/src-tauri/src/config.rs` ligne 196
+`app/src-tauri/src/config.rs` ligne 225
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5795,13 +6081,34 @@ pub struct IceServerProfile {
 
 Liste des profils de serveurs Icecast.
 
-`app/src-tauri/src/config.rs` ligne 233
+`app/src-tauri/src/config.rs` ligne 262
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct IcecastSettings {
     pub servers: Vec<IceServerProfile>,
+}
+```
+
+### [CFG-17] Réglages du chat
+
+Chaîne, compte qui écrit, connexion au démarrage, annonce des titres, commandes actives et limite de demandes par viewer.
+
+`app/src-tauri/src/config.rs` ligne 156
+
+```rust
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ChatSettings {
+    pub channel: String,
+    pub bot_login: String,
+    pub autoconnect: bool,
+    pub announce: bool,
+    pub cmd_np: bool,
+    pub cmd_request: bool,
+    pub cmd_sfx: bool,
+    pub request_limit: u32,
 }
 ```
 
@@ -5873,7 +6180,7 @@ pub const AURA_KEY: &str = "aura";
 
 Lire, tester, écrire, supprimer et décrire le lieu de rangement.
 
-`app/src-tauri/src/secrets.rs` ligne 33
+`app/src-tauri/src/secrets.rs` ligne 36
 
 ```rust
 impl Secrets {
@@ -5895,12 +6202,22 @@ impl Secrets {
 
 Nom du mot de passe admin d'un serveur Icecast dans le trousseau.
 
-`app/src-tauri/src/secrets.rs` ligne 28
+`app/src-tauri/src/secrets.rs` ligne 31
 
 ```rust
 pub fn ice_key(id: &str) -> String {
     format!("icecast:{id}")
 }
+```
+
+### [SEC-08] Clé du jeton Twitch
+
+Nom de l'entrée du trousseau qui garde le jeton du chat.
+
+`app/src-tauri/src/secrets.rs` ligne 28
+
+```rust
+pub const CHAT_KEY: &str = "twitch";
 ```
 
 
@@ -7302,7 +7619,7 @@ Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliot
 
 Ce dont le contrôleur a besoin côté interface : émettre un événement et connaître le dossier des images. Remplaçable dans les tests.
 
-`app/src-tauri/src/controller/mod.rs` ligne 49
+`app/src-tauri/src/controller/mod.rs` ligne 51
 
 ```rust
 pub trait Ui: Send + 'static {
@@ -7315,7 +7632,7 @@ pub trait Ui: Send + 'static {
 
 Implémentation réelle : émet vers la fenêtre, journalise les échecs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 55
+`app/src-tauri/src/controller/mod.rs` ligne 57
 
 ```rust
 struct TauriUi(AppHandle);
@@ -7325,7 +7642,7 @@ struct TauriUi(AppHandle);
 
 Moteur démarré (ou erreur), nom de la sortie et fréquence.
 
-`app/src-tauri/src/controller/mod.rs` ligne 73
+`app/src-tauri/src/controller/mod.rs` ligne 75
 
 ```rust
 pub struct Audio {
@@ -7340,7 +7657,7 @@ pub struct Audio {
 
 Démarre le moteur sur la sortie choisie, se replie sur la sortie par défaut et journalise l'échec.
 
-`app/src-tauri/src/controller/mod.rs` ligne 81
+`app/src-tauri/src/controller/mod.rs` ligne 83
 
 ```rust
 impl Audio {
@@ -7362,7 +7679,7 @@ impl Audio {
 
 Résultats rendus par les fils de fond : scan, décodage d'un titre ou d'un pad, relevé d'auditeurs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 124
+`app/src-tauri/src/controller/mod.rs` ligne 126
 
 ```rust
 enum Work {
@@ -7384,7 +7701,7 @@ enum Work {
 
 Horodatage Unix en millisecondes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 161
+`app/src-tauri/src/controller/mod.rs` ligne 164
 
 ```rust
 pub fn now_ms() -> u64 {
@@ -7399,7 +7716,7 @@ pub fn now_ms() -> u64 {
 
 Horodatage Unix en secondes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 169
+`app/src-tauri/src/controller/mod.rs` ligne 172
 
 ```rust
 pub fn now_secs() -> i64 {
@@ -7411,7 +7728,7 @@ pub fn now_secs() -> i64 {
 
 Démarre le fil du contrôleur avec audio et bibliothèque, renvoie le canal de commandes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 174
+`app/src-tauri/src/controller/mod.rs` ligne 177
 
 ```rust
 pub fn spawn(
@@ -7433,7 +7750,7 @@ pub fn spawn(
 
 Ouvre la base ; en cas d'échec, désactive historique et règles et prévient l'utilisateur.
 
-`app/src-tauri/src/controller/mod.rs` ligne 204
+`app/src-tauri/src/controller/mod.rs` ligne 210
 
 ```rust
 fn open_library(
@@ -7455,7 +7772,7 @@ fn open_library(
 
 État central : platines, playlist, diffusion, pads, micro, OBS et automation.
 
-`app/src-tauri/src/controller/mod.rs` ligne 227
+`app/src-tauri/src/controller/mod.rs` ligne 233
 
 ```rust
 struct Controller {
@@ -7477,7 +7794,7 @@ struct Controller {
 
 Applique les réglages au moteur, connecte OBS si demandé, charge les pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 261
+`app/src-tauri/src/controller/mod.rs` ligne 268
 
 ```rust
 fn new(
@@ -7499,7 +7816,7 @@ fn new(
 
 Toutes les 15 ms : commandes de l'interface, travaux de fond, événements du moteur, prise antenne, OBS, sorties, statistiques et entretien.
 
-`app/src-tauri/src/controller/mod.rs` ligne 318
+`app/src-tauri/src/controller/mod.rs` ligne 326
 
 ```rust
 fn run(mut self) {
@@ -7521,7 +7838,7 @@ fn run(mut self) {
 
 Applique les résultats des fils de fond.
 
-`app/src-tauri/src/controller/mod.rs` ligne 344
+`app/src-tauri/src/controller/mod.rs` ligne 352
 
 ```rust
 fn drain_work(&mut self) {
@@ -7535,7 +7852,7 @@ fn drain_work(&mut self) {
 
 Lit jusqu'à 64 événements par tour et ne garde que le dernier tick.
 
-`app/src-tauri/src/controller/mod.rs` ligne 351
+`app/src-tauri/src/controller/mod.rs` ligne 359
 
 ```rust
 fn pump_engine(&mut self) {
@@ -7557,7 +7874,7 @@ fn pump_engine(&mut self) {
 
 Transmet une commande au mixeur si le moteur tourne.
 
-`app/src-tauri/src/controller/mod.rs` ligne 371
+`app/src-tauri/src/controller/mod.rs` ligne 379
 
 ```rust
 fn send(&self, cmd: Command) {
@@ -7571,7 +7888,7 @@ fn send(&self, cmd: Command) {
 
 Sérialise une vue et l'envoie à l'interface.
 
-`app/src-tauri/src/controller/mod.rs` ligne 378
+`app/src-tauri/src/controller/mod.rs` ligne 386
 
 ```rust
 fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
@@ -7586,7 +7903,7 @@ fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
 
 Affiche un message à l'utilisateur et journalise avertissements et erreurs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 386
+`app/src-tauri/src/controller/mod.rs` ligne 394
 
 ```rust
 fn notice(&self, level: &'static str, message: impl Into<String>) {
@@ -7602,7 +7919,7 @@ fn notice(&self, level: &'static str, message: impl Into<String>) {
 
 Dirige chaque commande de l'interface vers son traitement, puis publie l'état.
 
-`app/src-tauri/src/controller/mod.rs` ligne 395
+`app/src-tauri/src/controller/mod.rs` ligne 403
 
 ```rust
 fn handle(&mut self, cmd: UiCommand) {
@@ -7624,7 +7941,7 @@ fn handle(&mut self, cmd: UiCommand) {
 
 Republie toutes les vues et l'avertissement de démarrage éventuel.
 
-`app/src-tauri/src/controller/mod.rs` ligne 457
+`app/src-tauri/src/controller/mod.rs` ligne 470
 
 ```rust
 fn refresh(&mut self) {
@@ -7635,17 +7952,18 @@ fn refresh(&mut self) {
     self.emit_library();
     self.emit_obs();
     self.emit_history();
+    self.emit_chat_state();
+    self.emit_chat_history();
     if let Some(w) = self.startup_warning.take() {
         self.notice("warn", w);
-    }
-}
+…
 ```
 
 ### [CTL-20] Nouveaux réglages
 
 Applique traitement antenne, automation, OBS, voix, pads et sorties modifiés.
 
-`app/src-tauri/src/controller/mod.rs` ligne 471
+`app/src-tauri/src/controller/mod.rs` ligne 486
 
 ```rust
 fn apply_config(&mut self, cfg: AppConfig) {
@@ -7667,7 +7985,7 @@ fn apply_config(&mut self, cfg: AppConfig) {
 
 Dirige chaque résultat de fond vers son traitement.
 
-`app/src-tauri/src/controller/mod.rs` ligne 492
+`app/src-tauri/src/controller/mod.rs` ligne 508
 
 ```rust
 fn on_work(&mut self, w: Work) {
@@ -7689,7 +8007,7 @@ fn on_work(&mut self, w: Work) {
 
 Met à jour platines, vumètres et micro à chaque tick ; gère fin de titre, fondus et fin des sons de pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 526
+`app/src-tauri/src/controller/mod.rs` ligne 543
 
 ```rust
 fn on_event(&mut self, e: Event) {
@@ -7711,7 +8029,7 @@ fn on_event(&mut self, e: Event) {
 
 Platine désignée par la position du crossfader.
 
-`app/src-tauri/src/controller/mod.rs` ligne 570
+`app/src-tauri/src/controller/mod.rs` ligne 587
 
 ```rust
 fn on_air_side(&self) -> usize {
@@ -7795,7 +8113,7 @@ pub const EV_STATE: &str = "blast://state";
 
 Niveau et message.
 
-`app/src-tauri/src/controller/views.rs` ligne 23
+`app/src-tauri/src/controller/views.rs` ligne 26
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7809,7 +8127,7 @@ pub struct Notice {
 
 Nom, type, muet et volume.
 
-`app/src-tauri/src/controller/views.rs` ligne 30
+`app/src-tauri/src/controller/views.rs` ligne 33
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7825,7 +8143,7 @@ pub struct ObsInputView {
 
 État de connexion, scènes, stream, enregistrement et sources audio.
 
-`app/src-tauri/src/controller/views.rs` ligne 39
+`app/src-tauri/src/controller/views.rs` ligne 42
 
 ```rust
 #[derive(Serialize, Clone, Default)]
@@ -7847,7 +8165,7 @@ pub struct ObsView {
 
 Nom, couleur, fichier, prêt ou en erreur.
 
-`app/src-tauri/src/controller/views.rs` ligne 66
+`app/src-tauri/src/controller/views.rs` ligne 69
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7865,7 +8183,7 @@ pub struct PadView {
 
 Pads affectés et nombre total.
 
-`app/src-tauri/src/controller/views.rs` ligne 77
+`app/src-tauri/src/controller/views.rs` ligne 80
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7879,7 +8197,7 @@ pub struct PadsView {
 
 Disponibilité, ouverture, niveau, nom et erreur.
 
-`app/src-tauri/src/controller/views.rs` ligne 84
+`app/src-tauri/src/controller/views.rs` ligne 87
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7896,7 +8214,7 @@ pub struct MicView {
 
 État, position, durée, titre, artiste et fichier.
 
-`app/src-tauri/src/controller/views.rs` ligne 94
+`app/src-tauri/src/controller/views.rs` ligne 97
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7914,7 +8232,7 @@ pub struct DeckView {
 
 Platines, crossfader, vumètres, auto-mix, platine à l'antenne, sortie audio, micro, pads en cours, ducking et réduction.
 
-`app/src-tauri/src/controller/views.rs` ligne 105
+`app/src-tauri/src/controller/views.rs` ligne 108
 
 ```rust
 
@@ -7924,7 +8242,7 @@ Platines, crossfader, vumètres, auto-mix, platine à l'antenne, sortie audio, m
 
 Entrées avec motif d'attente et durée totale.
 
-`app/src-tauri/src/controller/views.rs` ligne 148
+`app/src-tauri/src/controller/views.rs` ligne 151
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7938,7 +8256,7 @@ pub struct PlaylistView<'a> {
 
 État, cible, auditeurs, pic et heure de passage en direct.
 
-`app/src-tauri/src/controller/views.rs` ligne 155
+`app/src-tauri/src/controller/views.rs` ligne 158
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7959,7 +8277,7 @@ pub struct CastOutputView {
 
 Diffusion en cours, titre, sorties, auditeurs, pic de session et début.
 
-`app/src-tauri/src/controller/views.rs` ligne 169
+`app/src-tauri/src/controller/views.rs` ligne 172
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -7977,7 +8295,7 @@ pub struct CastView {
 
 Tampons mémoire envoyés à l'interface : flux global, morceaux, jingles et pubs, avec statistiques, passage en cours et taille des tampons.
 
-`app/src-tauri/src/controller/views.rs` ligne 180
+`app/src-tauri/src/controller/views.rs` ligne 183
 
 ```rust
 #[derive(Serialize, Clone, Default)]
@@ -8776,6 +9094,8 @@ pub(super) fn update_song(&mut self) {
         self.cast.caster.set_metadata(&self.cast.song);
         self.obs_now_playing();
         self.emit_cast();
+        let song = self.cast.song.clone();
+        self.chat_announce(&song);
     }
 }
 ```
@@ -8784,7 +9104,7 @@ pub(super) fn update_song(&mut self) {
 
 Démarre chaque sortie active qui a un mot de passe.
 
-`app/src-tauri/src/controller/cast.rs` ligne 155
+`app/src-tauri/src/controller/cast.rs` ligne 157
 
 ```rust
 pub(super) fn start_casting(&mut self) {
@@ -8806,7 +9126,7 @@ pub(super) fn start_casting(&mut self) {
 
 Arrête toutes les sorties.
 
-`app/src-tauri/src/controller/cast.rs` ligne 201
+`app/src-tauri/src/controller/cast.rs` ligne 203
 
 ```rust
 pub(super) fn stop_casting(&mut self) {
@@ -8826,7 +9146,7 @@ pub(super) fn stop_casting(&mut self) {
 
 Applique les sorties modifiées ; relance la diffusion en cours, y compris après une erreur.
 
-`app/src-tauri/src/controller/cast.rs` ligne 214
+`app/src-tauri/src/controller/cast.rs` ligne 216
 
 ```rust
 pub(super) fn apply_outputs(&mut self, outputs: Vec<OutputConfig>) {
@@ -8848,7 +9168,7 @@ pub(super) fn apply_outputs(&mut self, outputs: Vec<OutputConfig>) {
 
 Interroge les serveurs en direct en arrière-plan.
 
-`app/src-tauri/src/controller/cast.rs` ligne 237
+`app/src-tauri/src/controller/cast.rs` ligne 239
 
 ```rust
 pub(super) fn poll_listeners(&mut self) {
@@ -8870,7 +9190,7 @@ pub(super) fn poll_listeners(&mut self) {
 
 Met à jour compteurs et pics ; les échecs vont au journal.
 
-`app/src-tauri/src/controller/cast.rs` ligne 258
+`app/src-tauri/src/controller/cast.rs` ligne 260
 
 ```rust
 pub(super) fn on_listeners(&mut self, id: String, result: Result<Listeners, String>) {
@@ -8892,7 +9212,7 @@ pub(super) fn on_listeners(&mut self, id: String, result: Result<Listeners, Stri
 
 Envoie la vue de diffusion.
 
-`app/src-tauri/src/controller/cast.rs` ligne 276
+`app/src-tauri/src/controller/cast.rs` ligne 278
 
 ```rust
 pub(super) fn emit_cast(&self) {
@@ -9372,7 +9692,7 @@ pub(super) fn finish_play(&mut self, id: i64, duration: f64) {
 
 Nom, fichier, durée, prêt, en erreur ou en cours de lecture.
 
-`app/src-tauri/src/controller/views.rs` ligne 193
+`app/src-tauri/src/controller/views.rs` ligne 196
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -9391,7 +9711,7 @@ pub struct JingleView {
 
 Jingles du dossier, dossier choisi et lecture en cours du dossier.
 
-`app/src-tauri/src/controller/views.rs` ligne 205
+`app/src-tauri/src/controller/views.rs` ligne 208
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -9814,7 +10134,7 @@ pub(super) fn emit_library(&self) {
 
 Identifiant, nom, couleur de la grille ou de l'émission de l'heure, et s'il s'agit d'une émission.
 
-`app/src-tauri/src/controller/views.rs` ligne 112
+`app/src-tauri/src/controller/views.rs` ligne 115
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -9830,7 +10150,7 @@ pub struct ClockView {
 
 Dossiers, nombre de titres, scan en cours et titres lus.
 
-`app/src-tauri/src/controller/views.rs` ligne 121
+`app/src-tauri/src/controller/views.rs` ligne 124
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -9906,7 +10226,7 @@ pub(super) fn dedupe(&mut self) {
 
 Liste compacte (id, motif) des entrées bloquées par les règles de rotation.
 
-`app/src-tauri/src/controller/views.rs` ligne 106
+`app/src-tauri/src/controller/views.rs` ligne 109
 
 ```rust
 #[derive(Serialize, Clone)]
@@ -10190,6 +10510,329 @@ fn fallback_next(&mut self, program: &str, pending: &[Entry]) -> Option<Entry> {
 …
 ```
 
+### [CTL-168] Limites du chat
+
+Messages gardés en mémoire, délais entre deux !np et deux !sfx, étiquette et couleur des demandes acceptées.
+
+`app/src-tauri/src/controller/chat.rs` ligne 15
+
+```rust
+const KEEP: usize = 300;
+```
+
+### [CTL-169] Demande de titre
+
+Viewer, recherche tapée, titre trouvé dans la bibliothèque (ou rien) et heure.
+
+`app/src-tauri/src/controller/chat.rs` ligne 22
+
+```rust
+#[derive(Debug, Clone, Serialize)]
+pub struct SongRequest {
+    pub id: u64,
+    pub user: String,
+    pub login: String,
+    pub query: String,
+    pub path: Option<PathBuf>,
+    pub artist: String,
+    pub title: String,
+    pub at_ms: u64,
+}
+```
+
+### [CTL-170] Vue du chat
+
+Chaîne, connexion, écriture possible, connexion demandée, détail et demandes en attente.
+
+`app/src-tauri/src/controller/chat.rs` ligne 35
+
+```rust
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ChatView {
+    pub channel: String,
+    pub connected: bool,
+    pub writable: bool,
+    pub active: bool,
+    pub detail: String,
+    pub requests: Vec<SongRequest>,
+}
+```
+
+### [CTL-171] État du chat
+
+Réglages, client Twitch, vue, derniers messages, numéro de connexion pour ignorer les événements d'une connexion fermée, délais des commandes.
+
+`app/src-tauri/src/controller/chat.rs` ligne 46
+
+```rust
+pub struct ChatState {
+    pub settings: ChatSettings,
+    pub client: Option<TwitchClient>,
+    pub view: ChatView,
+    pub history: VecDeque<ChatEvent>,
+    next_request: u64,
+    generation: u64,
+    last_np: Option<Instant>,
+    last_sfx: Option<Instant>,
+    #[cfg(test)]
+    pub sent: Vec<String>,
+}
+```
+
+### [CTL-172] Texte comparable
+
+Minuscules sans accents ni ponctuation, pour comparer une demande aux titres de la bibliothèque.
+
+`app/src-tauri/src/controller/chat.rs` ligne 80
+
+```rust
+fn fold(text: &str) -> String {
+    text.chars()
+        .map(|c| match c {
+            'à' | 'â' | 'ä' | 'á' | 'ã' => 'a',
+            'é' | 'è' | 'ê' | 'ë' => 'e',
+            'î' | 'ï' | 'í' => 'i',
+            'ô' | 'ö' | 'ó' | 'õ' => 'o',
+            'ù' | 'û' | 'ü' | 'ú' => 'u',
+            'ç' => 'c',
+            'ñ' => 'n',
+            'ÿ' => 'y',
+            c if c.is_alphanumeric() => c,
+…
+```
+
+### [CTL-173] Recherche d'un titre
+
+Chaque mot de la demande doit commencer un mot de « artiste titre » ; un titre ou un artiste exact donne des points ; seuls les morceaux comptent.
+
+`app/src-tauri/src/controller/chat.rs` ligne 101
+
+```rust
+pub fn find_track(tracks: &[LibraryTrack], query: &str) -> Option<usize> {
+    let wanted = fold(&query.to_lowercase());
+    let words: Vec<&str> = wanted.split(' ').filter(|w| !w.is_empty()).collect();
+    if words.is_empty() {
+        return None;
+    }
+    let (artist_part, title_part) = match query.split_once(" - ") {
+        Some((a, t)) => (fold(&a.to_lowercase()), fold(&t.to_lowercase())),
+        None => (String::new(), wanted.clone()),
+    };
+    tracks
+        .iter()
+…
+```
+
+### [CTL-174] Application des réglages du chat
+
+Garde les nouveaux réglages et reconnecte si la chaîne ou le compte a changé.
+
+`app/src-tauri/src/controller/chat.rs` ligne 146
+
+```rust
+pub(super) fn apply_chat(&mut self, settings: ChatSettings) {
+    if settings == self.chat.settings {
+        return;
+    }
+    let reconnect = self.chat.client.is_some()
+        && (settings.channel != self.chat.settings.channel
+            || settings.bot_login != self.chat.settings.bot_login);
+    self.chat.settings = settings;
+    if !self.chat.view.active {
+        self.chat.view.channel =
+            blast_live::twitch::normalize_channel(&self.chat.settings.channel);
+    }
+…
+```
+
+### [CTL-175] Connexion au chat
+
+Ferme la connexion précédente et lance le client Twitch, avec le jeton du trousseau si un compte est indiqué.
+
+`app/src-tauri/src/controller/chat.rs` ligne 166
+
+```rust
+pub(super) fn chat_connect(&mut self) {
+    self.chat_disconnect_quiet();
+    let token = if self.chat.settings.bot_login.trim().is_empty() {
+        String::new()
+    } else {
+        self.secrets.get(CHAT_KEY).unwrap_or_default()
+    };
+    let cfg = TwitchConfig::new(
+        &self.chat.settings.channel,
+        &self.chat.settings.bot_login,
+        &token,
+    );
+…
+```
+
+### [CTL-176] Déconnexion du chat
+
+Arrête le client et publie l'état déconnecté.
+
+`app/src-tauri/src/controller/chat.rs` ligne 204
+
+```rust
+pub(super) fn chat_disconnect(&mut self) {
+    self.chat_disconnect_quiet();
+    self.chat.view.active = false;
+    self.chat.view.connected = false;
+    self.chat.view.detail = "déconnecté".into();
+    self.emit_chat_state();
+}
+```
+
+### [CTL-177] Envoi dans le chat
+
+Envoie un message par le client Twitch.
+
+`app/src-tauri/src/controller/chat.rs` ligne 213
+
+```rust
+pub(super) fn chat_say(&mut self, text: &str) {
+    let text = text.trim();
+    if text.is_empty() {
+        return;
+    }
+    #[cfg(test)]
+    self.chat.sent.push(text.to_string());
+    if let Some(c) = &self.chat.client {
+        c.say(text);
+    }
+}
+```
+
+### [CTL-178] Événement de chat reçu
+
+Met à jour l'état, l'historique (effacements compris), relaie l'événement à l'interface et traite les commandes des viewers.
+
+`app/src-tauri/src/controller/chat.rs` ligne 230
+
+```rust
+pub(super) fn on_chat(&mut self, generation: u64, e: ChatEvent) {
+    if generation != self.chat.generation {
+        return;
+    }
+    match &e {
+        ChatEvent::Status {
+            connected,
+            writable,
+            detail,
+        } => {
+            self.chat.view.connected = *connected;
+            self.chat.view.writable = *writable;
+…
+```
+
+### [CTL-179] Commandes des viewers
+
+!np répond avec le titre à l'antenne (une fois toutes les 15 s), !request crée une demande, !sfx lance le pad du même nom (une fois toutes les 10 s), chacune selon les réglages.
+
+`app/src-tauri/src/controller/chat.rs` ligne 273
+
+```rust
+fn chat_command(&mut self, m: &ChatMessage) {
+    let Some(cmd) = parse_command(&m.text) else {
+        return;
+    };
+    match cmd {
+        ChatCommand::NowPlaying if self.chat.settings.cmd_np => {
+            if self.chat.last_np.is_some_and(|t| t.elapsed() < NP_COOLDOWN) || !self.can_reply()
+            {
+                return;
+            }
+            self.chat.last_np = Some(Instant::now());
+            let song = self.now_playing();
+…
+```
+
+### [CTL-180] Nouvelle demande
+
+Applique la limite de demandes par viewer, cherche le titre, ajoute la demande à la file et répond au viewer.
+
+`app/src-tauri/src/controller/chat.rs` ligne 326
+
+```rust
+fn chat_request(&mut self, m: &ChatMessage, query: &str) {
+    let pending = self
+        .chat
+        .view
+        .requests
+        .iter()
+        .filter(|r| r.login == m.login && r.path.is_some())
+        .count() as u32;
+    let limit = self.chat.settings.request_limit.max(1);
+    if pending >= limit {
+        if self.can_reply() {
+            self.chat_say(&format!(
+…
+```
+
+### [CTL-181] Demande acceptée
+
+Ajoute le titre en tête de playlist, étiqueté « Demande » et exempté des règles de séparation, puis prévient le viewer.
+
+`app/src-tauri/src/controller/chat.rs` ligne 376
+
+```rust
+pub(super) fn request_accept(&mut self, id: u64) {
+    let Some(pos) = self.chat.view.requests.iter().position(|r| r.id == id) else {
+        return;
+    };
+    let r = self.chat.view.requests.remove(pos);
+    let Some(path) = r.path.clone() else {
+        self.emit_chat_state();
+        return;
+    };
+    if !path.is_file() {
+        self.notice(
+            "warn",
+…
+```
+
+### [CTL-182] Demande refusée
+
+Retire la demande de la file.
+
+`app/src-tauri/src/controller/chat.rs` ligne 419
+
+```rust
+pub(super) fn request_reject(&mut self, id: u64) {
+    self.chat.view.requests.retain(|r| r.id != id);
+    self.emit_chat_state();
+}
+```
+
+### [CTL-183] Annonce du titre
+
+Écrit « En cours : … » dans le chat à chaque nouveau morceau si l'option est active.
+
+`app/src-tauri/src/controller/chat.rs` ligne 425
+
+```rust
+pub(super) fn chat_announce(&mut self, song: &str) {
+    if self.chat.settings.announce && self.chat.client.is_some() && self.can_reply() {
+        self.chat_say(&format!("🎵 En cours : {song}"));
+    }
+}
+```
+
+### [CTL-184] Publication du chat
+
+Envoie à l'interface l'état du chat et, au démarrage de l'interface, les derniers messages.
+
+`app/src-tauri/src/controller/chat.rs` ligne 432
+
+```rust
+pub(super) fn emit_chat_state(&self) {
+    self.ui.emit(
+        EV_CHAT_STATE,
+        serde_json::to_value(&self.chat.view).unwrap_or_default(),
+    );
+}
+```
+
 
 ## UI
 
@@ -10421,7 +11064,7 @@ export async function pickAudio(multiple, title) {
 
 Met à jour l'horloge de la barre du haut.
 
-`app/ui/js/main.js` ligne 18
+`app/ui/js/main.js` ligne 19
 
 ```js
 function tickClock() {
@@ -10433,7 +11076,7 @@ function tickClock() {
 
 Relie chaque événement blast:// à son module.
 
-`app/ui/js/main.js` ligne 23
+`app/ui/js/main.js` ligne 24
 
 ```js
 async function subscribe() {
@@ -10455,11 +11098,11 @@ async function subscribe() {
 
 Initialise les modules, s'abonne, charge thèmes et voix, active le glisser-déposer puis vérifie les mises à jour.
 
-`app/ui/js/main.js` ligne 43
+`app/ui/js/main.js` ligne 47
 
 ```js
 async function start() {
-  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast]) m.init();
+  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast, chat]) m.init();
   $("#themes-folder").addEventListener("click", async () => {
     try {
       const dir = await invoke("themes_dir");
@@ -10645,7 +11288,9 @@ function showPlaylistTab(tab) {
   $$("[data-ptab]").forEach((t) => t.classList.toggle("active", t.dataset.ptab === tab));
   $$("#playlist [data-ppage]").forEach((el) => (el.hidden = el.dataset.ppage !== tab));
   if (tab === "playlist") $("#empty").classList.toggle("hidden", S.entries.length > 0);
-  (tab === "playlist" ? playlistView : historyView).refresh();
+  if (tab === "playlist") playlistView.refresh();
+  if (tab === "history") historyView.refresh();
+  document.dispatchEvent(new CustomEvent("blast:ptab", { detail: tab }));
 }
 ```
 
@@ -10653,7 +11298,7 @@ function showPlaylistTab(tab) {
 
 Heure seule aujourd'hui, date et heure sinon.
 
-`app/ui/js/playlist.js` ligne 81
+`app/ui/js/playlist.js` ligne 83
 
 ```js
 function clockTime(secs) {
@@ -10667,7 +11312,7 @@ function clockTime(secs) {
 
 Reçoit les tampons et affiche celui du filtre choisi.
 
-`app/ui/js/playlist.js` ligne 88
+`app/ui/js/playlist.js` ligne 90
 
 ```js
 export function setHistory(h) {
@@ -10680,7 +11325,7 @@ export function setHistory(h) {
 
 Exporte la catégorie et la période choisies dans un fichier CSV.
 
-`app/ui/js/playlist.js` ligne 156
+`app/ui/js/playlist.js` ligne 158
 
 ```js
 async function exportHistory() {
@@ -10986,9 +11631,9 @@ function applySettings(view, keepSelection = true) {
   }
   if (selectedOut) selectOutput(selectedOut);
   else renderOutList();
-  const aura = $("#aura-form");
-  fillForm(aura, view.aura);
-  aura.elements.password.value = "";
+  const chatForm = $("#chat-settings-form");
+  fillForm(chatForm, view.chat);
+  chatForm.elements.token.value = "";
 …
 ```
 
@@ -10996,7 +11641,7 @@ function applySettings(view, keepSelection = true) {
 
 Enregistre, rafraîchit la vue et affiche le résultat.
 
-`app/ui/js/settings.js` ligne 127
+`app/ui/js/settings.js` ligne 132
 
 ```js
 async function saveForm(resultId, run) {
@@ -11014,7 +11659,7 @@ async function saveForm(resultId, run) {
 
 Affiche l'attente puis le résultat d'un test.
 
-`app/ui/js/settings.js` ligne 138
+`app/ui/js/settings.js` ligne 143
 
 ```js
 async function testForm(resultId, busy, run) {
@@ -11031,7 +11676,7 @@ async function testForm(resultId, busy, run) {
 
 Charge les réglages et ouvre la fenêtre, éventuellement sur un onglet.
 
-`app/ui/js/settings.js` ligne 173
+`app/ui/js/settings.js` ligne 197
 
 ```js
 export async function openSettings(tab) {
@@ -11050,7 +11695,7 @@ export async function openSettings(tab) {
 
 Affiche l'onglet choisi.
 
-`app/ui/js/settings.js` ligne 191
+`app/ui/js/settings.js` ligne 215
 
 ```js
 function showTab(tab) {
@@ -11065,7 +11710,7 @@ function showTab(tab) {
 
 Demande confirmation puis supprime.
 
-`app/ui/js/settings.js` ligne 199
+`app/ui/js/settings.js` ligne 223
 
 ```js
 async function deleteOutput() {
@@ -11608,7 +12253,7 @@ async function pickDir() {
 
 Construit une ligne du filtre choisi à la demande de la liste virtuelle, avec le type du passage.
 
-`app/ui/js/playlist.js` ligne 94
+`app/ui/js/playlist.js` ligne 96
 
 ```js
 function historyRow(i) {
@@ -11630,7 +12275,7 @@ function historyRow(i) {
 
 Ouvre le choix de la catégorie et de la période, le mois en cours par défaut.
 
-`app/ui/js/playlist.js` ligne 138
+`app/ui/js/playlist.js` ligne 140
 
 ```js
 function openExportMenu(anchor) {
@@ -11652,7 +12297,7 @@ function openExportMenu(anchor) {
 
 Lit les mots-clés séparés par des virgules.
 
-`app/ui/js/settings.js` ligne 166
+`app/ui/js/settings.js` ligne 190
 
 ```js
 function categoryValues() {
@@ -11969,7 +12614,7 @@ function renderClock(clock) {
 
 Mélanger, mélanger en espaçant les artistes, retirer les doublons.
 
-`app/ui/js/playlist.js` ligne 175
+`app/ui/js/playlist.js` ligne 177
 
 ```js
 function openShuffleMenu(anchor) {
@@ -12054,7 +12699,7 @@ export function setBlocked(list) {
 
 Demande l'emplacement du fichier M3U, nommé par défaut avec la date du jour.
 
-`app/ui/js/playlist.js` ligne 187
+`app/ui/js/playlist.js` ligne 189
 
 ```js
 async function saveM3u() {
@@ -12606,6 +13251,119 @@ function renderCastPanel() {
 …
 ```
 
+### [UI-133] Affichage du chat
+
+Messages gardés, badges affichés et couleurs des viewers sans couleur choisie.
+
+`app/ui/js/chat.js` ligne 4
+
+```js
+const KEEP = 300;
+```
+
+### [UI-134] Couleur d'un viewer
+
+Couleur choisie sur Twitch, sinon une couleur stable tirée de son identifiant.
+
+`app/ui/js/chat.js` ligne 16
+
+```js
+function colorOf(m) {
+  if (m.color) return m.color;
+  let h = 0;
+  for (const c of m.login || m.author) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+```
+
+### [UI-135] Ligne du chat
+
+Heure, badges, nom en couleur et texte ; commandes surlignées, actions en italique, annonces encadrées.
+
+`app/ui/js/chat.js` ligne 28
+
+```js
+function row(e) {
+  const el = document.createElement("div");
+  if (e.kind === "notice") {
+    el.className = "chat-row notice";
+    el.textContent = e.text;
+    return el;
+  }
+  el.className = "chat-row" + (e.own ? " own" : "") + (e.action ? " action" : "");
+  el.dataset.id = e.id;
+  const time = document.createElement("span");
+  time.className = "chat-time";
+  time.textContent = hhmm(e.at_ms);
+…
+```
+
+### [UI-136] File des demandes
+
+Cartes des demandes : viewer, heure, titre trouvé ou recherche introuvable, Jouer ensuite et Refuser.
+
+`app/ui/js/chat.js` ligne 92
+
+```js
+function renderRequests() {
+  const list = $("#chat-req-list");
+  list.innerHTML = "";
+  $("#chat-req-count").textContent = view.requests.length ? `${view.requests.length}` : "";
+  if (!view.requests.length) {
+    list.innerHTML = `<div class="muted chat-req-empty">Aucune demande. Les viewers écrivent <code>!request Artiste - Titre</code>.</div>`;
+    return;
+  }
+  for (const r of view.requests) {
+    const card = document.createElement("div");
+    card.className = "chat-req" + (r.path ? "" : " missing");
+    const head = document.createElement("div");
+…
+```
+
+### [UI-137] État du chat
+
+Pastille et texte d'état, bouton Connecter/Déconnecter, champ d'envoi actif seulement si l'écriture est possible.
+
+`app/ui/js/chat.js` ligne 128
+
+```js
+function renderStatus() {
+  const dot = $("#chat-dot");
+  dot.className = "dot " + (view.connected ? "live" : view.active ? "connecting" : "");
+  const channel = view.channel ? `#${view.channel}` : "Twitch";
+  $("#chat-status").textContent = view.connected ? `${channel}${view.writable ? "" : " · lecture seule"}` : view.active ? `${channel} · ${view.detail}` : channel;
+  $("#chat-status").title = view.detail || "";
+  const btn = $("#chat-connect");
+  btn.textContent = view.active ? "Déconnecter" : "Connecter";
+  btn.classList.toggle("accent", !view.active);
+  const input = $("#chat-input");
+  const can = view.connected && view.writable;
+  input.disabled = !can;
+…
+```
+
+### [UI-138] Valeurs du chat
+
+Lit le formulaire des réglages du chat, avec le jeton saisi ou l'oubli du jeton.
+
+`app/ui/js/settings.js` ligne 153
+
+```js
+function chatValues(forget) {
+  const v = formValues($("#chat-settings-form"));
+  return {
+    chat: {
+      channel: v.channel.trim(),
+      bot_login: v.bot_login.trim(),
+      autoconnect: v.autoconnect,
+      announce: v.announce,
+      cmd_np: v.cmd_np,
+      cmd_request: v.cmd_request,
+      cmd_sfx: v.cmd_sfx,
+      request_limit: Math.max(1, Number(v.request_limit) || 2),
+…
+```
+
 
 ## STY
 
@@ -12742,7 +13500,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Étiquette qui suit le pointeur et curseur pendant le glisser.
 
-`app/ui/style.css` ligne 458
+`app/ui/style.css` ligne 491
 
 ```css
 .drag-ghost {
@@ -12764,7 +13522,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
-`app/ui/style.css` ligne 477
+`app/ui/style.css` ligne 510
 
 ```css
 .fx { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -12774,7 +13532,7 @@ Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
 VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
-`app/ui/style.css` ligne 495
+`app/ui/style.css` ligne 528
 
 ```css
 .vfx-main { display: grid; grid-template-columns: 78px 1fr 60px; gap: 8px; height: 48px; }
@@ -12784,7 +13542,7 @@ VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
 Grille de pads, état de lecture et menu de pad.
 
-`app/ui/style.css` ligne 534
+`app/ui/style.css` ligne 567
 
 ```css
 .soundfx { flex: 1 0 196px; min-height: 196px; overflow: hidden; }
@@ -12794,7 +13552,7 @@ Grille de pads, état de lecture et menu de pad.
 
 Boutons matériels, scènes et sources audio.
 
-`app/ui/style.css` ligne 576
+`app/ui/style.css` ligne 609
 
 ```css
 .obs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -12804,7 +13562,7 @@ Boutons matériels, scènes et sources audio.
 
 Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos.
 
-`app/ui/style.css` ligne 604
+`app/ui/style.css` ligne 637
 
 ```css
 .about-head { display: flex; flex-direction: column; gap: 4px; }
@@ -12814,7 +13572,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 800
+`app/ui/style.css` ligne 833
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -12824,7 +13582,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 819
+`app/ui/style.css` ligne 852
 
 ```css
 .statusbar {
@@ -12842,7 +13600,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 854
+`app/ui/style.css` ligne 887
 
 ```css
 .hidden { display: none !important; }
@@ -12852,7 +13610,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 830
+`app/ui/style.css` ligne 863
 
 ```css
 html.glass body {
@@ -12866,7 +13624,7 @@ html.glass body {
 
 Mise en page de l'onglet dans les Réglages : liste des serveurs, en-tête, tuiles, graphique, tableaux, formulaires, journal et barre d'enregistrement.
 
-`app/ui/style.css` ligne 709
+`app/ui/style.css` ligne 742
 
 ```css
 .tab-page.ice-tab { padding: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr); overflow: hidden; }
@@ -12880,6 +13638,16 @@ Bouton « + » accolé à DIFFUSER et panneau de détail des sorties.
 
 ```css
 .cast-group { display: flex; align-items: stretch; }
+```
+
+### [STY-20] Chat
+
+Pastille de messages non lus, état, messages, badges, annonces, champ d'envoi et cartes de demandes.
+
+`app/ui/style.css` ligne 397
+
+```css
+.tab-badge { margin-left: 6px; min-width: 16px; padding: 0 5px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0; line-height: 16px; display: inline-block; text-align: center; }
 ```
 
 
@@ -12974,14 +13742,14 @@ Barre d'outils, lignes de playlist et historique de diffusion.
     <div class="fx-tabs ptabs">
       <button class="fx-tab active" data-ptab="playlist">PLAYLIST</button>
       <button class="fx-tab" data-ptab="history">HISTORIQUE</button>
-    </div>
+      <button class="fx-tab" data-ptab="chat">CHAT<span id="chat-unread" class="tab-badge hidden"></span></button>
 ```
 
 ### [HTM-07] Voice FX
 
 Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
-`app/ui/index.html` ligne 188
+`app/ui/index.html` ligne 206
 
 ```html
 <section class="fx voicefx" id="voicefx">
@@ -12996,7 +13764,7 @@ Préréglage de voix, VERROU, PARLER, ducking, curseurs et égaliseur.
 
 Pads et panneau de pilotage d'OBS.
 
-`app/ui/index.html` ligne 228
+`app/ui/index.html` ligne 246
 
 ```html
 <section class="fx soundfx" id="soundfx">
@@ -13011,7 +13779,7 @@ Pads et panneau de pilotage d'OBS.
 
 Renommer, choisir un son, vider.
 
-`app/ui/index.html` ligne 282
+`app/ui/index.html` ligne 300
 
 ```html
 <div id="pad-menu" class="pad-menu hidden">
@@ -13026,7 +13794,7 @@ Renommer, choisir un son, vider.
 
 Sortie audio et résumé de diffusion.
 
-`app/ui/index.html` ligne 314
+`app/ui/index.html` ligne 332
 
 ```html
 <footer class="statusbar">
@@ -13041,7 +13809,7 @@ Sortie audio et résumé de diffusion.
 
 Fenêtre des réglages et ses onglets.
 
-`app/ui/index.html` ligne 322
+`app/ui/index.html` ligne 340
 
 ```html
 <div id="settings" class="modal hidden" role="dialog" aria-modal="true">
@@ -13056,7 +13824,7 @@ Fenêtre des réglages et ses onglets.
 
 Liste et formulaire des sorties Icecast / Shoutcast.
 
-`app/ui/index.html` ligne 340
+`app/ui/index.html` ligne 359
 
 ```html
 <section class="tab-page" data-page="cast">
@@ -13071,7 +13839,7 @@ Liste et formulaire des sorties Icecast / Shoutcast.
 
 Connexion à obs-websocket et source « Now Playing ».
 
-`app/ui/index.html` ligne 393
+`app/ui/index.html` ligne 412
 
 ```html
 <section class="tab-page hidden" data-page="aura">
@@ -13086,7 +13854,7 @@ Connexion à obs-websocket et source « Now Playing ».
 
 Règles de séparation et conservation de l'historique.
 
-`app/ui/index.html` ligne 413
+`app/ui/index.html` ligne 462
 
 ```html
 <section class="tab-page hidden" data-page="automation">
@@ -13101,7 +13869,7 @@ Règles de séparation et conservation de l'historique.
 
 Micro, retour et sortie audio.
 
-`app/ui/index.html` ligne 447
+`app/ui/index.html` ligne 496
 
 ```html
 <section class="tab-page hidden" data-page="audio">
@@ -13116,7 +13884,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 616
+`app/ui/index.html` ligne 665
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -13131,7 +13899,7 @@ Version, mises à jour et diagnostic.
 
 Dossier, relecture, volume, arrêt et grille des jingles.
 
-`app/ui/index.html` ligne 235
+`app/ui/index.html` ligne 253
 
 ```html
 <div class="fx-head" data-fxpage="jingles" hidden>
@@ -13146,7 +13914,7 @@ Dossier, relecture, volume, arrêt et grille des jingles.
 
 Tout, Morceaux, Jingles, Pubs.
 
-`app/ui/index.html` ligne 156
+`app/ui/index.html` ligne 158
 
 ```html
 <div class="hfilters" data-ppage="history" hidden>
@@ -13161,7 +13929,7 @@ Tout, Morceaux, Jingles, Pubs.
 
 Catégorie et période de l'export CSV de l'historique.
 
-`app/ui/index.html` ligne 290
+`app/ui/index.html` ligne 308
 
 ```html
 <div id="export-menu" class="pad-menu export-menu hidden">
@@ -13176,7 +13944,7 @@ Catégorie et période de l'export CSV de l'historique.
 
 Mots-clés de dossier des jingles et des pubs.
 
-`app/ui/index.html` ligne 432
+`app/ui/index.html` ligne 481
 
 ```html
 <form class="form" id="categories-form">
@@ -13191,7 +13959,7 @@ Mots-clés de dossier des jingles et des pubs.
 
 Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement.
 
-`app/ui/index.html` ligne 591
+`app/ui/index.html` ligne 640
 
 ```html
 <section class="tab-page hidden" data-page="appearance">
@@ -13206,7 +13974,7 @@ Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissemen
 
 Bibliothèque, catégories, grilles et planning de la semaine.
 
-`app/ui/index.html` ligne 480
+`app/ui/index.html` ligne 529
 
 ```html
 <section class="tab-page hidden" data-page="rotation">
@@ -13221,7 +13989,7 @@ Bibliothèque, catégories, grilles et planning de la semaine.
 
 Actions de mélange et de nettoyage de la playlist.
 
-`app/ui/index.html` ligne 307
+`app/ui/index.html` ligne 325
 
 ```html
 <div id="shuffle-menu" class="pad-menu shuffle-menu hidden">
@@ -13235,7 +14003,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Émissions des grilles : nom, couleur, fichier M3U, explications.
 
-`app/ui/index.html` ligne 559
+`app/ui/index.html` ligne 608
 
 ```html
 <div class="rot-page rot-split" data-rotpage="programs" hidden>
@@ -13250,7 +14018,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Égaliseur micro et temps du ducking ; repliés sur une même ligne, une section ouverte prend toute la largeur.
 
-`app/ui/index.html` ligne 207
+`app/ui/index.html` ligne 225
 
 ```html
 <div class="vfx-more">
@@ -13265,7 +14033,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi à droite.
 
-`app/ui/index.html` ligne 642
+`app/ui/index.html` ligne 691
 
 ```html
 <section class="tab-page hidden ice-tab" data-page="icecast">
@@ -13280,7 +14048,7 @@ Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi �
 
 Présentation, installations détectées et ajout d'un serveur local ou distant.
 
-`app/ui/index.html` ligne 650
+`app/ui/index.html` ligne 699
 
 ```html
 <div class="ice-welcome" id="ice-welcome">
@@ -13295,7 +14063,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 État, nom, adresse, version, boutons page web, Redémarrer, Arrêter et Démarrer.
 
-`app/ui/index.html` ligne 663
+`app/ui/index.html` ligne 712
 
 ```html
 <header class="ice-head">
@@ -13310,7 +14078,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints ; sans flux, explication du point de montage et bouton de sortie vers /live.
 
-`app/ui/index.html` ligne 685
+`app/ui/index.html` ligne 734
 
 ```html
 <div class="ice-page" data-ipage="dash">
@@ -13325,7 +14093,7 @@ Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des audi
 
 Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute, limites, chemins, journalisation.
 
-`app/ui/index.html` ligne 712
+`app/ui/index.html` ligne 761
 
 ```html
 <div class="ice-page hidden" data-ipage="config">
@@ -13340,7 +14108,7 @@ Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute,
 
 Explication (onglet facultatif), liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST.
 
-`app/ui/index.html` ligne 777
+`app/ui/index.html` ligne 826
 
 ```html
 <div class="ice-page hidden" data-ipage="mounts">
@@ -13355,7 +14123,7 @@ Explication (onglet facultatif), liste des mountpoints déclarés et formulaire 
 
 Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
-`app/ui/index.html` ligne 828
+`app/ui/index.html` ligne 877
 
 ```html
 <div class="ice-page hidden" data-ipage="listeners">
@@ -13370,7 +14138,7 @@ Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
 Erreurs, accès ou console, suivi en direct.
 
-`app/ui/index.html` ligne 845
+`app/ui/index.html` ligne 894
 
 ```html
 <div class="ice-page hidden" data-ipage="log">
@@ -13385,7 +14153,7 @@ Erreurs, accès ou console, suivi en direct.
 
 Profil : emplacement, installation, configuration, accès admin et démarrage.
 
-`app/ui/index.html` ligne 858
+`app/ui/index.html` ligne 907
 
 ```html
 <div class="ice-page hidden" data-ipage="profile">
@@ -13400,7 +14168,7 @@ Profil : emplacement, installation, configuration, accès admin et démarrage.
 
 Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer et redémarrer.
 
-`app/ui/index.html` ligne 896
+`app/ui/index.html` ligne 945
 
 ```html
 <footer class="ice-savebar hidden" id="ice-savebar">
@@ -13415,7 +14183,7 @@ Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer e
 
 Menu flottant des actions sur un mountpoint.
 
-`app/ui/index.html` ligne 924
+`app/ui/index.html` ligne 973
 
 ```html
 <div id="ice-menu" class="pad-menu ice-menu hidden"></div>
@@ -13430,7 +14198,7 @@ Menu flottant des actions sur un mountpoint.
 
 Panneau flottant sous le bouton DIFFUSER : en-tête, titre, sorties, total et boutons.
 
-`app/ui/index.html` ligne 911
+`app/ui/index.html` ligne 960
 
 ```html
 <div id="cast-panel" class="pad-menu cast-panel hidden">
@@ -13439,4 +14207,34 @@ Panneau flottant sous le bouton DIFFUSER : en-tête, titre, sorties, total et bo
   <div class="cp-outputs" id="cp-outputs"></div>
   <div class="cp-total muted" id="cp-total"></div>
   <div class="form-actions">
+```
+
+### [HTM-38] Onglet CHAT
+
+Messages, champ d'envoi et file des demandes, à côté de la playlist et de l'historique.
+
+`app/ui/index.html` ligne 184
+
+```html
+<div class="chat-page" data-ppage="chat" hidden>
+  <div class="chat-main">
+    <div class="chat-log" id="chat-log"></div>
+    <form class="chat-form" id="chat-form" autocomplete="off">
+      <input id="chat-input" maxlength="480" placeholder="Écrire dans le chat…">
+      <button type="submit" class="btn small accent" id="chat-send">Envoyer</button>
+```
+
+### [HTM-39] Réglages du chat
+
+Chaîne, connexion au démarrage, compte et jeton, commandes des viewers.
+
+`app/ui/index.html` ligne 431
+
+```html
+<section class="tab-page hidden" data-page="chat">
+  <form class="form" id="chat-settings-form" autocomplete="off">
+    <p class="muted">Chat Twitch dans l'onglet <b>CHAT</b> à côté de la playlist. La lecture est anonyme : seule la chaîne est nécessaire. Pour que BLAST réponde aux commandes et écrive dans le chat, ajoute un compte (ta chaîne ou un compte bot) et son jeton.</p>
+    <div class="grid2">
+      <label>Chaîne Twitch<input name="channel" placeholder="nom de la chaîne ou lien twitch.tv/…"></label>
+      <label class="check"><input name="autoconnect" type="checkbox"> Se connecter au chat au démarrage de BLAST</label>
 ```

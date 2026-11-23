@@ -150,9 +150,11 @@
         <div class="fx-tabs ptabs">
           <button class="fx-tab active" data-ptab="playlist">PLAYLIST</button>
           <button class="fx-tab" data-ptab="history">HISTORIQUE</button>
+          <button class="fx-tab" data-ptab="chat">CHAT<span id="chat-unread" class="tab-badge hidden"></span></button>
         </div>
         <span id="playlist-info" class="muted" data-ppage="playlist">0 titre</span>
         <span id="history-info" class="muted" data-ppage="history" hidden></span>
+        <span id="chat-info" class="chat-info" data-ppage="chat" hidden><span class="dot" id="chat-dot"></span><span id="chat-status">Twitch</span></span>
         <!-- [HTM-18] -->
         <div class="hfilters" data-ppage="history" hidden>
           <button class="chip-btn active" data-hfilter="all">Tout</button>
@@ -168,6 +170,8 @@
         <button id="clear" class="btn ghost small" data-ppage="playlist">Vider</button>
         <button id="history-export" class="btn small" data-ppage="history" hidden>Exporter…</button>
         <button id="history-clear" class="btn ghost small danger" data-ppage="history" hidden>Effacer</button>
+        <button id="chat-settings" class="btn ghost small" data-ppage="chat" hidden>Réglages…</button>
+        <button id="chat-connect" class="btn small accent" data-ppage="chat" hidden>Connecter</button>
       </div>
       <div class="history-head hrow-grid" data-ppage="history" hidden>
         <span>Heure</span><span>Type</span><span>Titre</span><span>Artiste</span><span class="right">Diffusé</span><span class="right">Antenne</span><span class="right">Auditeurs</span>
@@ -177,6 +181,20 @@
         <span>#</span><span>Titre</span><span>Artiste</span><span class="right">Durée</span><span class="right">Charger</span>
       </div>
       <div id="rows" class="rows" data-ppage="playlist"></div>
+      <!-- [HTM-38] -->
+      <div class="chat-page" data-ppage="chat" hidden>
+        <div class="chat-main">
+          <div class="chat-log" id="chat-log"></div>
+          <form class="chat-form" id="chat-form" autocomplete="off">
+            <input id="chat-input" maxlength="480" placeholder="Écrire dans le chat…">
+            <button type="submit" class="btn small accent" id="chat-send">Envoyer</button>
+          </form>
+        </div>
+        <div class="chat-requests">
+          <div class="chat-req-head"><b>Demandes</b><span class="muted" id="chat-req-count"></span></div>
+          <div class="chat-req-list" id="chat-req-list"></div>
+        </div>
+      </div>
       <div id="empty" class="empty" data-ppage="playlist">
         <p>Glisse ici des fichiers ou des dossiers depuis ton explorateur,</p>
         <p>ou utilise <b>+ Fichiers</b> / <b>+ Dossier</b>.</p>
@@ -327,6 +345,7 @@
         <button class="tab active" data-tab="cast">Diffusion</button>
         <button class="tab" data-tab="icecast">Serveur Icecast</button>
         <button class="tab" data-tab="aura">Aura / OBS</button>
+        <button class="tab" data-tab="chat">Chat</button>
         <button class="tab" data-tab="audio">Audio</button>
         <button class="tab" data-tab="automation">Automation</button>
         <button class="tab" data-tab="rotation">Grilles</button>
@@ -405,6 +424,36 @@
             <span class="spacer"></span>
             <span class="form-result" id="aura-result"></span>
             <button type="button" class="btn small" id="aura-test">Tester la connexion</button>
+            <button type="submit" class="btn accent small">Enregistrer</button>
+          </div>
+        </form>
+      </section>
+      <!-- [HTM-39] -->
+      <section class="tab-page hidden" data-page="chat">
+        <form class="form" id="chat-settings-form" autocomplete="off">
+          <p class="muted">Chat Twitch dans l'onglet <b>CHAT</b> à côté de la playlist. La lecture est anonyme : seule la chaîne est nécessaire. Pour que BLAST réponde aux commandes et écrive dans le chat, ajoute un compte (ta chaîne ou un compte bot) et son jeton.</p>
+          <div class="grid2">
+            <label>Chaîne Twitch<input name="channel" placeholder="nom de la chaîne ou lien twitch.tv/…"></label>
+            <label class="check"><input name="autoconnect" type="checkbox"> Se connecter au chat au démarrage de BLAST</label>
+          </div>
+          <div class="form-section">Écriture (facultatif)</div>
+          <div class="grid2">
+            <label>Compte qui écrit<input name="bot_login" placeholder="identifiant Twitch du compte"></label>
+            <label>Jeton OAuth<input name="token" type="password" placeholder="jeton avec les droits chat:read et chat:edit"></label>
+          </div>
+          <p class="muted">Le jeton est rangé dans le trousseau du système, jamais dans les réglages. Pour l'obtenir avec l'outil officiel Twitch CLI : <code>twitch token -u -s "chat:read chat:edit"</code>, connecté avec le compte qui écrit.</p>
+          <div class="form-section">Commandes des viewers</div>
+          <div class="grid2">
+            <label class="check"><input name="cmd_np" type="checkbox"> <code>!np</code> : répondre avec le titre en cours</label>
+            <label class="check"><input name="announce" type="checkbox"> Annoncer chaque nouveau titre dans le chat</label>
+            <label class="check"><input name="cmd_request" type="checkbox"> <code>!request Artiste - Titre</code> (ou <code>!sr</code>) : demandes à valider</label>
+            <label>Demandes en attente par viewer<input name="request_limit" type="number" min="1" max="20"></label>
+            <label class="check span2"><input name="cmd_sfx" type="checkbox"> <code>!sfx nom</code> : lancer le pad Sound FX de ce nom (une fois toutes les 10 s)</label>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn ghost small" id="chat-forget">Oublier le jeton</button>
+            <span class="spacer"></span>
+            <span class="form-result" id="chat-result"></span>
             <button type="submit" class="btn accent small">Enregistrer</button>
           </div>
         </form>

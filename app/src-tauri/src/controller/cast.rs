@@ -149,6 +149,8 @@ impl Controller {
             self.cast.caster.set_metadata(&self.cast.song);
             self.obs_now_playing();
             self.emit_cast();
+            let song = self.cast.song.clone();
+            self.chat_announce(&song);
         }
     }
 

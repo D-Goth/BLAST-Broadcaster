@@ -75,7 +75,9 @@ function showPlaylistTab(tab) {
   $$("[data-ptab]").forEach((t) => t.classList.toggle("active", t.dataset.ptab === tab));
   $$("#playlist [data-ppage]").forEach((el) => (el.hidden = el.dataset.ppage !== tab));
   if (tab === "playlist") $("#empty").classList.toggle("hidden", S.entries.length > 0);
-  (tab === "playlist" ? playlistView : historyView).refresh();
+  if (tab === "playlist") playlistView.refresh();
+  if (tab === "history") historyView.refresh();
+  document.dispatchEvent(new CustomEvent("blast:ptab", { detail: tab }));
 }
 
 // [UI-28]

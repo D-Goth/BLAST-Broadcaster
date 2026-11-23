@@ -100,6 +100,11 @@ function applySettings(view, keepSelection = true) {
   }
   if (selectedOut) selectOutput(selectedOut);
   else renderOutList();
+  const chatForm = $("#chat-settings-form");
+  fillForm(chatForm, view.chat);
+  chatForm.elements.token.value = "";
+  chatForm.elements.token.placeholder = view.chat_has_token ? "•••••• enregistré" : "jeton avec les droits chat:read et chat:edit";
+  $("#chat-forget").disabled = !view.chat_has_token;
   const aura = $("#aura-form");
   fillForm(aura, view.aura);
   aura.elements.password.value = "";
@@ -143,6 +148,25 @@ async function testForm(resultId, busy, run) {
   } catch (err) {
     setResult(resultId, "err", String(err));
   }
+}
+
+// [UI-138]
+function chatValues(forget) {
+  const v = formValues($("#chat-settings-form"));
+  return {
+    chat: {
+      channel: v.channel.trim(),
+      bot_login: v.bot_login.trim(),
+      autoconnect: v.autoconnect,
+      announce: v.announce,
+      cmd_np: v.cmd_np,
+      cmd_request: v.cmd_request,
+      cmd_sfx: v.cmd_sfx,
+      request_limit: Math.max(1, Number(v.request_limit) || 2),
+    },
+    token: forget ? null : v.token || null,
+    forgetToken: forget,
+  };
 }
 
 function auraValues() {
@@ -255,6 +279,11 @@ export function init() {
     e.preventDefault();
     saveForm("#aura-result", () => invoke("save_aura", auraValues()));
   });
+  $("#chat-settings-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveForm("#chat-result", () => invoke("save_chat", chatValues(false)));
+  });
+  $("#chat-forget").addEventListener("click", () => saveForm("#chat-result", () => invoke("save_chat", chatValues(true))));
   $("#aura-test").addEventListener("click", () => testForm("#aura-result", "Connexion à OBS…", () => invoke("test_aura", auraValues())));
   $("#audio-form").addEventListener("submit", (e) => {
     e.preventDefault();

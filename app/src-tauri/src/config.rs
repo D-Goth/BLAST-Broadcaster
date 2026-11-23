@@ -153,6 +153,35 @@ impl Default for UpdateSettings {
     }
 }
 
+// [CFG-17]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ChatSettings {
+    pub channel: String,
+    pub bot_login: String,
+    pub autoconnect: bool,
+    pub announce: bool,
+    pub cmd_np: bool,
+    pub cmd_request: bool,
+    pub cmd_sfx: bool,
+    pub request_limit: u32,
+}
+
+impl Default for ChatSettings {
+    fn default() -> Self {
+        Self {
+            channel: String::new(),
+            bot_login: String::new(),
+            autoconnect: false,
+            announce: false,
+            cmd_np: true,
+            cmd_request: true,
+            cmd_sfx: false,
+            request_limit: 2,
+        }
+    }
+}
+
 // [CFG-08]
 // [CFG-14]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -253,6 +282,7 @@ pub struct AppConfig {
     pub library: LibrarySettings,
     pub rotation: blast_library::Rotation,
     pub icecast: IcecastSettings,
+    pub chat: ChatSettings,
 }
 
 // [CFG-09]

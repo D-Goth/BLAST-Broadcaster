@@ -573,3 +573,102 @@ fn m3u_programs_and_categories_drive_the_clock() {
         .iter()
         .any(|m| m.contains("Émission « Spécial » terminée")));
 }
+
+fn chat_msg(login: &str, text: &str) -> blast_live::ChatEvent {
+    blast_live::ChatEvent::Message(blast_live::ChatMessage {
+        id: format!("{login}-{text}"),
+        platform: blast_live::Platform::Twitch,
+        author: login.to_uppercase(),
+        login: login.into(),
+        color: String::new(),
+        badges: Vec::new(),
+        text: text.into(),
+        action: false,
+        own: false,
+        at_ms: 0,
+    })
+}
+
+#[test]
+fn chat_requests_wait_for_approval() {
+    let mut h = Harness::new("chat");
+    let mut tracks = Vec::new();
+    for (artist, title) in [
+        ("D-Goth", "Void Relay"),
+        ("D-Goth", "Orokin Dawn"),
+        ("Black-Lab", "Nightfall"),
+    ] {
+        let path = h.wav(&format!("{artist} - {title}.wav"));
+        tracks.push(blast_library::LibraryTrack {
+            path: path.to_string_lossy().into_owned(),
+            title: title.into(),
+            artist: artist.into(),
+            genre: String::new(),
+            year: None,
+            bpm: None,
+            duration: Some(0.5),
+            kind: Kind::Morceau,
+            play_count: 0,
+            last_played: None,
+        });
+    }
+    h.c.rot.index = tracks
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (t.path.clone(), i))
+        .collect();
+    h.c.rot.tracks = tracks;
+    let g = 0;
+
+    h.c.on_chat(g, chat_msg("viewer", "!request d-goth void"));
+    h.c.on_chat(g, chat_msg("viewer", "!sr orokin"));
+    h.c.on_chat(g, chat_msg("viewer", "!request nightfall"));
+    h.c.on_chat(g, chat_msg("other", "!request metallica one"));
+    h.c.on_chat(g, chat_msg("other", "salut tout le monde"));
+    h.c.on_chat(g, chat_msg("other", "!np"));
+
+    let sent = h.c.chat.sent.clone();
+    assert!(
+        sent[0].contains("@VIEWER demande reçue : « D-Goth - Void Relay »"),
+        "{sent:?}"
+    );
+    assert!(sent[1].contains("« D-Goth - Orokin Dawn »"));
+    assert!(sent[2].contains("déjà 2 demande(s)"));
+    assert!(sent[3].contains("pas trouvé « metallica one »"));
+    assert!(sent[4].contains("rien à l'antenne"));
+    assert_eq!(sent.len(), 5);
+
+    let state = h.last(EV_CHAT_STATE);
+    let requests = state["requests"].as_array().unwrap();
+    assert_eq!(requests.len(), 3);
+    assert_eq!(requests[2]["path"], Value::Null);
+    let first = requests[0]["id"].as_u64().unwrap();
+    let missing = requests[2]["id"].as_u64().unwrap();
+
+    h.c.handle(UiCommand::RequestAccept { id: first });
+    let e = &h.c.playlist.entries()[0];
+    assert_eq!(e.title, "Void Relay");
+    assert!(e.slot.as_ref().unwrap().fixed);
+    assert_eq!(e.slot.as_ref().unwrap().name, "Demande");
+    assert!(h.c.chat.sent.last().unwrap().contains("passe bientôt"));
+    h.c.handle(UiCommand::RequestReject { id: missing });
+    assert_eq!(
+        h.last(EV_CHAT_STATE)["requests"].as_array().unwrap().len(),
+        1
+    );
+
+    assert_eq!(h.c.chat.history.len(), 6);
+    h.c.on_chat(
+        g,
+        blast_live::ChatEvent::Clear {
+            login: Some("other".into()),
+        },
+    );
+    assert_eq!(h.c.chat.history.len(), 3);
+    h.c.on_chat(g + 7, chat_msg("ghost", "ancien flux"));
+    assert_eq!(h.c.chat.history.len(), 3);
+
+    h.c.chat.settings.cmd_request = false;
+    h.c.on_chat(g, chat_msg("third", "!request nightfall"));
+    assert_eq!(h.c.chat.view.requests.len(), 1);
+}

@@ -138,6 +138,17 @@ pub enum UiCommand {
     },
     JingleStopAll,
     JingleRescan,
+    ChatConnect,
+    ChatDisconnect,
+    ChatSay {
+        text: String,
+    },
+    RequestAccept {
+        id: u64,
+    },
+    RequestReject {
+        id: u64,
+    },
     LibraryRescan,
     Obs(ObsAction),
     HistoryClear,

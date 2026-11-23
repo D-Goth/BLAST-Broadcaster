@@ -1,5 +1,6 @@
 mod automation;
 mod cast;
+mod chat;
 mod commands;
 mod decks;
 mod jingles;
@@ -37,6 +38,7 @@ pub use commands::{Deck, UiCommand};
 
 use automation::AutoState;
 use cast::CastState;
+use chat::ChatState;
 use decks::DeckSide;
 use jingles::JingleState;
 use obs::ObsState;
@@ -156,6 +158,7 @@ enum Work {
         index: usize,
         result: Result<Track, String>,
     },
+    Chat(u64, blast_live::ChatEvent),
 }
 
 // [CTL-06]
@@ -195,6 +198,9 @@ pub fn spawn(
                 library,
             );
             c.restore_queue(db_path.with_file_name("playlist.json"));
+            if c.chat.settings.autoconnect {
+                c.chat_connect();
+            }
             c.run()
         })
         .map_err(|e| format!("contrôleur : {e}"))?;
@@ -255,6 +261,7 @@ struct Controller {
     categories: CategorySettings,
     rot: RotationState,
     queue: QueueState,
+    chat: ChatState,
 }
 
 impl Controller {
@@ -300,6 +307,7 @@ impl Controller {
             categories: config.categories.clone(),
             rot: RotationState::new(config.rotation.clone(), &config.library),
             queue: QueueState::default(),
+            chat: ChatState::new(config.chat.clone()),
         };
         c.send(Command::SetMasterParams(master_preset(&c.master_preset)));
         if c.obs.settings.auto_connect {
@@ -409,6 +417,11 @@ impl Controller {
             UiCommand::JinglePlay { index } => self.jingle_play(index),
             UiCommand::JingleStopAll => self.jingle_stop_all(),
             UiCommand::JingleRescan => self.rescan_jingles(),
+            UiCommand::ChatConnect => self.chat_connect(),
+            UiCommand::ChatDisconnect => self.chat_disconnect(),
+            UiCommand::ChatSay { text } => self.chat_say(&text),
+            UiCommand::RequestAccept { id } => self.request_accept(id),
+            UiCommand::RequestReject { id } => self.request_reject(id),
             UiCommand::LibraryRescan => self.library_rescan(),
             UiCommand::Obs(action) => self.handle_obs(action),
             UiCommand::HistoryClear => self.history_clear(),
@@ -463,6 +476,8 @@ impl Controller {
         self.emit_library();
         self.emit_obs();
         self.emit_history();
+        self.emit_chat_state();
+        self.emit_chat_history();
         if let Some(w) = self.startup_warning.take() {
             self.notice("warn", w);
         }
@@ -487,6 +502,7 @@ impl Controller {
         }
         self.apply_rotation(cfg.rotation, &cfg.library);
         self.apply_outputs(cfg.outputs);
+        self.apply_chat(cfg.chat);
     }
 
     // [CTL-21]
@@ -520,6 +536,7 @@ impl Controller {
                 index,
                 result,
             } => self.on_jingle_decoded(generation, index, result),
+            Work::Chat(generation, e) => self.on_chat(generation, e),
         }
     }
 

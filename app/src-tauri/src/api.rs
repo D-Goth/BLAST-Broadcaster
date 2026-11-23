@@ -40,6 +40,8 @@ pub struct SettingsView {
     outputs: Vec<OutputView>,
     aura: AuraSettings,
     aura_has_password: bool,
+    chat: crate::config::ChatSettings,
+    chat_has_token: bool,
     audio: AudioSettings,
     automation: AutomationSettings,
     categories: CategorySettings,
@@ -75,6 +77,8 @@ impl App {
                 })
                 .collect(),
             aura_has_password: self.secrets.has(AURA_KEY),
+            chat_has_token: self.secrets.has(crate::secrets::CHAT_KEY),
+            chat: cfg.chat.clone(),
             aura: cfg.aura,
             audio: cfg.audio,
             automation: cfg.automation,
@@ -211,6 +215,25 @@ pub fn save_aura(
     }
     let warning = state.store_password(AURA_KEY, password);
     state.commit(move |cfg| cfg.aura = aura)?;
+    Ok(state.view(warning))
+}
+
+// [APP-45]
+#[tauri::command]
+pub fn save_chat(
+    state: tauri::State<'_, App>,
+    chat: crate::config::ChatSettings,
+    token: Option<String>,
+    forget_token: Option<bool>,
+) -> Result<SettingsView, String> {
+    if forget_token.unwrap_or(false) {
+        state.secrets.delete(crate::secrets::CHAT_KEY);
+    }
+    let warning = state.store_password(
+        crate::secrets::CHAT_KEY,
+        token.map(|t| t.trim().trim_start_matches("oauth:").to_string()),
+    );
+    state.commit(move |cfg| cfg.chat = chat)?;
     Ok(state.view(warning))
 }
 

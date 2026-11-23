@@ -17,6 +17,7 @@ tauri-build = { version = "2", features = [] }
 blast-core = { path = "../../crates/blast-core" }
 blast-cast = { path = "../../crates/blast-cast" }
 blast-aura = { path = "../../crates/blast-aura" }
+blast-live = { path = "../../crates/blast-live" }
 blast-library = { path = "../../crates/blast-library" }
 blast-ice = { path = "../../crates/blast-ice" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

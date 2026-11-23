@@ -8,7 +8,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 
 ![BLAST Broadcaster — thème Black-Lab](docs/img/interface-black-lab.png)
 
-> Statut : **piliers 1 et 3**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX, Sound FX (36 pads) pilotage d'OBS, historique de diffusion avec règles de séparation, traitement audio antenne et effets de voix. Historique typé (morceaux, jingles, pubs), box à jingles, verre dépoli et grilles horaires (pilier 2). Prochaine étape : chat (M8).
+> Statut : **piliers 1 et 3**. Deux platines avec bouton Suivant, crossfader, auto-mix, playlist, diffusion MP3 vers Icecast et Shoutcast, Voice FX, Sound FX (36 pads) pilotage d'OBS, historique de diffusion avec règles de séparation, traitement audio antenne et effets de voix. Historique typé (morceaux, jingles, pubs), box à jingles, verre dépoli, grilles horaires (pilier 2), serveur Icecast intégré et chat Twitch avec demandes des viewers (M8). Prochaine étape : chat YouTube et Kick.
 
 ## Fonctionnalités prévues
 
@@ -42,7 +42,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 | `blast-cast` | Encodeurs et envoi vers les serveurs de streaming |
 | `blast-library` | Bibliothèque musicale, file d'attente, automatisation |
 | `blast-aura` | Pilotage d'OBS Studio |
-| `blast-live` | Chat, commandes viewers, invités |
+| `blast-live` | Chat Twitch (IRC chiffré, lecture anonyme), commandes viewers |
 | `blast-ice` | Gestion d'un serveur Icecast : icecast.xml, statistiques, administration, lancement |
 | `blast-cli` | Outil `blast` en ligne de commande pour tester le moteur |
 | `app/src-tauri` | Application de bureau (Tauri) : contrôleur, playlist, thèmes |
@@ -134,6 +134,8 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 | Soundboard | 36 pads sur 3 pages ; clic ou **F1 à F12** pour jouer (re-clic = stop), **STOP** coupe tout ; glisser un fichier (ou un titre de la playlist) sur un pad pour l'assigner ; clic droit : choisir, renommer, vider |
 | Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |
 | Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut pour lancer ou arrêter la diffusion (durée et auditeurs s'y affichent) ; le **+** à côté ouvre le détail de chaque sortie |
+| Chat Twitch | **Réglages → Chat** : indique ta chaîne (lecture anonyme, sans compte), puis onglet **CHAT** à côté de la playlist → **Connecter**. Pour que BLAST réponde et écrive, ajoute un compte et son jeton (`twitch token -u -s "chat:read chat:edit"` avec Twitch CLI) |
+| Commandes viewers | `!np` répond avec le titre à l'antenne ; `!request Artiste - Titre` (ou `!sr`) cherche le titre dans la bibliothèque et l'ajoute aux **Demandes** à droite du chat : **Jouer ensuite** le met en tête de playlist, **Refuser** le retire ; `!sfx nom` lance le pad Sound FX du même nom (désactivé par défaut). Option : annoncer chaque nouveau titre dans le chat |
 | Serveur Icecast | **Réglages → Serveur Icecast** : ajoute ton Icecast local (détecté dans Program Files) ou un VPS. **Démarrer / Arrêter**, tableau de bord en direct (auditeurs, pic, sources, débit, graphique, mountpoints), **Configuration** et **Mountpoints** par formulaires (une sauvegarde de `icecast.xml` avant chaque écriture), **Auditeurs** avec déconnexion, **Journal**. **Diffuser BLAST ici** crée la sortie correspondante dans Réglages → Diffusion |
 | OBS | **Réglages → Aura / OBS** : adresse, port, mot de passe et source texte « Now Playing » ; puis onglet **AURA · OBS** (à côté de SOUND FX) ou bouton **OBS** de la barre du haut |
 | Pilotage OBS | STREAM, REC, PAUSE REC, REPLAY, SNAP (capture dans `~/Images/BLAST`), MUTE et volume d'une source audio, changement de scène ; minuteurs ▶ stream et ⏺ enregistrement dans la barre du haut |

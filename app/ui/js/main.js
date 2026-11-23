@@ -14,6 +14,7 @@ import * as jingles from "./jingles.js";
 import * as appearance from "./appearance.js";
 import * as rotation from "./rotation.js";
 import * as icecast from "./icecast.js";
+import * as chat from "./chat.js";
 
 // [UI-15]
 function tickClock() {
@@ -38,11 +39,14 @@ async function subscribe() {
   await listen("blast://jingles", (e) => jingles.setJingles(e.payload));
   await listen("blast://library", (e) => rotation.setLibrary(e.payload));
   await listen("blast://cast", (e) => cast.setCast(e.payload));
+  await listen("blast://chat-state", (e) => chat.setState(e.payload));
+  await listen("blast://chat-event", (e) => chat.onEvent(e.payload));
+  await listen("blast://chat-history", (e) => chat.setHistory(e.payload));
 }
 
 // [UI-17]
 async function start() {
-  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast]) m.init();
+  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast, chat]) m.init();
   $("#themes-folder").addEventListener("click", async () => {
     try {
       const dir = await invoke("themes_dir");

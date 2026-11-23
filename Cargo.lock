@@ -403,6 +403,7 @@ dependencies = [
  "blast-core",
  "blast-ice",
  "blast-library",
+ "blast-live",
  "chrono",
  "crossbeam-channel",
  "keyring",
@@ -483,6 +484,11 @@ dependencies = [
 [[package]]
 name = "blast-live"
 version = "0.1.0"
+dependencies = [
+ "rustls",
+ "rustls-platform-verifier",
+ "serde",
+]
 
 [[package]]
 name = "block-buffer"

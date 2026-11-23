@@ -101,6 +101,13 @@ se mélange donc sans reconstruire 40 000 lignes. Les motifs d'attente des règl
 [PL-18]). Les tags y sont gardés, la reprise ne relit donc aucun fichier audio. À la fermeture, `RunEvent::Exit`
 ([APP-44]) fait écrire la playlist tout de suite.
 
+**Chat** : `blast-live` se connecte à l'IRC de Twitch (`irc.chat.twitch.tv:6697`, TLS par rustls, certificat vérifié
+par le magasin du système). Sans compte, il se présente en `justinfan…` et ne fait que lire ; avec un compte et un jeton
+(trousseau, [SEC-08]), il peut écrire, au plus un message toutes les 1,6 s ([LIVE-09]). Le client tourne dans son propre
+fil et passe ses événements au contrôleur (`Work::Chat`), avec un numéro de connexion qui fait ignorer les restes d'une
+connexion fermée ([CTL-171]). Le contrôleur traite les commandes ([CTL-179]) et garde la file des demandes ([CTL-180]).
+L'IRC reste ouvert en lecture anonyme ; EventSub, que Twitch recommande pour les bots, demanderait un compte même pour lire.
+
 **Journal** : `blast.log` dans le dossier de données (`~/.local/share/fr.black-lab.blast/logs` sous Linux,
 `%LOCALAPPDATA%\fr.black-lab.blast\logs` sous Windows). Avertissements et erreurs affichés à l'utilisateur
 y sont recopiés, ainsi que les erreurs qui n'ont pas besoin de l'interrompre (statistiques, bibliothèque).
