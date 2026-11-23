@@ -6,7 +6,10 @@ const KEEP = 300;
 const BADGES = { broadcaster: ["B", "Diffuseur"], moderator: ["M", "Modérateur"], vip: ["V", "VIP"], subscriber: ["S", "Abonné"] };
 const PALETTE = ["#FF6B6B", "#4DABF7", "#69DB7C", "#FFD43B", "#DA77F2", "#FF922B", "#3BC9DB", "#F783AC"];
 
-let view = { channel: "", connected: false, writable: false, active: false, detail: "", requests: [] };
+const PLATFORMS = { twitch: ["TW", "#9146FF"], youtube: ["YT", "#FF0000"], tiktok: ["TT", "#25F4EE"], kick: ["K", "#53FC18"], facebook: ["FB", "#1877F2"] };
+const IDLE = { enabled: false, running: false, connected: false, writable: false, detail: "" };
+
+let view = { channel: "", active: false, twitch: { ...IDLE }, ssn: { ...IDLE }, requests: [] };
 let items = [];
 let unread = 0;
 let visible = false;
@@ -39,6 +42,15 @@ function row(e) {
   time.className = "chat-time";
   time.textContent = hhmm(e.at_ms);
   el.appendChild(time);
+  if (view.ssn.enabled && e.source) {
+    const p = PLATFORMS[e.source] || [e.source.slice(0, 2).toUpperCase(), "#666"];
+    const chip = document.createElement("span");
+    chip.className = "chat-platform";
+    chip.textContent = p[0];
+    chip.title = e.source;
+    chip.style.background = p[1];
+    el.appendChild(chip);
+  }
   for (const b of e.badges || []) {
     const def = BADGES[b];
     if (!def) continue;
@@ -57,6 +69,13 @@ function row(e) {
   text.className = "chat-text" + (/^\s*!\w/.test(e.text) ? " cmd" : "");
   text.textContent = e.text;
   el.appendChild(text);
+  if (e.donation) {
+    const d = document.createElement("span");
+    d.className = "chat-donation";
+    d.textContent = e.donation;
+    el.appendChild(d);
+    el.classList.add("donation");
+  }
   return el;
 }
 
@@ -103,7 +122,7 @@ function renderRequests() {
     card.className = "chat-req" + (r.path ? "" : " missing");
     const head = document.createElement("div");
     head.className = "chat-req-user";
-    head.textContent = `${r.user} · ${hhmm(r.at_ms)}`;
+    head.textContent = `${r.user}${view.ssn.enabled && r.platform ? ` (${r.platform})` : ""} · ${hhmm(r.at_ms)}`;
     const song = document.createElement("div");
     song.className = "chat-req-song";
     song.textContent = r.path ? (r.artist ? `${r.artist} - ${r.title}` : r.title) : `Introuvable : « ${r.query} »`;
@@ -126,20 +145,30 @@ function renderRequests() {
 }
 
 // [UI-137]
+function sourceLabel(name, v) {
+  if (!v.running) return null;
+  if (v.connected) return name + (v.writable ? "" : " · lecture seule");
+  return `${name} · ${v.detail || "connexion…"}`;
+}
+
 function renderStatus() {
-  const dot = $("#chat-dot");
-  dot.className = "dot " + (view.connected ? "live" : view.active ? "connecting" : "");
-  const channel = view.channel ? `#${view.channel}` : "Twitch";
-  $("#chat-status").textContent = view.connected ? `${channel}${view.writable ? "" : " · lecture seule"}` : view.active ? `${channel} · ${view.detail}` : channel;
-  $("#chat-status").title = view.detail || "";
+  const tw = view.twitch;
+  const ssn = view.ssn;
+  const any = tw.connected || ssn.connected;
+  const pending = (tw.running && !tw.connected) || (ssn.running && !ssn.connected);
+  $("#chat-dot").className = "dot " + (any && !pending ? "live" : view.active ? "connecting" : "");
+  const parts = [sourceLabel(view.channel ? `#${view.channel}` : "Twitch", tw), sourceLabel("Social Stream Ninja", ssn)].filter(Boolean);
+  const idle = [tw.enabled ? (view.channel ? `#${view.channel}` : "Twitch") : null, ssn.enabled ? "Social Stream Ninja" : null].filter(Boolean).join(" + ") || "Aucune source";
+  $("#chat-status").textContent = view.active ? parts.join("  |  ") : idle;
+  $("#chat-status").title = [tw.detail, ssn.detail].filter(Boolean).join(" — ");
   const btn = $("#chat-connect");
   btn.textContent = view.active ? "Déconnecter" : "Connecter";
   btn.classList.toggle("accent", !view.active);
   const input = $("#chat-input");
-  const can = view.connected && view.writable;
+  const can = (tw.connected && tw.writable) || ssn.connected;
   input.disabled = !can;
   $("#chat-send").disabled = !can;
-  input.placeholder = can ? "Écrire dans le chat…" : view.connected ? "Lecture seule : ajoute un compte et un jeton dans Réglages → Chat" : "Chat déconnecté";
+  input.placeholder = can ? "Écrire dans le chat…" : any ? "Lecture seule : ajoute un compte et un jeton Twitch, ou Social Stream Ninja, dans Réglages → Chat" : "Chat déconnecté";
 }
 
 export function setState(v) {
@@ -175,7 +204,7 @@ export function init() {
       renderUnread();
       const log = $("#chat-log");
       log.scrollTop = log.scrollHeight;
-      if (!view.active && !view.channel) toast("info", "Indique ta chaîne Twitch dans Réglages → Chat, puis Connecter.");
+      if (!view.active && !view.twitch.enabled && !view.ssn.enabled) toast("info", "Choisis une source de chat dans Réglages → Chat, puis Connecter.");
     }
   });
   $("#chat-connect").addEventListener("click", () => send({ type: view.active ? "chat_disconnect" : "chat_connect" }));

@@ -42,6 +42,7 @@ pub struct SettingsView {
     aura_has_password: bool,
     chat: crate::config::ChatSettings,
     chat_has_token: bool,
+    ssn_has_session: bool,
     audio: AudioSettings,
     automation: AutomationSettings,
     categories: CategorySettings,
@@ -78,6 +79,7 @@ impl App {
                 .collect(),
             aura_has_password: self.secrets.has(AURA_KEY),
             chat_has_token: self.secrets.has(crate::secrets::CHAT_KEY),
+            ssn_has_session: self.secrets.has(crate::secrets::SSN_KEY),
             chat: cfg.chat.clone(),
             aura: cfg.aura,
             audio: cfg.audio,
@@ -225,14 +227,25 @@ pub fn save_chat(
     chat: crate::config::ChatSettings,
     token: Option<String>,
     forget_token: Option<bool>,
+    ssn_session: Option<String>,
 ) -> Result<SettingsView, String> {
     if forget_token.unwrap_or(false) {
         state.secrets.delete(crate::secrets::CHAT_KEY);
     }
-    let warning = state.store_password(
+    let mut warning = state.store_password(
         crate::secrets::CHAT_KEY,
         token.map(|t| t.trim().trim_start_matches("oauth:").to_string()),
     );
+    let session = ssn_session.map(|s| blast_live::ssn::session_id(&s));
+    if let Some(w) = state.store_password(crate::secrets::SSN_KEY, session) {
+        warning = Some(w);
+    }
+    if chat.ssn_enabled && !state.secrets.has(crate::secrets::SSN_KEY) {
+        return Err(
+            "Colle ton identifiant de session Social Stream Ninja pour activer cette source."
+                .into(),
+        );
+    }
     state.commit(move |cfg| cfg.chat = chat)?;
     Ok(state.view(warning))
 }

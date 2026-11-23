@@ -1,8 +1,10 @@
 use serde::Serialize;
 
 pub mod irc;
+pub mod ssn;
 pub mod twitch;
 
+pub use ssn::{SsnClient, SsnConfig};
 pub use twitch::{TwitchClient, TwitchConfig};
 
 // [LIVE-01]
@@ -12,6 +14,22 @@ pub enum Platform {
     Twitch,
     YouTube,
     Kick,
+    TikTok,
+    Facebook,
+    Other,
+}
+
+impl Platform {
+    pub fn from_type(kind: &str) -> Self {
+        match kind.trim().to_ascii_lowercase().as_str() {
+            "twitch" => Platform::Twitch,
+            "youtube" | "youtubeshorts" => Platform::YouTube,
+            "kick" => Platform::Kick,
+            "tiktok" => Platform::TikTok,
+            "facebook" => Platform::Facebook,
+            _ => Platform::Other,
+        }
+    }
 }
 
 // [LIVE-02]
@@ -19,6 +37,7 @@ pub enum Platform {
 pub struct ChatMessage {
     pub id: String,
     pub platform: Platform,
+    pub source: String,
     pub author: String,
     pub login: String,
     pub color: String,
@@ -26,6 +45,7 @@ pub struct ChatMessage {
     pub text: String,
     pub action: bool,
     pub own: bool,
+    pub donation: String,
     pub at_ms: u64,
 }
 

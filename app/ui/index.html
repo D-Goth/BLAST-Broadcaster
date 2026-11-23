@@ -431,17 +431,23 @@
       <!-- [HTM-39] -->
       <section class="tab-page hidden" data-page="chat">
         <form class="form" id="chat-settings-form" autocomplete="off">
-          <p class="muted">Chat Twitch dans l'onglet <b>CHAT</b> à côté de la playlist. La lecture est anonyme : seule la chaîne est nécessaire. Pour que BLAST réponde aux commandes et écrive dans le chat, ajoute un compte (ta chaîne ou un compte bot) et son jeton.</p>
+          <p class="muted">Le chat s'affiche dans l'onglet <b>CHAT</b> à côté de la playlist. Active une ou plusieurs sources : les commandes des viewers et la file des demandes fonctionnent pareil pour toutes.</p>
+          <div class="form-section">Twitch direct</div>
           <div class="grid2">
+            <label class="check span2"><input name="twitch_enabled" type="checkbox"> Lire le chat Twitch directement, sans intermédiaire (lecture anonyme)</label>
             <label>Chaîne Twitch<input name="channel" placeholder="nom de la chaîne ou lien twitch.tv/…"></label>
-            <label class="check"><input name="autoconnect" type="checkbox"> Se connecter au chat au démarrage de BLAST</label>
-          </div>
-          <div class="form-section">Écriture (facultatif)</div>
-          <div class="grid2">
-            <label>Compte qui écrit<input name="bot_login" placeholder="identifiant Twitch du compte"></label>
+            <span></span>
+            <label>Compte qui écrit (facultatif)<input name="bot_login" placeholder="identifiant Twitch du compte"></label>
             <label>Jeton OAuth<input name="token" type="password" placeholder="jeton avec les droits chat:read et chat:edit"></label>
           </div>
-          <p class="muted">Le jeton est rangé dans le trousseau du système, jamais dans les réglages. Pour l'obtenir avec l'outil officiel Twitch CLI : <code>twitch token -u -s "chat:read chat:edit"</code>, connecté avec le compte qui écrit.</p>
+          <p class="muted">Pour que BLAST réponde et écrive sur Twitch, il faut un compte et son jeton, rangé dans le trousseau du système. Avec l'outil officiel Twitch CLI : <code>twitch token -u -s "chat:read chat:edit"</code>, connecté avec le compte qui écrit.</p>
+          <div class="form-section">Social Stream Ninja (YouTube, TikTok, Kick, Facebook…)</div>
+          <div class="grid2">
+            <label class="check span2"><input name="ssn_enabled" type="checkbox"> Recevoir les chats regroupés par Social Stream Ninja</label>
+            <label class="span2">Identifiant de session<input name="ssn_session" type="password" placeholder="identifiant ou lien du dock (…dock.html?session=…)"></label>
+          </div>
+          <p class="muted">Social Stream Ninja (gratuit, extension ou application) lit les chats de dizaines de plateformes. Dans ses réglages, active <b>Enable remote API control of extension</b> et <b>Send chat messages to API server</b>, puis colle ici l'identifiant de session (ou le lien de ton dock). Si Twitch direct est aussi actif, les messages Twitch reçus par Social Stream Ninja sont ignorés pour éviter les doublons. Les réponses de BLAST repartent sur la plateforme du viewer.</p>
+          <label class="check"><input name="autoconnect" type="checkbox"> Se connecter aux sources au démarrage de BLAST</label>
           <div class="form-section">Commandes des viewers</div>
           <div class="grid2">
             <label class="check"><input name="cmd_np" type="checkbox"> <code>!np</code> : répondre avec le titre en cours</label>

@@ -488,6 +488,8 @@ dependencies = [
  "rustls",
  "rustls-platform-verifier",
  "serde",
+ "serde_json",
+ "tungstenite",
 ]
 
 [[package]]

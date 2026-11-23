@@ -627,11 +627,11 @@ definition = "Produit l'historique au format CSV avec le type et des dates lisib
 
 [codes.LIVE-01]
 titre = "Plateforme de chat"
-definition = "Twitch, YouTube ou Kick."
+definition = "Twitch, YouTube, Kick, TikTok, Facebook ou autre, déduite du type indiqué par la source."
 
 [codes.LIVE-02]
 titre = "Message de chat"
-definition = "Identifiant, plateforme, nom affiché et identifiant de connexion, couleur, badges, texte, action (/me), message de BLAST lui-même, heure d'envoi."
+definition = "Identifiant, plateforme et type d'origine, nom affiché et identifiant du viewer, couleur, badges, texte, action (/me), message de BLAST lui-même, don (bits, montant) et heure."
 
 [codes.LIVE-03]
 titre = "Commande de chat"
@@ -3065,15 +3065,15 @@ definition = "Messages gardés en mémoire, délais entre deux !np et deux !sfx,
 
 [codes.CTL-169]
 titre = "Demande de titre"
-definition = "Viewer, recherche tapée, titre trouvé dans la bibliothèque (ou rien) et heure."
+definition = "Viewer, plateforme et source par laquelle répondre, recherche tapée, titre trouvé dans la bibliothèque (ou rien) et heure."
 
 [codes.CTL-170]
 titre = "Vue du chat"
-definition = "Chaîne, connexion, écriture possible, connexion demandée, détail et demandes en attente."
+definition = "Chaîne Twitch, connexion demandée, état de chaque source (Twitch direct, Social Stream Ninja) et demandes en attente."
 
 [codes.CTL-171]
 titre = "État du chat"
-definition = "Réglages, client Twitch, vue, derniers messages, numéro de connexion pour ignorer les événements d'une connexion fermée, délais des commandes."
+definition = "Réglages, clients des deux sources, vue, derniers messages, plateformes vues par Social Stream Ninja, numéros de connexion pour ignorer les événements d'une connexion fermée, délais des commandes."
 
 [codes.CTL-172]
 titre = "Texte comparable"
@@ -3085,23 +3085,23 @@ definition = "Chaque mot de la demande doit commencer un mot de « artiste titre
 
 [codes.CTL-174]
 titre = "Application des réglages du chat"
-definition = "Garde les nouveaux réglages et reconnecte si la chaîne ou le compte a changé."
+definition = "Garde les nouveaux réglages et reconnecte si la chaîne, le compte ou les sources actives ont changé."
 
 [codes.CTL-175]
 titre = "Connexion au chat"
-definition = "Ferme la connexion précédente et lance le client Twitch, avec le jeton du trousseau si un compte est indiqué."
+definition = "Ferme les connexions précédentes et lance chaque source activée : Twitch direct (avec le jeton du trousseau si un compte est indiqué) et Social Stream Ninja (avec l'identifiant de session du trousseau)."
 
 [codes.CTL-176]
 titre = "Déconnexion du chat"
-definition = "Arrête le client et publie l'état déconnecté."
+definition = "Arrête les sources et publie l'état déconnecté."
 
 [codes.CTL-177]
-titre = "Envoi dans le chat"
-definition = "Envoie un message par le client Twitch."
+titre = "Réponse à un viewer"
+definition = "Répond par la source d'où vient le message, sur la plateforme du viewer ; si Twitch direct ne peut pas écrire, passe par Social Stream Ninja."
 
 [codes.CTL-178]
 titre = "Événement de chat reçu"
-definition = "Met à jour l'état, l'historique (effacements compris), relaie l'événement à l'interface et traite les commandes des viewers."
+definition = "Met à jour l'état de la source, ignore les messages Twitch relayés par Social Stream Ninja quand Twitch direct est actif, tient l'historique, relaie l'événement à l'interface et traite les commandes."
 
 [codes.CTL-179]
 titre = "Commandes des viewers"
@@ -3121,7 +3121,7 @@ definition = "Retire la demande de la file."
 
 [codes.CTL-183]
 titre = "Annonce du titre"
-definition = "Écrit « En cours : … » dans le chat à chaque nouveau morceau si l'option est active."
+definition = "Diffuse « En cours : … » sur toutes les plateformes à chaque nouveau morceau si l'option est active."
 
 [codes.CTL-184]
 titre = "Publication du chat"
@@ -3129,11 +3129,11 @@ definition = "Envoie à l'interface l'état du chat et, au démarrage de l'inter
 
 [codes.APP-45]
 titre = "Enregistrement du chat"
-definition = "Enregistre les réglages du chat ; le jeton va au trousseau, sans le préfixe oauth:, ou en est retiré."
+definition = "Enregistre les réglages du chat ; le jeton Twitch et l'identifiant de session Social Stream Ninja vont au trousseau ; refuse d'activer Social Stream Ninja sans identifiant."
 
 [codes.CFG-17]
 titre = "Réglages du chat"
-definition = "Chaîne, compte qui écrit, connexion au démarrage, annonce des titres, commandes actives et limite de demandes par viewer."
+definition = "Sources actives (Twitch direct, Social Stream Ninja), chaîne, compte qui écrit, connexion au démarrage, annonce des titres, commandes actives et limite de demandes par viewer."
 
 [codes.SEC-08]
 titre = "Clé du jeton Twitch"
@@ -3145,11 +3145,11 @@ definition = "Messages, champ d'envoi et file des demandes, à côté de la play
 
 [codes.HTM-39]
 titre = "Réglages du chat"
-definition = "Chaîne, connexion au démarrage, compte et jeton, commandes des viewers."
+definition = "Sources (Twitch direct : chaîne, compte, jeton ; Social Stream Ninja : identifiant de session), connexion au démarrage, commandes des viewers."
 
 [codes.STY-20]
 titre = "Chat"
-definition = "Pastille de messages non lus, état, messages, badges, annonces, champ d'envoi et cartes de demandes."
+definition = "Pastille de messages non lus, état, messages, plateformes, badges, dons, annonces, champ d'envoi et cartes de demandes."
 
 [codes.UI-133]
 titre = "Affichage du chat"
@@ -3161,7 +3161,7 @@ definition = "Couleur choisie sur Twitch, sinon une couleur stable tirée de son
 
 [codes.UI-135]
 titre = "Ligne du chat"
-definition = "Heure, badges, nom en couleur et texte ; commandes surlignées, actions en italique, annonces encadrées."
+definition = "Heure, plateforme (si Social Stream Ninja est actif), badges, nom en couleur et texte ; commandes surlignées, actions en italique, dons et annonces encadrés."
 
 [codes.UI-136]
 titre = "File des demandes"
@@ -3169,8 +3169,72 @@ definition = "Cartes des demandes : viewer, heure, titre trouvé ou recherche in
 
 [codes.UI-137]
 titre = "État du chat"
-definition = "Pastille et texte d'état, bouton Connecter/Déconnecter, champ d'envoi actif seulement si l'écriture est possible."
+definition = "Pastille et état de chaque source, bouton Connecter/Déconnecter, champ d'envoi actif si au moins une source peut écrire."
 
 [codes.UI-138]
 titre = "Valeurs du chat"
 definition = "Lit le formulaire des réglages du chat, avec le jeton saisi ou l'oubli du jeton."
+
+[codes.CTL-185]
+titre = "Source de chat"
+definition = "Twitch direct ou Social Stream Ninja ; chaque événement reçu indique sa source."
+
+[codes.CTL-186]
+titre = "État d'une source"
+definition = "Activée, lancée, connectée, écriture possible et détail."
+
+[codes.CTL-187]
+titre = "Message à tout le chat"
+definition = "Envoie un message sur toutes les plateformes, une seule fois chacune : Twitch par Twitch direct s'il peut écrire, les autres plateformes vues par Social Stream Ninja une par une, ou toutes d'un coup sans Twitch direct."
+
+[codes.LIVE-19]
+titre = "Connexion chiffrée"
+definition = "Configuration rustls avec vérification du certificat par le magasin du système, partagée par les clients Twitch et Social Stream Ninja."
+
+[codes.LIVE-20]
+titre = "Rythmes du client Social Stream Ninja"
+definition = "Pause de la boucle, ping toutes les 30 s, attente maximale entre deux essais, canal des messages de chat (4) et canal des commandes (1)."
+
+[codes.LIVE-21]
+titre = "Réglages de connexion Social Stream Ninja"
+definition = "Identifiant de session, serveur, port et chiffrement ; adresse /join/SESSION/4/1."
+
+[codes.LIVE-22]
+titre = "Identifiant de session"
+definition = "Accepte l'identifiant seul ou un lien contenant session=… et renvoie l'identifiant."
+
+[codes.LIVE-23]
+titre = "Flux réseau"
+definition = "Connexion en clair (tests) ou chiffrée, lue et écrite par le WebSocket."
+
+[codes.LIVE-24]
+titre = "Ouverture du WebSocket"
+definition = "Connexion, chiffrement, poignée de main WebSocket bloquante avec délai, puis passage en mode non bloquant."
+
+[codes.LIVE-25]
+titre = "Texte sans HTML"
+definition = "Retire les balises d'un message, remplace les émoticônes par leur texte alternatif et décode les entités."
+
+[codes.LIVE-26]
+titre = "Message Social Stream Ninja"
+definition = "Convertit l'objet JSON reçu (chatname, chatmessage, type, nameColor, moderator, membership, hasDonation, event…) en message ou en annonce."
+
+[codes.LIVE-27]
+titre = "Commande d'envoi"
+definition = "Construit {action: sendChat, value, target} pour écrire sur une plateforme, ou sur toutes sans target."
+
+[codes.LIVE-28]
+titre = "Session Social Stream Ninja"
+definition = "Lit les messages, envoie les commandes en attente, ping régulier ; un envoi qui bloquerait est gardé en file."
+
+[codes.LIVE-29]
+titre = "Boucle de connexion Social Stream Ninja"
+definition = "Enchaîne les sessions avec une attente croissante (1 à 30 s)."
+
+[codes.LIVE-30]
+titre = "Client Social Stream Ninja"
+definition = "Fil de connexion, file des messages à envoyer avec leur plateforme et arrêt propre."
+
+[codes.SEC-09]
+titre = "Clé de la session Social Stream Ninja"
+definition = "Nom de l'entrée du trousseau qui garde l'identifiant de session : il permet d'écrire dans tes chats, il est donc traité comme un secret."

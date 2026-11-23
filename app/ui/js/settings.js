@@ -103,6 +103,8 @@ function applySettings(view, keepSelection = true) {
   const chatForm = $("#chat-settings-form");
   fillForm(chatForm, view.chat);
   chatForm.elements.token.value = "";
+  chatForm.elements.ssn_session.value = "";
+  chatForm.elements.ssn_session.placeholder = view.ssn_has_session ? "•••••• enregistré" : "identifiant ou lien du dock (…dock.html?session=…)";
   chatForm.elements.token.placeholder = view.chat_has_token ? "•••••• enregistré" : "jeton avec les droits chat:read et chat:edit";
   $("#chat-forget").disabled = !view.chat_has_token;
   const aura = $("#aura-form");
@@ -155,6 +157,8 @@ function chatValues(forget) {
   const v = formValues($("#chat-settings-form"));
   return {
     chat: {
+      twitch_enabled: v.twitch_enabled,
+      ssn_enabled: v.ssn_enabled,
       channel: v.channel.trim(),
       bot_login: v.bot_login.trim(),
       autoconnect: v.autoconnect,
@@ -166,6 +170,7 @@ function chatValues(forget) {
     },
     token: forget ? null : v.token || null,
     forgetToken: forget,
+    ssnSession: v.ssn_session.trim() || null,
   };
 }
 

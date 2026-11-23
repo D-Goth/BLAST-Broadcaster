@@ -57,11 +57,27 @@ pub fn normalize_channel(input: &str) -> String {
         .to_lowercase()
 }
 
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+// [LIVE-19]
+pub(crate) fn tls_connection(host: &str) -> io::Result<rustls::ClientConnection> {
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let verifier =
+        rustls_platform_verifier::Verifier::new(provider.clone()).map_err(io::Error::other)?;
+    let config = rustls::ClientConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .map_err(io::Error::other)?
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(verifier))
+        .with_no_client_auth();
+    let name =
+        rustls::pki_types::ServerName::try_from(host.to_string()).map_err(io::Error::other)?;
+    rustls::ClientConnection::new(Arc::new(config), name).map_err(io::Error::other)
 }
 
 // [LIVE-12]
@@ -82,20 +98,7 @@ impl Transport {
         if !cfg.tls {
             return Ok(Transport::Plain(sock));
         }
-        let provider = Arc::new(rustls::crypto::ring::default_provider());
-        let verifier =
-            rustls_platform_verifier::Verifier::new(provider.clone()).map_err(io::Error::other)?;
-        let config = rustls::ClientConfig::builder_with_provider(provider)
-            .with_safe_default_protocol_versions()
-            .map_err(io::Error::other)?
-            .dangerous()
-            .with_custom_certificate_verifier(Arc::new(verifier))
-            .with_no_client_auth();
-        let name =
-            rustls::pki_types::ServerName::try_from(cfg.host.clone()).map_err(io::Error::other)?;
-        let conn =
-            rustls::ClientConnection::new(Arc::new(config), name).map_err(io::Error::other)?;
-        Ok(Transport::Tls(Box::new(conn), sock))
+        Ok(Transport::Tls(Box::new(tls_connection(&cfg.host)?), sock))
     }
 
     fn read_into(&mut self, buf: &mut Vec<u8>) -> io::Result<bool> {
@@ -225,9 +228,11 @@ fn to_message(m: &IrcMessage) -> ChatMessage {
     };
     let login = m.nick().to_string();
     let display = m.tag("display-name");
+    let bits = m.tag("bits");
     ChatMessage {
         id: m.tag("id").to_string(),
         platform: Platform::Twitch,
+        source: "twitch".into(),
         author: if display.is_empty() {
             login.clone()
         } else {
@@ -239,6 +244,11 @@ fn to_message(m: &IrcMessage) -> ChatMessage {
         text,
         action,
         own: false,
+        donation: if bits.is_empty() {
+            String::new()
+        } else {
+            format!("{bits} bits")
+        },
         at_ms: m.tag("tmi-sent-ts").parse().unwrap_or_else(|_| now_ms()),
     }
 }
@@ -372,6 +382,7 @@ fn session(
             emit(ChatEvent::Message(ChatMessage {
                 id: format!("own-{}", now_ms()),
                 platform: Platform::Twitch,
+                source: "twitch".into(),
                 author: me.name.clone(),
                 login: cfg.login.clone(),
                 color: me.color.clone(),
@@ -379,6 +390,7 @@ fn session(
                 text,
                 action: false,
                 own: true,
+                donation: String::new(),
                 at_ms: now_ms(),
             }));
         }

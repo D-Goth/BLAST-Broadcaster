@@ -107,6 +107,12 @@ par le magasin du système). Sans compte, il se présente en `justinfan…` et n
 fil et passe ses événements au contrôleur (`Work::Chat`), avec un numéro de connexion qui fait ignorer les restes d'une
 connexion fermée ([CTL-171]). Le contrôleur traite les commandes ([CTL-179]) et garde la file des demandes ([CTL-180]).
 L'IRC reste ouvert en lecture anonyme ; EventSub, que Twitch recommande pour les bots, demanderait un compte même pour lire.
+Les autres plateformes passent par Social Stream Ninja (`ssn.rs`) : un WebSocket vers
+`wss://io.socialstream.ninja/join/SESSION/4/1` reçoit les messages (canal 4) et envoie `sendChat` (canal 1), avec
+`target` pour viser une plateforme ([LIVE-27]). Les deux sources sont interchangeables : le contrôleur ne voit que des
+`ChatEvent` étiquetés par leur source ([CTL-185]). Une réponse repart par la source et sur la plateforme du viewer
+([CTL-177]) ; les messages Twitch relayés par SSN sont ignorés quand Twitch direct est actif, pour éviter les doublons.
+Si SSN disparaissait, Twitch direct continuerait de fonctionner, et une autre source pourrait prendre sa place.
 
 **Journal** : `blast.log` dans le dossier de données (`~/.local/share/fr.black-lab.blast/logs` sous Linux,
 `%LOCALAPPDATA%\fr.black-lab.blast\logs` sous Windows). Avertissements et erreurs affichés à l'utilisateur

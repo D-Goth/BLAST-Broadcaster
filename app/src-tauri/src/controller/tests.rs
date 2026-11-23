@@ -578,6 +578,7 @@ fn chat_msg(login: &str, text: &str) -> blast_live::ChatEvent {
     blast_live::ChatEvent::Message(blast_live::ChatMessage {
         id: format!("{login}-{text}"),
         platform: blast_live::Platform::Twitch,
+        source: "twitch".into(),
         author: login.to_uppercase(),
         login: login.into(),
         color: String::new(),
@@ -585,6 +586,7 @@ fn chat_msg(login: &str, text: &str) -> blast_live::ChatEvent {
         text: text.into(),
         action: false,
         own: false,
+        donation: String::new(),
         at_ms: 0,
     })
 }
@@ -620,12 +622,32 @@ fn chat_requests_wait_for_approval() {
     h.c.rot.tracks = tracks;
     let g = 0;
 
-    h.c.on_chat(g, chat_msg("viewer", "!request d-goth void"));
-    h.c.on_chat(g, chat_msg("viewer", "!sr orokin"));
-    h.c.on_chat(g, chat_msg("viewer", "!request nightfall"));
-    h.c.on_chat(g, chat_msg("other", "!request metallica one"));
-    h.c.on_chat(g, chat_msg("other", "salut tout le monde"));
-    h.c.on_chat(g, chat_msg("other", "!np"));
+    h.c.on_chat(
+        chat::ChatSource::Twitch,
+        g,
+        chat_msg("viewer", "!request d-goth void"),
+    );
+    h.c.on_chat(
+        chat::ChatSource::Twitch,
+        g,
+        chat_msg("viewer", "!sr orokin"),
+    );
+    h.c.on_chat(
+        chat::ChatSource::Twitch,
+        g,
+        chat_msg("viewer", "!request nightfall"),
+    );
+    h.c.on_chat(
+        chat::ChatSource::Twitch,
+        g,
+        chat_msg("other", "!request metallica one"),
+    );
+    h.c.on_chat(
+        chat::ChatSource::Twitch,
+        g,
+        chat_msg("other", "salut tout le monde"),
+    );
+    h.c.on_chat(chat::ChatSource::Twitch, g, chat_msg("other", "!np"));
 
     let sent = h.c.chat.sent.clone();
     assert!(
@@ -659,16 +681,91 @@ fn chat_requests_wait_for_approval() {
 
     assert_eq!(h.c.chat.history.len(), 6);
     h.c.on_chat(
+        chat::ChatSource::Twitch,
         g,
         blast_live::ChatEvent::Clear {
             login: Some("other".into()),
         },
     );
     assert_eq!(h.c.chat.history.len(), 3);
-    h.c.on_chat(g + 7, chat_msg("ghost", "ancien flux"));
+    h.c.on_chat(
+        chat::ChatSource::Twitch,
+        g + 7,
+        chat_msg("ghost", "ancien flux"),
+    );
     assert_eq!(h.c.chat.history.len(), 3);
 
     h.c.chat.settings.cmd_request = false;
-    h.c.on_chat(g, chat_msg("third", "!request nightfall"));
+    h.c.on_chat(
+        chat::ChatSource::Twitch,
+        g,
+        chat_msg("third", "!request nightfall"),
+    );
     assert_eq!(h.c.chat.view.requests.len(), 1);
+}
+
+#[test]
+fn ssn_replies_go_back_to_their_platform() {
+    let mut h = Harness::new("chat-ssn");
+    let path = h.wav("Void Relay.wav");
+    h.c.rot.tracks = vec![blast_library::LibraryTrack {
+        path: path.to_string_lossy().into_owned(),
+        title: "Void Relay".into(),
+        artist: "D-Goth".into(),
+        genre: String::new(),
+        year: None,
+        bpm: None,
+        duration: Some(0.5),
+        kind: Kind::Morceau,
+        play_count: 0,
+        last_played: None,
+    }];
+    let ssn = chat::ChatSource::Ssn;
+    h.c.chat.view.ssn.running = true;
+    let tiktok = blast_live::ssn::parse_message(
+        r#"{"chatname":"Lina","chatmessage":"!request void relay","type":"tiktok"}"#,
+    )
+    .unwrap();
+    let yt = blast_live::ssn::parse_message(
+        r#"{"chatname":"Max","chatmessage":"salut","type":"youtube"}"#,
+    )
+    .unwrap();
+    h.c.on_chat(ssn, 0, tiktok);
+    h.c.on_chat(ssn, 0, yt);
+    assert_eq!(
+        h.c.chat.sent,
+        vec!["[tiktok] @Lina demande reçue : « D-Goth - Void Relay » (en attente de validation)"]
+    );
+    let id = h.c.chat.view.requests[0].id;
+    h.c.handle(UiCommand::RequestAccept { id });
+    assert!(h.c.chat.sent[1].starts_with("[tiktok] @Lina ta demande"));
+    h.c.handle(UiCommand::ChatSay {
+        text: "Bonsoir à tous".into(),
+    });
+    assert_eq!(h.c.chat.sent[2], "[*] Bonsoir à tous");
+    h.c.chat.view.twitch.running = true;
+    h.c.chat.view.twitch.writable = true;
+    let dup = blast_live::ssn::parse_message(
+        r#"{"chatname":"Twi","chatmessage":"doublon","type":"twitch"}"#,
+    )
+    .unwrap();
+    h.c.on_chat(ssn, 0, dup);
+    assert_eq!(h.c.chat.history.len(), 2);
+    h.c.handle(UiCommand::ChatSay { text: "Re".into() });
+    assert_eq!(&h.c.chat.sent[3..], ["Re", "[tiktok] Re", "[youtube] Re"]);
+    h.c.chat.view.twitch.writable = false;
+    h.c.handle(UiCommand::ChatSay { text: "Lu".into() });
+    assert_eq!(
+        &h.c.chat.sent[6..],
+        ["[tiktok] Lu", "[youtube] Lu", "[twitch] Lu"]
+    );
+    h.c.on_chat(chat::ChatSource::Twitch, 0, chat_msg("anon", "!np"));
+    assert!(h.c.chat.sent.last().unwrap().starts_with("[twitch] @ANON"));
+    h.c.on_chat(
+        ssn,
+        5,
+        blast_live::ssn::parse_message(r#"{"chatname":"Old","chatmessage":"x","type":"kick"}"#)
+            .unwrap(),
+    );
+    assert_eq!(h.c.chat.history.len(), 3);
 }

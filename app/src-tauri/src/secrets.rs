@@ -28,6 +28,9 @@ pub const AURA_KEY: &str = "aura";
 // [SEC-08]
 pub const CHAT_KEY: &str = "twitch";
 
+// [SEC-09]
+pub const SSN_KEY: &str = "ssn";
+
 // [SEC-07]
 pub fn ice_key(id: &str) -> String {
     format!("icecast:{id}")

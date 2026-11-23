@@ -158,7 +158,7 @@ enum Work {
         index: usize,
         result: Result<Track, String>,
     },
-    Chat(u64, blast_live::ChatEvent),
+    Chat(chat::ChatSource, u64, blast_live::ChatEvent),
 }
 
 // [CTL-06]
@@ -419,7 +419,7 @@ impl Controller {
             UiCommand::JingleRescan => self.rescan_jingles(),
             UiCommand::ChatConnect => self.chat_connect(),
             UiCommand::ChatDisconnect => self.chat_disconnect(),
-            UiCommand::ChatSay { text } => self.chat_say(&text),
+            UiCommand::ChatSay { text } => self.chat_broadcast(&text),
             UiCommand::RequestAccept { id } => self.request_accept(id),
             UiCommand::RequestReject { id } => self.request_reject(id),
             UiCommand::LibraryRescan => self.library_rescan(),
@@ -536,7 +536,7 @@ impl Controller {
                 index,
                 result,
             } => self.on_jingle_decoded(generation, index, result),
-            Work::Chat(generation, e) => self.on_chat(generation, e),
+            Work::Chat(source, generation, e) => self.on_chat(source, generation, e),
         }
     }
 

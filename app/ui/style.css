@@ -412,6 +412,9 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
 .chat-badge.vip { background: #E005B9; }
 .chat-badge.subscriber { background: #9146FF; }
 .chat-text.cmd { color: var(--accent); font-weight: 600; }
+.chat-platform { display: inline-block; min-width: 18px; padding: 0 3px; height: 15px; line-height: 15px; margin-right: 4px; border-radius: 3px; text-align: center; font-size: 9px; font-weight: 800; color: #fff; vertical-align: 1px; text-shadow: 0 0 2px rgba(0, 0, 0, .6); }
+.chat-row.donation { margin: 3px 0; padding: 3px 8px; border-radius: 4px; background: rgba(255, 196, 0, .12); border-left: 3px solid #FFC400; }
+.chat-donation { margin-left: 8px; padding: 0 6px; border-radius: 3px; background: #FFC400; color: #1a1a1a; font-size: 11px; font-weight: 800; }
 .chat-empty { padding: 24px; text-align: center; }
 .chat-form { display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); }
 .chat-form input { flex: 1; min-width: 0; padding: 6px 10px; }

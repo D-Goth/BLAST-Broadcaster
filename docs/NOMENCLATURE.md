@@ -31,18 +31,18 @@ ne pas le modifier à la main.
 | [`PROT`](#prot) | Protocoles Icecast / Shoutcast et statistiques (blast-cast) | 23 |
 | [`AURA`](#aura) | Pilotage d'OBS par obs-websocket (blast-aura) | 21 |
 | [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 60 |
-| [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 18 |
+| [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 30 |
 | [`ICE`](#ice) | Serveur Icecast : configuration icecast.xml, statistiques, administration et processus (blast-ice) | 45 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
 | [`APP`](#app) | Démarrage de l'application et commandes Tauri | 45 |
 | [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 17 |
-| [`SEC`](#sec) | Mots de passe dans le trousseau du système | 8 |
+| [`SEC`](#sec) | Mots de passe dans le trousseau du système | 9 |
 | [`ICM`](#icm) | Gestion des serveurs Icecast côté application | 30 |
 | [`JRN`](#jrn) | Journal de diagnostic (blast.log) | 8 |
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
 | [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 174 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 177 |
 | [`UI`](#ui) | Interface : modules JavaScript | 137 |
 | [`STY`](#sty) | Interface : feuille de style | 20 |
 | [`HTM`](#htm) | Interface : structure de la page | 39 |
@@ -3477,9 +3477,9 @@ Chat en direct (blast-live, en préparation)
 
 ### [LIVE-01] Plateforme de chat
 
-Twitch, YouTube ou Kick.
+Twitch, YouTube, Kick, TikTok, Facebook ou autre, déduite du type indiqué par la source.
 
-`crates/blast-live/src/lib.rs` ligne 8
+`crates/blast-live/src/lib.rs` ligne 10
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -3488,20 +3488,24 @@ pub enum Platform {
     Twitch,
     YouTube,
     Kick,
+    TikTok,
+    Facebook,
+    Other,
 }
 ```
 
 ### [LIVE-02] Message de chat
 
-Identifiant, plateforme, nom affiché et identifiant de connexion, couleur, badges, texte, action (/me), message de BLAST lui-même, heure d'envoi.
+Identifiant, plateforme et type d'origine, nom affiché et identifiant du viewer, couleur, badges, texte, action (/me), message de BLAST lui-même, don (bits, montant) et heure.
 
-`crates/blast-live/src/lib.rs` ligne 17
+`crates/blast-live/src/lib.rs` ligne 35
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ChatMessage {
     pub id: String,
     pub platform: Platform,
+    pub source: String,
     pub author: String,
     pub login: String,
     pub color: String,
@@ -3509,7 +3513,6 @@ pub struct ChatMessage {
     pub text: String,
     pub action: bool,
     pub own: bool,
-    pub at_ms: u64,
 …
 ```
 
@@ -3517,7 +3520,7 @@ pub struct ChatMessage {
 
 Demande de titre, titre en cours ou déclenchement d'un son.
 
-`crates/blast-live/src/lib.rs` ligne 53
+`crates/blast-live/src/lib.rs` ligne 73
 
 ```rust
 #[derive(Debug, Clone, PartialEq)]
@@ -3532,7 +3535,7 @@ pub enum ChatCommand {
 
 Reconnaît !request (ou !sr), !np (ou !song) et !sfx dans un message.
 
-`crates/blast-live/src/lib.rs` ligne 61
+`crates/blast-live/src/lib.rs` ligne 81
 
 ```rust
 pub fn parse_command(text: &str) -> Option<ChatCommand> {
@@ -3554,7 +3557,7 @@ pub fn parse_command(text: &str) -> Option<ChatCommand> {
 
 État de connexion (connecté, écriture possible, détail), message, annonce (abonnement, raid…), effacement des messages d'un viewer ou de tout le chat, suppression d'un message.
 
-`crates/blast-live/src/lib.rs` ligne 32
+`crates/blast-live/src/lib.rs` ligne 52
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -3685,7 +3688,7 @@ pub fn normalize_channel(input: &str) -> String {
 
 Connexion TCP non bloquante, chiffrée par rustls (certificat vérifié par le magasin du système) ou en clair pour les tests.
 
-`crates/blast-live/src/twitch.rs` ligne 67
+`crates/blast-live/src/twitch.rs` ligne 83
 
 ```rust
 enum Transport {
@@ -3698,7 +3701,7 @@ enum Transport {
 
 Arrêt demandé, reconnexion demandée par Twitch, connexion perdue ou refus définitif (jeton refusé).
 
-`crates/blast-live/src/twitch.rs` ligne 192
+`crates/blast-live/src/twitch.rs` ligne 195
 
 ```rust
 enum End {
@@ -3713,7 +3716,7 @@ enum End {
 
 Noms des badges d'un message (broadcaster, moderator, vip, subscriber…).
 
-`crates/blast-live/src/twitch.rs` ligne 207
+`crates/blast-live/src/twitch.rs` ligne 210
 
 ```rust
 fn badges(tag: &str) -> Vec<String> {
@@ -3729,7 +3732,7 @@ fn badges(tag: &str) -> Vec<String> {
 
 Convertit un PRIVMSG en message de chat, avec le nom affiché, la couleur, les badges et les actions /me.
 
-`crates/blast-live/src/twitch.rs` ligne 216
+`crates/blast-live/src/twitch.rs` ligne 219
 
 ```rust
 fn to_message(m: &IrcMessage) -> ChatMessage {
@@ -3743,7 +3746,7 @@ fn to_message(m: &IrcMessage) -> ChatMessage {
     };
     let login = m.nick().to_string();
     let display = m.tag("display-name");
-    ChatMessage {
+    let bits = m.tag("bits");
 …
 ```
 
@@ -3751,7 +3754,7 @@ fn to_message(m: &IrcMessage) -> ChatMessage {
 
 Identification (anonyme justinfan ou compte + jeton), rejoint la chaîne, répond aux PING, traduit les messages, envoie la file d'attente au rythme autorisé et renvoie localement les messages envoyés.
 
-`crates/blast-live/src/twitch.rs` ligne 246
+`crates/blast-live/src/twitch.rs` ligne 256
 
 ```rust
 fn session(
@@ -3773,7 +3776,7 @@ fn session(
 
 Enchaîne les sessions avec une attente croissante (1 à 30 s) ; s'arrête sur un jeton refusé.
 
-`crates/blast-live/src/twitch.rs` ligne 399
+`crates/blast-live/src/twitch.rs` ligne 411
 
 ```rust
 fn run(
@@ -3795,7 +3798,7 @@ fn run(
 
 Fil de connexion, file des messages à envoyer et arrêt propre.
 
-`crates/blast-live/src/twitch.rs` ligne 450
+`crates/blast-live/src/twitch.rs` ligne 462
 
 ```rust
 pub struct TwitchClient {
@@ -3803,6 +3806,228 @@ pub struct TwitchClient {
     stop: Arc<AtomicBool>,
     handle: Option<JoinHandle<()>>,
     pub config: TwitchConfig,
+}
+```
+
+### [LIVE-19] Connexion chiffrée
+
+Configuration rustls avec vérification du certificat par le magasin du système, partagée par les clients Twitch et Social Stream Ninja.
+
+`crates/blast-live/src/twitch.rs` ligne 67
+
+```rust
+pub(crate) fn tls_connection(host: &str) -> io::Result<rustls::ClientConnection> {
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let verifier =
+        rustls_platform_verifier::Verifier::new(provider.clone()).map_err(io::Error::other)?;
+    let config = rustls::ClientConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .map_err(io::Error::other)?
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(verifier))
+        .with_no_client_auth();
+    let name =
+        rustls::pki_types::ServerName::try_from(host.to_string()).map_err(io::Error::other)?;
+…
+```
+
+### [LIVE-20] Rythmes du client Social Stream Ninja
+
+Pause de la boucle, ping toutes les 30 s, attente maximale entre deux essais, canal des messages de chat (4) et canal des commandes (1).
+
+`crates/blast-live/src/ssn.rs` ligne 15
+
+```rust
+const IDLE: Duration = Duration::from_millis(15);
+```
+
+### [LIVE-21] Réglages de connexion Social Stream Ninja
+
+Identifiant de session, serveur, port et chiffrement ; adresse /join/SESSION/4/1.
+
+`crates/blast-live/src/ssn.rs` ligne 22
+
+```rust
+#[derive(Debug, Clone, PartialEq)]
+pub struct SsnConfig {
+    pub session: String,
+    pub host: String,
+    pub port: u16,
+    pub tls: bool,
+}
+```
+
+### [LIVE-22] Identifiant de session
+
+Accepte l'identifiant seul ou un lien contenant session=… et renvoie l'identifiant.
+
+`crates/blast-live/src/ssn.rs` ligne 52
+
+```rust
+pub fn session_id(input: &str) -> String {
+    let s = input.trim();
+    let from_query = s
+        .split(['?', '&'])
+        .find_map(|p| p.strip_prefix("session=").or_else(|| p.strip_prefix("s=")));
+    from_query
+        .unwrap_or(s)
+        .split(['&', '#', '/', ' '])
+        .next()
+        .unwrap_or("")
+        .to_string()
+}
+```
+
+### [LIVE-23] Flux réseau
+
+Connexion en clair (tests) ou chiffrée, lue et écrite par le WebSocket.
+
+`crates/blast-live/src/ssn.rs` ligne 66
+
+```rust
+enum Stream {
+    Plain(TcpStream),
+    Tls(Box<rustls::StreamOwned<rustls::ClientConnection, TcpStream>>),
+}
+```
+
+### [LIVE-24] Ouverture du WebSocket
+
+Connexion, chiffrement, poignée de main WebSocket bloquante avec délai, puis passage en mode non bloquant.
+
+`crates/blast-live/src/ssn.rs` ligne 106
+
+```rust
+fn open(cfg: &SsnConfig) -> Result<WebSocket<Stream>, String> {
+    let addr = (cfg.host.as_str(), cfg.port)
+        .to_socket_addrs()
+        .map_err(|e| e.to_string())?
+        .next()
+        .ok_or("adresse introuvable")?;
+    let sock =
+        TcpStream::connect_timeout(&addr, Duration::from_secs(6)).map_err(|e| e.to_string())?;
+    sock.set_read_timeout(Some(Duration::from_secs(8)))
+        .map_err(|e| e.to_string())?;
+    sock.set_nodelay(true).map_err(|e| e.to_string())?;
+    let stream = if cfg.tls {
+…
+```
+
+### [LIVE-25] Texte sans HTML
+
+Retire les balises d'un message, remplace les émoticônes par leur texte alternatif et décode les entités.
+
+`crates/blast-live/src/ssn.rs` ligne 132
+
+```rust
+fn strip_html(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    while let Some(start) = rest.find('<') {
+        out.push_str(&rest[..start]);
+        let Some(end) = rest[start..].find('>') else {
+            out.push_str(&rest[start..]);
+            rest = "";
+            break;
+        };
+        let tag = &rest[start..start + end + 1];
+        if tag.to_ascii_lowercase().starts_with("<img") {
+…
+```
+
+### [LIVE-26] Message Social Stream Ninja
+
+Convertit l'objet JSON reçu (chatname, chatmessage, type, nameColor, moderator, membership, hasDonation, event…) en message ou en annonce.
+
+`crates/blast-live/src/ssn.rs` ligne 203
+
+```rust
+pub fn parse_message(json_text: &str) -> Option<ChatEvent> {
+    let v: Value = serde_json::from_str(json_text).ok()?;
+    let author = text_of(v.get("chatname")?);
+    let raw = text_of(&v["chatmessage"]);
+    let text = if truthy(&v["textonly"]) {
+        raw.trim().to_string()
+    } else {
+        strip_html(&raw)
+    };
+    let source = text_of(&v["type"]).to_ascii_lowercase();
+    if truthy(&v["event"]) {
+        let text = if text.is_empty() {
+…
+```
+
+### [LIVE-27] Commande d'envoi
+
+Construit {action: sendChat, value, target} pour écrire sur une plateforme, ou sur toutes sans target.
+
+`crates/blast-live/src/ssn.rs` ligne 258
+
+```rust
+pub fn send_command(text: &str, target: Option<&str>) -> String {
+    let mut cmd = json!({ "action": "sendChat", "value": text });
+    if let Some(t) = target.filter(|t| !t.is_empty()) {
+        cmd["target"] = Value::String(t.to_string());
+    }
+    cmd.to_string()
+}
+```
+
+### [LIVE-28] Session Social Stream Ninja
+
+Lit les messages, envoie les commandes en attente, ping régulier ; un envoi qui bloquerait est gardé en file.
+
+`crates/blast-live/src/ssn.rs` ligne 276
+
+```rust
+fn session(
+    cfg: &SsnConfig,
+    emit: &(dyn Fn(ChatEvent) + Send),
+    out: &Receiver<(String, Option<String>)>,
+    stop: &AtomicBool,
+) -> End {
+    let mut ws = match open(cfg) {
+        Ok(ws) => ws,
+        Err(e) => return End::Lost(format!("connexion impossible : {e}")),
+    };
+    emit(ChatEvent::Status {
+        connected: true,
+…
+```
+
+### [LIVE-29] Boucle de connexion Social Stream Ninja
+
+Enchaîne les sessions avec une attente croissante (1 à 30 s).
+
+`crates/blast-live/src/ssn.rs` ligne 343
+
+```rust
+fn run(
+    cfg: SsnConfig,
+    emit: Box<dyn Fn(ChatEvent) + Send>,
+    out: Receiver<(String, Option<String>)>,
+    stop: Arc<AtomicBool>,
+) {
+    let mut backoff = 1;
+    while !stop.load(Ordering::Relaxed) {
+        emit(ChatEvent::Status {
+            connected: false,
+            writable: false,
+            detail: "connexion à Social Stream Ninja…".into(),
+…
+```
+
+### [LIVE-30] Client Social Stream Ninja
+
+Fil de connexion, file des messages à envoyer avec leur plateforme et arrêt propre.
+
+`crates/blast-live/src/ssn.rs` ligne 381
+
+```rust
+pub struct SsnClient {
+    out: Sender<(String, Option<String>)>,
+    stop: Arc<AtomicBool>,
+    handle: Option<JoinHandle<()>>,
 }
 ```
 
@@ -5063,11 +5288,11 @@ pub struct SettingsView {
     aura_has_password: bool,
     chat: crate::config::ChatSettings,
     chat_has_token: bool,
+    ssn_has_session: bool,
     audio: AudioSettings,
     automation: AutomationSettings,
     categories: CategorySettings,
     jingles: JingleSettings,
-    library_dirs: Vec<PathBuf>,
 …
 ```
 
@@ -5075,7 +5300,7 @@ pub struct SettingsView {
 
 Construit la vue des réglages, enregistre une modification puis la transmet au contrôleur, range un mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 66
+`app/src-tauri/src/api.rs` ligne 67
 
 ```rust
 impl App {
@@ -5097,7 +5322,7 @@ impl App {
 
 Transmet une commande de l'interface au contrôleur.
 
-`app/src-tauri/src/api.rs` ligne 126
+`app/src-tauri/src/api.rs` ligne 128
 
 ```rust
 #[tauri::command]
@@ -5110,7 +5335,7 @@ pub fn blast(state: tauri::State<'_, App>, cmd: UiCommand) -> Result<(), String>
 
 Liste les thèmes intégrés et ceux de l'utilisateur.
 
-`app/src-tauri/src/api.rs` ligne 132
+`app/src-tauri/src/api.rs` ligne 134
 
 ```rust
 #[tauri::command]
@@ -5124,7 +5349,7 @@ pub fn themes(app: tauri::AppHandle) -> Vec<serde_json::Value> {
 
 Crée et renvoie le dossier des thèmes de l'utilisateur.
 
-`app/src-tauri/src/api.rs` ligne 139
+`app/src-tauri/src/api.rs` ligne 141
 
 ```rust
 #[tauri::command]
@@ -5139,7 +5364,7 @@ pub fn themes_dir(app: tauri::AppHandle) -> Option<String> {
 
 Renvoie la vue des réglages.
 
-`app/src-tauri/src/api.rs` ligne 147
+`app/src-tauri/src/api.rs` ligne 149
 
 ```rust
 #[tauri::command]
@@ -5152,7 +5377,7 @@ pub fn get_settings(state: tauri::State<'_, App>) -> SettingsView {
 
 Valide et enregistre une sortie, range son mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 153
+`app/src-tauri/src/api.rs` ligne 155
 
 ```rust
 #[tauri::command]
@@ -5174,7 +5399,7 @@ pub fn save_output(
 
 Supprime une sortie et son mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 179
+`app/src-tauri/src/api.rs` ligne 181
 
 ```rust
 #[tauri::command]
@@ -5189,7 +5414,7 @@ pub fn delete_output(state: tauri::State<'_, App>, id: String) -> Result<Setting
 
 Teste une sortie sans l'enregistrer.
 
-`app/src-tauri/src/api.rs` ligne 187
+`app/src-tauri/src/api.rs` ligne 189
 
 ```rust
 #[tauri::command]
@@ -5211,7 +5436,7 @@ pub async fn test_output(
 
 Enregistre les réglages OBS et leur mot de passe.
 
-`app/src-tauri/src/api.rs` ligne 206
+`app/src-tauri/src/api.rs` ligne 208
 
 ```rust
 #[tauri::command]
@@ -5233,7 +5458,7 @@ pub fn save_aura(
 
 Teste la connexion à OBS.
 
-`app/src-tauri/src/api.rs` ligne 240
+`app/src-tauri/src/api.rs` ligne 253
 
 ```rust
 #[tauri::command]
@@ -5255,7 +5480,7 @@ pub async fn test_aura(
 
 Enregistre la sortie audio, prise en compte au redémarrage.
 
-`app/src-tauri/src/api.rs` ligne 270
+`app/src-tauri/src/api.rs` ligne 283
 
 ```rust
 #[tauri::command]
@@ -5275,7 +5500,7 @@ pub fn save_audio(
 
 Enregistre les réglages de Voice FX en conservant le choix du micro.
 
-`app/src-tauri/src/api.rs` ligne 283
+`app/src-tauri/src/api.rs` ligne 296
 
 ```rust
 #[tauri::command]
@@ -5297,7 +5522,7 @@ pub fn save_voice(state: tauri::State<'_, App>, voice: VoiceSettings) -> Result<
 
 Enregistre le micro et son activation, pris en compte au redémarrage.
 
-`app/src-tauri/src/api.rs` ligne 300
+`app/src-tauri/src/api.rs` ligne 313
 
 ```rust
 #[tauri::command]
@@ -5319,7 +5544,7 @@ pub fn save_input(
 
 Affecte un son à un pad.
 
-`app/src-tauri/src/api.rs` ligne 317
+`app/src-tauri/src/api.rs` ligne 330
 
 ```rust
 #[tauri::command]
@@ -5341,7 +5566,7 @@ pub fn save_pad(state: tauri::State<'_, App>, pad: PadConfig) -> Result<(), Stri
 
 Vide un pad.
 
-`app/src-tauri/src/api.rs` ligne 341
+`app/src-tauri/src/api.rs` ligne 354
 
 ```rust
 #[tauri::command]
@@ -5354,7 +5579,7 @@ pub fn clear_pad(state: tauri::State<'_, App>, index: u16) -> Result<(), String>
 
 Enregistre le volume de la Sound FX.
 
-`app/src-tauri/src/api.rs` ligne 347
+`app/src-tauri/src/api.rs` ligne 360
 
 ```rust
 #[tauri::command]
@@ -5367,7 +5592,7 @@ pub fn save_sfx_volume(state: tauri::State<'_, App>, volume_db: f32) -> Result<(
 
 Choisit le préréglage du traitement antenne.
 
-`app/src-tauri/src/api.rs` ligne 353
+`app/src-tauri/src/api.rs` ligne 366
 
 ```rust
 #[tauri::command]
@@ -5386,7 +5611,7 @@ pub fn save_master_preset(state: tauri::State<'_, App>, preset: String) -> Resul
 
 Enregistre les règles de séparation et la durée de conservation.
 
-`app/src-tauri/src/api.rs` ligne 365
+`app/src-tauri/src/api.rs` ligne 378
 
 ```rust
 #[tauri::command]
@@ -5408,7 +5633,7 @@ pub fn save_automation(
 
 Exporte en CSV l'historique complet de la base, filtré par catégorie et par période.
 
-`app/src-tauri/src/api.rs` ligne 422
+`app/src-tauri/src/api.rs` ligne 435
 
 ```rust
 #[tauri::command]
@@ -5430,7 +5655,7 @@ pub fn export_history(
 
 Version, dépôt, journal, dossier de réglages et préférences de mise à jour.
 
-`app/src-tauri/src/api.rs` ligne 456
+`app/src-tauri/src/api.rs` ligne 469
 
 ```rust
 #[derive(Serialize)]
@@ -5449,7 +5674,7 @@ pub struct AppInfo {
 
 Renvoie les informations de l'onglet À propos.
 
-`app/src-tauri/src/api.rs` ligne 468
+`app/src-tauri/src/api.rs` ligne 481
 
 ```rust
 #[tauri::command]
@@ -5471,7 +5696,7 @@ pub fn app_info(state: tauri::State<'_, App>) -> AppInfo {
 
 Interroge GitHub ; au démarrage, ne signale que les versions plus récentes et non ignorées.
 
-`app/src-tauri/src/api.rs` ligne 487
+`app/src-tauri/src/api.rs` ligne 500
 
 ```rust
 #[tauri::command]
@@ -5493,7 +5718,7 @@ pub async fn check_update(
 
 Enregistre la vérification au démarrage et la version ignorée.
 
-`app/src-tauri/src/api.rs` ligne 522
+`app/src-tauri/src/api.rs` ligne 535
 
 ```rust
 #[tauri::command]
@@ -5515,7 +5740,7 @@ pub fn save_updates(
 
 Ouvre dans le navigateur un lien du dépôt GitHub, et seulement celui-ci.
 
-`app/src-tauri/src/api.rs` ligne 539
+`app/src-tauri/src/api.rs` ligne 552
 
 ```rust
 #[tauri::command]
@@ -5532,7 +5757,7 @@ pub fn open_link(url: String) -> Result<(), String> {
 
 Ouvre le dossier du journal ou des réglages.
 
-`app/src-tauri/src/api.rs` ligne 549
+`app/src-tauri/src/api.rs` ligne 562
 
 ```rust
 #[tauri::command]
@@ -5552,7 +5777,7 @@ pub fn open_folder(state: tauri::State<'_, App>, which: String) -> Result<(), St
 
 Enregistre les mots-clés de dossier des jingles et des pubs ; la playlist est reclassée aussitôt.
 
-`app/src-tauri/src/api.rs` ligne 380
+`app/src-tauri/src/api.rs` ligne 393
 
 ```rust
 #[tauri::command]
@@ -5574,7 +5799,7 @@ pub fn save_categories(
 
 Enregistre le dossier des jingles (vérifié) et leur volume.
 
-`app/src-tauri/src/api.rs` ligne 400
+`app/src-tauri/src/api.rs` ligne 413
 
 ```rust
 #[tauri::command]
@@ -5596,7 +5821,7 @@ pub fn save_jingles(
 
 JPEG, PNG, WebP et AVIF.
 
-`app/src-tauri/src/api.rs` ligne 562
+`app/src-tauri/src/api.rs` ligne 575
 
 ```rust
 const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
@@ -5606,7 +5831,7 @@ const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
 
 40 Mo.
 
-`app/src-tauri/src/api.rs` ligne 564
+`app/src-tauri/src/api.rs` ligne 577
 
 ```rust
 const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
@@ -5616,7 +5841,7 @@ const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
 
 Réglages du verre dépoli et chemin de l'image de fond copiée.
 
-`app/src-tauri/src/api.rs` ligne 567
+`app/src-tauri/src/api.rs` ligne 580
 
 ```rust
 #[derive(Serialize)]
@@ -5630,7 +5855,7 @@ pub struct AppearanceView {
 
 Lit les réglages et vérifie que l'image de fond existe encore ; gère le dossier de BLAST où l'image est copiée et le ménage des anciennes images.
 
-`app/src-tauri/src/api.rs` ligne 582
+`app/src-tauri/src/api.rs` ligne 595
 
 ```rust
 fn appearance_view(&self) -> AppearanceView {
@@ -5652,7 +5877,7 @@ fn appearance_view(&self) -> AppearanceView {
 
 Renvoie l'apparence au démarrage de l'interface.
 
-`app/src-tauri/src/api.rs` ligne 611
+`app/src-tauri/src/api.rs` ligne 624
 
 ```rust
 #[tauri::command]
@@ -5665,7 +5890,7 @@ pub fn get_appearance(state: tauri::State<'_, App>) -> AppearanceView {
 
 Enregistre activation, flou, opacité et assombrissement, bornés à des valeurs sûres.
 
-`app/src-tauri/src/api.rs` ligne 617
+`app/src-tauri/src/api.rs` ligne 630
 
 ```rust
 #[tauri::command]
@@ -5687,7 +5912,7 @@ pub fn save_appearance(
 
 Copie l'image choisie dans le dossier de BLAST sous un nom unique, active le verre et supprime l'image précédente.
 
-`app/src-tauri/src/api.rs` ligne 633
+`app/src-tauri/src/api.rs` ligne 646
 
 ```rust
 #[tauri::command]
@@ -5709,7 +5934,7 @@ pub fn set_background(
 
 Retire l'image de fond ; le verre s'affiche alors sur un dégradé du thème.
 
-`app/src-tauri/src/api.rs` ligne 661
+`app/src-tauri/src/api.rs` ligne 674
 
 ```rust
 #[tauri::command]
@@ -5724,7 +5949,7 @@ pub fn clear_background(state: tauri::State<'_, App>) -> Result<AppearanceView, 
 
 Enregistre les dossiers de la bibliothèque (vérifiés) ; le contrôleur les relit aussitôt.
 
-`app/src-tauri/src/api.rs` ligne 669
+`app/src-tauri/src/api.rs` ligne 682
 
 ```rust
 #[tauri::command]
@@ -5744,7 +5969,7 @@ pub fn save_library_dirs(
 
 Valide puis enregistre catégories, grilles, planning et grille hors planning.
 
-`app/src-tauri/src/api.rs` ligne 682
+`app/src-tauri/src/api.rs` ligne 695
 
 ```rust
 #[tauri::command]
@@ -5766,7 +5991,7 @@ pub fn save_rotation(
 
 Compte les titres de la bibliothèque qui correspondent à des règles de catégorie, pour l'aperçu en direct.
 
-`app/src-tauri/src/api.rs` ligne 697
+`app/src-tauri/src/api.rs` ligne 710
 
 ```rust
 #[tauri::command]
@@ -5808,9 +6033,9 @@ fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
 
 ### [APP-45] Enregistrement du chat
 
-Enregistre les réglages du chat ; le jeton va au trousseau, sans le préfixe oauth:, ou en est retiré.
+Enregistre les réglages du chat ; le jeton Twitch et l'identifiant de session Social Stream Ninja vont au trousseau ; refuse d'activer Social Stream Ninja sans identifiant.
 
-`app/src-tauri/src/api.rs` ligne 221
+`app/src-tauri/src/api.rs` ligne 223
 
 ```rust
 #[tauri::command]
@@ -5819,12 +6044,12 @@ pub fn save_chat(
     chat: crate::config::ChatSettings,
     token: Option<String>,
     forget_token: Option<bool>,
+    ssn_session: Option<String>,
 ) -> Result<SettingsView, String> {
     if forget_token.unwrap_or(false) {
         state.secrets.delete(crate::secrets::CHAT_KEY);
     }
-    let warning = state.store_password(
-        crate::secrets::CHAT_KEY,
+    let mut warning = state.store_password(
 …
 ```
 
@@ -5947,7 +6172,7 @@ pub struct UpdateSettings {
 
 Contenu de config.toml ; aucun mot de passe n'y figure.
 
-`app/src-tauri/src/config.rs` ligne 185
+`app/src-tauri/src/config.rs` ligne 189
 
 ```rust
 
@@ -5957,7 +6182,7 @@ Contenu de config.toml ; aucun mot de passe n'y figure.
 
 Lit config.toml ; un fichier illisible est mis de côté et remplacé par les valeurs par défaut.
 
-`app/src-tauri/src/config.rs` ligne 288
+`app/src-tauri/src/config.rs` ligne 292
 
 ```rust
 pub fn load(path: &Path) -> (AppConfig, Option<String>) {
@@ -5979,7 +6204,7 @@ pub fn load(path: &Path) -> (AppConfig, Option<String>) {
 
 Écrit config.toml via un fichier temporaire renommé, pour ne jamais laisser de fichier à moitié écrit.
 
-`app/src-tauri/src/config.rs` ligne 309
+`app/src-tauri/src/config.rs` ligne 313
 
 ```rust
 pub fn save(path: &Path, cfg: &AppConfig) -> Result<(), String> {
@@ -6027,7 +6252,7 @@ pub struct JingleSettings {
 
 Verre dépoli activé ou non, flou, opacité des panneaux, assombrissement du fond et image de fond.
 
-`app/src-tauri/src/config.rs` ligne 193
+`app/src-tauri/src/config.rs` ligne 197
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -6045,7 +6270,7 @@ pub struct AppearanceSettings {
 
 Dossiers de musique lus pour alimenter les grilles.
 
-`app/src-tauri/src/config.rs` ligne 186
+`app/src-tauri/src/config.rs` ligne 190
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -6059,7 +6284,7 @@ pub struct LibrarySettings {
 
 Nom, local ou distant, dossier d'installation, exécutable, fichier de configuration, adresse, port, HTTPS, identifiant admin, lancement au démarrage et arrêt à la fermeture. Le mot de passe admin est dans le trousseau.
 
-`app/src-tauri/src/config.rs` ligne 225
+`app/src-tauri/src/config.rs` ligne 229
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -6081,7 +6306,7 @@ pub struct IceServerProfile {
 
 Liste des profils de serveurs Icecast.
 
-`app/src-tauri/src/config.rs` ligne 262
+`app/src-tauri/src/config.rs` ligne 266
 
 ```rust
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -6093,7 +6318,7 @@ pub struct IcecastSettings {
 
 ### [CFG-17] Réglages du chat
 
-Chaîne, compte qui écrit, connexion au démarrage, annonce des titres, commandes actives et limite de demandes par viewer.
+Sources actives (Twitch direct, Social Stream Ninja), chaîne, compte qui écrit, connexion au démarrage, annonce des titres, commandes actives et limite de demandes par viewer.
 
 `app/src-tauri/src/config.rs` ligne 156
 
@@ -6101,6 +6326,8 @@ Chaîne, compte qui écrit, connexion au démarrage, annonce des titres, command
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ChatSettings {
+    pub twitch_enabled: bool,
+    pub ssn_enabled: bool,
     pub channel: String,
     pub bot_login: String,
     pub autoconnect: bool,
@@ -6108,8 +6335,7 @@ pub struct ChatSettings {
     pub cmd_np: bool,
     pub cmd_request: bool,
     pub cmd_sfx: bool,
-    pub request_limit: u32,
-}
+…
 ```
 
 
@@ -6180,7 +6406,7 @@ pub const AURA_KEY: &str = "aura";
 
 Lire, tester, écrire, supprimer et décrire le lieu de rangement.
 
-`app/src-tauri/src/secrets.rs` ligne 36
+`app/src-tauri/src/secrets.rs` ligne 39
 
 ```rust
 impl Secrets {
@@ -6202,7 +6428,7 @@ impl Secrets {
 
 Nom du mot de passe admin d'un serveur Icecast dans le trousseau.
 
-`app/src-tauri/src/secrets.rs` ligne 31
+`app/src-tauri/src/secrets.rs` ligne 34
 
 ```rust
 pub fn ice_key(id: &str) -> String {
@@ -6218,6 +6444,16 @@ Nom de l'entrée du trousseau qui garde le jeton du chat.
 
 ```rust
 pub const CHAT_KEY: &str = "twitch";
+```
+
+### [SEC-09] Clé de la session Social Stream Ninja
+
+Nom de l'entrée du trousseau qui garde l'identifiant de session : il permet d'écrire dans tes chats, il est donc traité comme un secret.
+
+`app/src-tauri/src/secrets.rs` ligne 31
+
+```rust
+pub const SSN_KEY: &str = "ssn";
 ```
 
 
@@ -10514,7 +10750,7 @@ fn fallback_next(&mut self, program: &str, pending: &[Entry]) -> Option<Entry> {
 
 Messages gardés en mémoire, délais entre deux !np et deux !sfx, étiquette et couleur des demandes acceptées.
 
-`app/src-tauri/src/controller/chat.rs` ligne 15
+`app/src-tauri/src/controller/chat.rs` ligne 18
 
 ```rust
 const KEEP: usize = 300;
@@ -10522,9 +10758,9 @@ const KEEP: usize = 300;
 
 ### [CTL-169] Demande de titre
 
-Viewer, recherche tapée, titre trouvé dans la bibliothèque (ou rien) et heure.
+Viewer, plateforme et source par laquelle répondre, recherche tapée, titre trouvé dans la bibliothèque (ou rien) et heure.
 
-`app/src-tauri/src/controller/chat.rs` ligne 22
+`app/src-tauri/src/controller/chat.rs` ligne 42
 
 ```rust
 #[derive(Debug, Clone, Serialize)]
@@ -10532,58 +10768,60 @@ pub struct SongRequest {
     pub id: u64,
     pub user: String,
     pub login: String,
+    pub platform: String,
+    pub via: ChatSource,
     pub query: String,
     pub path: Option<PathBuf>,
     pub artist: String,
     pub title: String,
     pub at_ms: u64,
-}
+…
 ```
 
 ### [CTL-170] Vue du chat
 
-Chaîne, connexion, écriture possible, connexion demandée, détail et demandes en attente.
+Chaîne Twitch, connexion demandée, état de chaque source (Twitch direct, Social Stream Ninja) et demandes en attente.
 
-`app/src-tauri/src/controller/chat.rs` ligne 35
+`app/src-tauri/src/controller/chat.rs` ligne 67
 
 ```rust
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct ChatView {
     pub channel: String,
-    pub connected: bool,
-    pub writable: bool,
     pub active: bool,
-    pub detail: String,
+    pub twitch: SourceView,
+    pub ssn: SourceView,
     pub requests: Vec<SongRequest>,
 }
 ```
 
 ### [CTL-171] État du chat
 
-Réglages, client Twitch, vue, derniers messages, numéro de connexion pour ignorer les événements d'une connexion fermée, délais des commandes.
+Réglages, clients des deux sources, vue, derniers messages, plateformes vues par Social Stream Ninja, numéros de connexion pour ignorer les événements d'une connexion fermée, délais des commandes.
 
-`app/src-tauri/src/controller/chat.rs` ligne 46
+`app/src-tauri/src/controller/chat.rs` ligne 77
 
 ```rust
 pub struct ChatState {
     pub settings: ChatSettings,
-    pub client: Option<TwitchClient>,
+    pub twitch: Option<TwitchClient>,
+    pub ssn: Option<SsnClient>,
     pub view: ChatView,
     pub history: VecDeque<ChatEvent>,
+    seen: BTreeSet<String>,
     next_request: u64,
-    generation: u64,
+    generation: [u64; 2],
     last_np: Option<Instant>,
     last_sfx: Option<Instant>,
     #[cfg(test)]
-    pub sent: Vec<String>,
-}
+…
 ```
 
 ### [CTL-172] Texte comparable
 
 Minuscules sans accents ni ponctuation, pour comparer une demande aux titres de la bibliothèque.
 
-`app/src-tauri/src/controller/chat.rs` ligne 80
+`app/src-tauri/src/controller/chat.rs` ligne 128
 
 ```rust
 fn fold(text: &str) -> String {
@@ -10605,7 +10843,7 @@ fn fold(text: &str) -> String {
 
 Chaque mot de la demande doit commencer un mot de « artiste titre » ; un titre ou un artiste exact donne des points ; seuls les morceaux comptent.
 
-`app/src-tauri/src/controller/chat.rs` ligne 101
+`app/src-tauri/src/controller/chat.rs` ligne 149
 
 ```rust
 pub fn find_track(tracks: &[LibraryTrack], query: &str) -> Option<usize> {
@@ -10625,93 +10863,93 @@ pub fn find_track(tracks: &[LibraryTrack], query: &str) -> Option<usize> {
 
 ### [CTL-174] Application des réglages du chat
 
-Garde les nouveaux réglages et reconnecte si la chaîne ou le compte a changé.
+Garde les nouveaux réglages et reconnecte si la chaîne, le compte ou les sources actives ont changé.
 
-`app/src-tauri/src/controller/chat.rs` ligne 146
+`app/src-tauri/src/controller/chat.rs` ligne 194
 
 ```rust
 pub(super) fn apply_chat(&mut self, settings: ChatSettings) {
     if settings == self.chat.settings {
         return;
     }
-    let reconnect = self.chat.client.is_some()
+    let reconnect = self.chat.view.active
         && (settings.channel != self.chat.settings.channel
-            || settings.bot_login != self.chat.settings.bot_login);
+            || settings.bot_login != self.chat.settings.bot_login
+            || settings.twitch_enabled != self.chat.settings.twitch_enabled
+            || settings.ssn_enabled != self.chat.settings.ssn_enabled);
     self.chat.settings = settings;
-    if !self.chat.view.active {
-        self.chat.view.channel =
-            blast_live::twitch::normalize_channel(&self.chat.settings.channel);
-    }
+    self.chat.sync_view();
+    if reconnect {
 …
 ```
 
 ### [CTL-175] Connexion au chat
 
-Ferme la connexion précédente et lance le client Twitch, avec le jeton du trousseau si un compte est indiqué.
+Ferme les connexions précédentes et lance chaque source activée : Twitch direct (avec le jeton du trousseau si un compte est indiqué) et Social Stream Ninja (avec l'identifiant de session du trousseau).
 
-`app/src-tauri/src/controller/chat.rs` ligne 166
+`app/src-tauri/src/controller/chat.rs` ligne 213
 
 ```rust
 pub(super) fn chat_connect(&mut self) {
-    self.chat_disconnect_quiet();
-    let token = if self.chat.settings.bot_login.trim().is_empty() {
-        String::new()
-    } else {
-        self.secrets.get(CHAT_KEY).unwrap_or_default()
-    };
-    let cfg = TwitchConfig::new(
-        &self.chat.settings.channel,
-        &self.chat.settings.bot_login,
-        &token,
-    );
+    self.chat_stop_clients();
+    let mut started = false;
+    if self.chat.settings.twitch_enabled {
+        let token = if self.chat.settings.bot_login.trim().is_empty() {
+            String::new()
+        } else {
+            self.secrets.get(CHAT_KEY).unwrap_or_default()
+        };
+        let cfg = TwitchConfig::new(
+            &self.chat.settings.channel,
+            &self.chat.settings.bot_login,
 …
 ```
 
 ### [CTL-176] Déconnexion du chat
 
-Arrête le client et publie l'état déconnecté.
+Arrête les sources et publie l'état déconnecté.
 
-`app/src-tauri/src/controller/chat.rs` ligne 204
+`app/src-tauri/src/controller/chat.rs` ligne 300
 
 ```rust
 pub(super) fn chat_disconnect(&mut self) {
-    self.chat_disconnect_quiet();
-    self.chat.view.active = false;
-    self.chat.view.connected = false;
-    self.chat.view.detail = "déconnecté".into();
+    self.chat_stop_clients();
+    self.chat.sync_view();
     self.emit_chat_state();
 }
 ```
 
-### [CTL-177] Envoi dans le chat
+### [CTL-177] Réponse à un viewer
 
-Envoie un message par le client Twitch.
+Répond par la source d'où vient le message, sur la plateforme du viewer ; si Twitch direct ne peut pas écrire, passe par Social Stream Ninja.
 
-`app/src-tauri/src/controller/chat.rs` ligne 213
+`app/src-tauri/src/controller/chat.rs` ligne 321
 
 ```rust
-pub(super) fn chat_say(&mut self, text: &str) {
-    let text = text.trim();
-    if text.is_empty() {
+fn chat_reply(&mut self, via: ChatSource, platform: &str, text: &str) {
+    let via =
+        if via == ChatSource::Twitch && !self.twitch_writable() && self.chat.view.ssn.running {
+            ChatSource::Ssn
+        } else {
+            via
+        };
+    if !self.source_ready(via) {
         return;
     }
-    #[cfg(test)]
-    self.chat.sent.push(text.to_string());
-    if let Some(c) = &self.chat.client {
-        c.say(text);
-    }
-}
+    match via {
+        ChatSource::Twitch => {
+…
 ```
 
 ### [CTL-178] Événement de chat reçu
 
-Met à jour l'état, l'historique (effacements compris), relaie l'événement à l'interface et traite les commandes des viewers.
+Met à jour l'état de la source, ignore les messages Twitch relayés par Social Stream Ninja quand Twitch direct est actif, tient l'historique, relaie l'événement à l'interface et traite les commandes.
 
-`app/src-tauri/src/controller/chat.rs` ligne 230
+`app/src-tauri/src/controller/chat.rs` ligne 394
 
 ```rust
-pub(super) fn on_chat(&mut self, generation: u64, e: ChatEvent) {
-    if generation != self.chat.generation {
+pub(super) fn on_chat(&mut self, from: ChatSource, generation: u64, e: ChatEvent) {
+    if generation != self.chat.generation[from.slot()] {
         return;
     }
     match &e {
@@ -10720,8 +10958,8 @@ pub(super) fn on_chat(&mut self, generation: u64, e: ChatEvent) {
             writable,
             detail,
         } => {
-            self.chat.view.connected = *connected;
-            self.chat.view.writable = *writable;
+            let v = self.chat.source_mut(from);
+            v.connected = *connected;
 …
 ```
 
@@ -10729,21 +10967,21 @@ pub(super) fn on_chat(&mut self, generation: u64, e: ChatEvent) {
 
 !np répond avec le titre à l'antenne (une fois toutes les 15 s), !request crée une demande, !sfx lance le pad du même nom (une fois toutes les 10 s), chacune selon les réglages.
 
-`app/src-tauri/src/controller/chat.rs` ligne 273
+`app/src-tauri/src/controller/chat.rs` ligne 447
 
 ```rust
-fn chat_command(&mut self, m: &ChatMessage) {
+fn chat_command(&mut self, m: &ChatMessage, from: ChatSource) {
     let Some(cmd) = parse_command(&m.text) else {
         return;
     };
     match cmd {
         ChatCommand::NowPlaying if self.chat.settings.cmd_np => {
-            if self.chat.last_np.is_some_and(|t| t.elapsed() < NP_COOLDOWN) || !self.can_reply()
-            {
+            if self.chat.last_np.is_some_and(|t| t.elapsed() < NP_COOLDOWN) {
                 return;
             }
             self.chat.last_np = Some(Instant::now());
             let song = self.now_playing();
+            let song = if song.is_empty() {
 …
 ```
 
@@ -10751,10 +10989,10 @@ fn chat_command(&mut self, m: &ChatMessage) {
 
 Applique la limite de demandes par viewer, cherche le titre, ajoute la demande à la file et répond au viewer.
 
-`app/src-tauri/src/controller/chat.rs` ligne 326
+`app/src-tauri/src/controller/chat.rs` ligne 499
 
 ```rust
-fn chat_request(&mut self, m: &ChatMessage, query: &str) {
+fn chat_request(&mut self, m: &ChatMessage, from: ChatSource, query: &str) {
     let pending = self
         .chat
         .view
@@ -10764,8 +11002,8 @@ fn chat_request(&mut self, m: &ChatMessage, query: &str) {
         .count() as u32;
     let limit = self.chat.settings.request_limit.max(1);
     if pending >= limit {
-        if self.can_reply() {
-            self.chat_say(&format!(
+        self.chat_reply(
+            from,
 …
 ```
 
@@ -10773,7 +11011,7 @@ fn chat_request(&mut self, m: &ChatMessage, query: &str) {
 
 Ajoute le titre en tête de playlist, étiqueté « Demande » et exempté des règles de séparation, puis prévient le viewer.
 
-`app/src-tauri/src/controller/chat.rs` ligne 376
+`app/src-tauri/src/controller/chat.rs` ligne 551
 
 ```rust
 pub(super) fn request_accept(&mut self, id: u64) {
@@ -10795,7 +11033,7 @@ pub(super) fn request_accept(&mut self, id: u64) {
 
 Retire la demande de la file.
 
-`app/src-tauri/src/controller/chat.rs` ligne 419
+`app/src-tauri/src/controller/chat.rs` ligne 593
 
 ```rust
 pub(super) fn request_reject(&mut self, id: u64) {
@@ -10806,14 +11044,14 @@ pub(super) fn request_reject(&mut self, id: u64) {
 
 ### [CTL-183] Annonce du titre
 
-Écrit « En cours : … » dans le chat à chaque nouveau morceau si l'option est active.
+Diffuse « En cours : … » sur toutes les plateformes à chaque nouveau morceau si l'option est active.
 
-`app/src-tauri/src/controller/chat.rs` ligne 425
+`app/src-tauri/src/controller/chat.rs` ligne 599
 
 ```rust
 pub(super) fn chat_announce(&mut self, song: &str) {
-    if self.chat.settings.announce && self.chat.client.is_some() && self.can_reply() {
-        self.chat_say(&format!("🎵 En cours : {song}"));
+    if self.chat.settings.announce && self.chat.view.active {
+        self.chat_broadcast(&format!("🎵 En cours : {song}"));
     }
 }
 ```
@@ -10822,7 +11060,7 @@ pub(super) fn chat_announce(&mut self, song: &str) {
 
 Envoie à l'interface l'état du chat et, au démarrage de l'interface, les derniers messages.
 
-`app/src-tauri/src/controller/chat.rs` ligne 432
+`app/src-tauri/src/controller/chat.rs` ligne 606
 
 ```rust
 pub(super) fn emit_chat_state(&self) {
@@ -10831,6 +11069,60 @@ pub(super) fn emit_chat_state(&self) {
         serde_json::to_value(&self.chat.view).unwrap_or_default(),
     );
 }
+```
+
+### [CTL-185] Source de chat
+
+Twitch direct ou Social Stream Ninja ; chaque événement reçu indique sa source.
+
+`app/src-tauri/src/controller/chat.rs` ligne 25
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChatSource {
+    Twitch,
+    Ssn,
+}
+```
+
+### [CTL-186] État d'une source
+
+Activée, lancée, connectée, écriture possible et détail.
+
+`app/src-tauri/src/controller/chat.rs` ligne 57
+
+```rust
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct SourceView {
+    pub enabled: bool,
+    pub running: bool,
+    pub connected: bool,
+    pub writable: bool,
+    pub detail: String,
+}
+```
+
+### [CTL-187] Message à tout le chat
+
+Envoie un message sur toutes les plateformes, une seule fois chacune : Twitch par Twitch direct s'il peut écrire, les autres plateformes vues par Social Stream Ninja une par une, ou toutes d'un coup sans Twitch direct.
+
+`app/src-tauri/src/controller/chat.rs` ligne 350
+
+```rust
+pub(super) fn chat_broadcast(&mut self, text: &str) {
+    let text = text.trim();
+    if text.is_empty() {
+        return;
+    }
+    let twitch_direct = self.twitch_writable();
+    if twitch_direct && self.source_ready(ChatSource::Twitch) {
+        #[cfg(test)]
+        self.chat.sent.push(text.to_string());
+        if let Some(c) = &self.chat.twitch {
+            c.say(text);
+        }
+…
 ```
 
 
@@ -11641,7 +11933,7 @@ function applySettings(view, keepSelection = true) {
 
 Enregistre, rafraîchit la vue et affiche le résultat.
 
-`app/ui/js/settings.js` ligne 132
+`app/ui/js/settings.js` ligne 134
 
 ```js
 async function saveForm(resultId, run) {
@@ -11659,7 +11951,7 @@ async function saveForm(resultId, run) {
 
 Affiche l'attente puis le résultat d'un test.
 
-`app/ui/js/settings.js` ligne 143
+`app/ui/js/settings.js` ligne 145
 
 ```js
 async function testForm(resultId, busy, run) {
@@ -11676,7 +11968,7 @@ async function testForm(resultId, busy, run) {
 
 Charge les réglages et ouvre la fenêtre, éventuellement sur un onglet.
 
-`app/ui/js/settings.js` ligne 197
+`app/ui/js/settings.js` ligne 202
 
 ```js
 export async function openSettings(tab) {
@@ -11695,7 +11987,7 @@ export async function openSettings(tab) {
 
 Affiche l'onglet choisi.
 
-`app/ui/js/settings.js` ligne 215
+`app/ui/js/settings.js` ligne 220
 
 ```js
 function showTab(tab) {
@@ -11710,7 +12002,7 @@ function showTab(tab) {
 
 Demande confirmation puis supprime.
 
-`app/ui/js/settings.js` ligne 223
+`app/ui/js/settings.js` ligne 228
 
 ```js
 async function deleteOutput() {
@@ -12297,7 +12589,7 @@ function openExportMenu(anchor) {
 
 Lit les mots-clés séparés par des virgules.
 
-`app/ui/js/settings.js` ligne 190
+`app/ui/js/settings.js` ligne 195
 
 ```js
 function categoryValues() {
@@ -13265,7 +13557,7 @@ const KEEP = 300;
 
 Couleur choisie sur Twitch, sinon une couleur stable tirée de son identifiant.
 
-`app/ui/js/chat.js` ligne 16
+`app/ui/js/chat.js` ligne 19
 
 ```js
 function colorOf(m) {
@@ -13278,9 +13570,9 @@ function colorOf(m) {
 
 ### [UI-135] Ligne du chat
 
-Heure, badges, nom en couleur et texte ; commandes surlignées, actions en italique, annonces encadrées.
+Heure, plateforme (si Social Stream Ninja est actif), badges, nom en couleur et texte ; commandes surlignées, actions en italique, dons et annonces encadrés.
 
-`app/ui/js/chat.js` ligne 28
+`app/ui/js/chat.js` ligne 31
 
 ```js
 function row(e) {
@@ -13302,7 +13594,7 @@ function row(e) {
 
 Cartes des demandes : viewer, heure, titre trouvé ou recherche introuvable, Jouer ensuite et Refuser.
 
-`app/ui/js/chat.js` ligne 92
+`app/ui/js/chat.js` ligne 111
 
 ```js
 function renderRequests() {
@@ -13322,45 +13614,37 @@ function renderRequests() {
 
 ### [UI-137] État du chat
 
-Pastille et texte d'état, bouton Connecter/Déconnecter, champ d'envoi actif seulement si l'écriture est possible.
+Pastille et état de chaque source, bouton Connecter/Déconnecter, champ d'envoi actif si au moins une source peut écrire.
 
-`app/ui/js/chat.js` ligne 128
+`app/ui/js/chat.js` ligne 147
 
 ```js
-function renderStatus() {
-  const dot = $("#chat-dot");
-  dot.className = "dot " + (view.connected ? "live" : view.active ? "connecting" : "");
-  const channel = view.channel ? `#${view.channel}` : "Twitch";
-  $("#chat-status").textContent = view.connected ? `${channel}${view.writable ? "" : " · lecture seule"}` : view.active ? `${channel} · ${view.detail}` : channel;
-  $("#chat-status").title = view.detail || "";
-  const btn = $("#chat-connect");
-  btn.textContent = view.active ? "Déconnecter" : "Connecter";
-  btn.classList.toggle("accent", !view.active);
-  const input = $("#chat-input");
-  const can = view.connected && view.writable;
-  input.disabled = !can;
-…
+function sourceLabel(name, v) {
+  if (!v.running) return null;
+  if (v.connected) return name + (v.writable ? "" : " · lecture seule");
+  return `${name} · ${v.detail || "connexion…"}`;
+}
 ```
 
 ### [UI-138] Valeurs du chat
 
 Lit le formulaire des réglages du chat, avec le jeton saisi ou l'oubli du jeton.
 
-`app/ui/js/settings.js` ligne 153
+`app/ui/js/settings.js` ligne 155
 
 ```js
 function chatValues(forget) {
   const v = formValues($("#chat-settings-form"));
   return {
     chat: {
+      twitch_enabled: v.twitch_enabled,
+      ssn_enabled: v.ssn_enabled,
       channel: v.channel.trim(),
       bot_login: v.bot_login.trim(),
       autoconnect: v.autoconnect,
       announce: v.announce,
       cmd_np: v.cmd_np,
       cmd_request: v.cmd_request,
-      cmd_sfx: v.cmd_sfx,
-      request_limit: Math.max(1, Number(v.request_limit) || 2),
 …
 ```
 
@@ -13500,7 +13784,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Étiquette qui suit le pointeur et curseur pendant le glisser.
 
-`app/ui/style.css` ligne 491
+`app/ui/style.css` ligne 494
 
 ```css
 .drag-ghost {
@@ -13522,7 +13806,7 @@ Onglets, lignes, titres en attente, marqueurs de dépôt et historique.
 
 Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
-`app/ui/style.css` ligne 510
+`app/ui/style.css` ligne 513
 
 ```css
 .fx { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -13532,7 +13816,7 @@ Cadre commun de Voice FX et de la Sound FX, onglets et listes de préréglages.
 
 VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
-`app/ui/style.css` ligne 528
+`app/ui/style.css` ligne 531
 
 ```css
 .vfx-main { display: grid; grid-template-columns: 78px 1fr 60px; gap: 8px; height: 48px; }
@@ -13542,7 +13826,7 @@ VERROU, PARLER, ducking, vumètre micro, curseurs et égaliseur.
 
 Grille de pads, état de lecture et menu de pad.
 
-`app/ui/style.css` ligne 567
+`app/ui/style.css` ligne 570
 
 ```css
 .soundfx { flex: 1 0 196px; min-height: 196px; overflow: hidden; }
@@ -13552,7 +13836,7 @@ Grille de pads, état de lecture et menu de pad.
 
 Boutons matériels, scènes et sources audio.
 
-`app/ui/style.css` ligne 609
+`app/ui/style.css` ligne 612
 
 ```css
 .obs-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
@@ -13562,7 +13846,7 @@ Boutons matériels, scènes et sources audio.
 
 Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À propos.
 
-`app/ui/style.css` ligne 637
+`app/ui/style.css` ligne 640
 
 ```css
 .about-head { display: flex; flex-direction: column; gap: 4px; }
@@ -13572,7 +13856,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 833
+`app/ui/style.css` ligne 836
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -13582,7 +13866,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 852
+`app/ui/style.css` ligne 855
 
 ```css
 .statusbar {
@@ -13600,7 +13884,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 887
+`app/ui/style.css` ligne 890
 
 ```css
 .hidden { display: none !important; }
@@ -13610,7 +13894,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 863
+`app/ui/style.css` ligne 866
 
 ```css
 html.glass body {
@@ -13624,7 +13908,7 @@ html.glass body {
 
 Mise en page de l'onglet dans les Réglages : liste des serveurs, en-tête, tuiles, graphique, tableaux, formulaires, journal et barre d'enregistrement.
 
-`app/ui/style.css` ligne 742
+`app/ui/style.css` ligne 745
 
 ```css
 .tab-page.ice-tab { padding: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr); overflow: hidden; }
@@ -13642,7 +13926,7 @@ Bouton « + » accolé à DIFFUSER et panneau de détail des sorties.
 
 ### [STY-20] Chat
 
-Pastille de messages non lus, état, messages, badges, annonces, champ d'envoi et cartes de demandes.
+Pastille de messages non lus, état, messages, plateformes, badges, dons, annonces, champ d'envoi et cartes de demandes.
 
 `app/ui/style.css` ligne 397
 
@@ -13854,7 +14138,7 @@ Connexion à obs-websocket et source « Now Playing ».
 
 Règles de séparation et conservation de l'historique.
 
-`app/ui/index.html` ligne 462
+`app/ui/index.html` ligne 468
 
 ```html
 <section class="tab-page hidden" data-page="automation">
@@ -13869,7 +14153,7 @@ Règles de séparation et conservation de l'historique.
 
 Micro, retour et sortie audio.
 
-`app/ui/index.html` ligne 496
+`app/ui/index.html` ligne 502
 
 ```html
 <section class="tab-page hidden" data-page="audio">
@@ -13884,7 +14168,7 @@ Micro, retour et sortie audio.
 
 Version, mises à jour et diagnostic.
 
-`app/ui/index.html` ligne 665
+`app/ui/index.html` ligne 671
 
 ```html
 <section class="tab-page hidden" data-page="about">
@@ -13944,7 +14228,7 @@ Catégorie et période de l'export CSV de l'historique.
 
 Mots-clés de dossier des jingles et des pubs.
 
-`app/ui/index.html` ligne 481
+`app/ui/index.html` ligne 487
 
 ```html
 <form class="form" id="categories-form">
@@ -13959,7 +14243,7 @@ Mots-clés de dossier des jingles et des pubs.
 
 Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissement.
 
-`app/ui/index.html` ligne 640
+`app/ui/index.html` ligne 646
 
 ```html
 <section class="tab-page hidden" data-page="appearance">
@@ -13974,7 +14258,7 @@ Verre dépoli, image de fond et curseurs de flou, d'opacité et d'assombrissemen
 
 Bibliothèque, catégories, grilles et planning de la semaine.
 
-`app/ui/index.html` ligne 529
+`app/ui/index.html` ligne 535
 
 ```html
 <section class="tab-page hidden" data-page="rotation">
@@ -14003,7 +14287,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Émissions des grilles : nom, couleur, fichier M3U, explications.
 
-`app/ui/index.html` ligne 608
+`app/ui/index.html` ligne 614
 
 ```html
 <div class="rot-page rot-split" data-rotpage="programs" hidden>
@@ -14033,7 +14317,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi à droite.
 
-`app/ui/index.html` ligne 691
+`app/ui/index.html` ligne 697
 
 ```html
 <section class="tab-page hidden ice-tab" data-page="icecast">
@@ -14048,7 +14332,7 @@ Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi �
 
 Présentation, installations détectées et ajout d'un serveur local ou distant.
 
-`app/ui/index.html` ligne 699
+`app/ui/index.html` ligne 705
 
 ```html
 <div class="ice-welcome" id="ice-welcome">
@@ -14063,7 +14347,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 État, nom, adresse, version, boutons page web, Redémarrer, Arrêter et Démarrer.
 
-`app/ui/index.html` ligne 712
+`app/ui/index.html` ligne 718
 
 ```html
 <header class="ice-head">
@@ -14078,7 +14362,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints ; sans flux, explication du point de montage et bouton de sortie vers /live.
 
-`app/ui/index.html` ligne 734
+`app/ui/index.html` ligne 740
 
 ```html
 <div class="ice-page" data-ipage="dash">
@@ -14093,7 +14377,7 @@ Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des audi
 
 Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute, limites, chemins, journalisation.
 
-`app/ui/index.html` ligne 761
+`app/ui/index.html` ligne 767
 
 ```html
 <div class="ice-page hidden" data-ipage="config">
@@ -14108,7 +14392,7 @@ Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute,
 
 Explication (onglet facultatif), liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST.
 
-`app/ui/index.html` ligne 826
+`app/ui/index.html` ligne 832
 
 ```html
 <div class="ice-page hidden" data-ipage="mounts">
@@ -14123,7 +14407,7 @@ Explication (onglet facultatif), liste des mountpoints déclarés et formulaire 
 
 Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
-`app/ui/index.html` ligne 877
+`app/ui/index.html` ligne 883
 
 ```html
 <div class="ice-page hidden" data-ipage="listeners">
@@ -14138,7 +14422,7 @@ Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
 Erreurs, accès ou console, suivi en direct.
 
-`app/ui/index.html` ligne 894
+`app/ui/index.html` ligne 900
 
 ```html
 <div class="ice-page hidden" data-ipage="log">
@@ -14153,7 +14437,7 @@ Erreurs, accès ou console, suivi en direct.
 
 Profil : emplacement, installation, configuration, accès admin et démarrage.
 
-`app/ui/index.html` ligne 907
+`app/ui/index.html` ligne 913
 
 ```html
 <div class="ice-page hidden" data-ipage="profile">
@@ -14168,7 +14452,7 @@ Profil : emplacement, installation, configuration, accès admin et démarrage.
 
 Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer et redémarrer.
 
-`app/ui/index.html` ligne 945
+`app/ui/index.html` ligne 951
 
 ```html
 <footer class="ice-savebar hidden" id="ice-savebar">
@@ -14183,7 +14467,7 @@ Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer e
 
 Menu flottant des actions sur un mountpoint.
 
-`app/ui/index.html` ligne 973
+`app/ui/index.html` ligne 979
 
 ```html
 <div id="ice-menu" class="pad-menu ice-menu hidden"></div>
@@ -14198,7 +14482,7 @@ Menu flottant des actions sur un mountpoint.
 
 Panneau flottant sous le bouton DIFFUSER : en-tête, titre, sorties, total et boutons.
 
-`app/ui/index.html` ligne 960
+`app/ui/index.html` ligne 966
 
 ```html
 <div id="cast-panel" class="pad-menu cast-panel hidden">
@@ -14226,15 +14510,15 @@ Messages, champ d'envoi et file des demandes, à côté de la playlist et de l'h
 
 ### [HTM-39] Réglages du chat
 
-Chaîne, connexion au démarrage, compte et jeton, commandes des viewers.
+Sources (Twitch direct : chaîne, compte, jeton ; Social Stream Ninja : identifiant de session), connexion au démarrage, commandes des viewers.
 
 `app/ui/index.html` ligne 431
 
 ```html
 <section class="tab-page hidden" data-page="chat">
   <form class="form" id="chat-settings-form" autocomplete="off">
-    <p class="muted">Chat Twitch dans l'onglet <b>CHAT</b> à côté de la playlist. La lecture est anonyme : seule la chaîne est nécessaire. Pour que BLAST réponde aux commandes et écrive dans le chat, ajoute un compte (ta chaîne ou un compte bot) et son jeton.</p>
+    <p class="muted">Le chat s'affiche dans l'onglet <b>CHAT</b> à côté de la playlist. Active une ou plusieurs sources : les commandes des viewers et la file des demandes fonctionnent pareil pour toutes.</p>
+    <div class="form-section">Twitch direct</div>
     <div class="grid2">
-      <label>Chaîne Twitch<input name="channel" placeholder="nom de la chaîne ou lien twitch.tv/…"></label>
-      <label class="check"><input name="autoconnect" type="checkbox"> Se connecter au chat au démarrage de BLAST</label>
+      <label class="check span2"><input name="twitch_enabled" type="checkbox"> Lire le chat Twitch directement, sans intermédiaire (lecture anonyme)</label>
 ```

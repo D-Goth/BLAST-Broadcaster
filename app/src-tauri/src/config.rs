@@ -157,6 +157,8 @@ impl Default for UpdateSettings {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ChatSettings {
+    pub twitch_enabled: bool,
+    pub ssn_enabled: bool,
     pub channel: String,
     pub bot_login: String,
     pub autoconnect: bool,
@@ -170,6 +172,8 @@ pub struct ChatSettings {
 impl Default for ChatSettings {
     fn default() -> Self {
         Self {
+            twitch_enabled: true,
+            ssn_enabled: false,
             channel: String::new(),
             bot_login: String::new(),
             autoconnect: false,
