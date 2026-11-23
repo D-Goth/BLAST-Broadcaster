@@ -32,7 +32,7 @@ ne pas le modifier à la main.
 | [`AURA`](#aura) | Pilotage d'OBS par obs-websocket (blast-aura) | 21 |
 | [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 60 |
 | [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 4 |
-| [`ICE`](#ice) | Serveur Icecast : configuration icecast.xml, statistiques, administration et processus (blast-ice) | 43 |
+| [`ICE`](#ice) | Serveur Icecast : configuration icecast.xml, statistiques, administration et processus (blast-ice) | 45 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
 | [`APP`](#app) | Démarrage de l'application et commandes Tauri | 44 |
 | [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 16 |
@@ -3626,7 +3626,7 @@ pub struct ServerAuth {
 
 ### [ICE-05] Port d'écoute
 
-Port, adresse d'écoute, compatibilité Shoutcast (qui occupe aussi le port suivant) et HTTPS. `key` désigne la balise d'origine pour en garder les options non gérées.
+Port, adresse d'écoute, compatibilité Shoutcast (qui occupe aussi le port suivant) et HTTPS (<ssl> en 2.4, <tls> en 2.5). `key` désigne la balise d'origine pour en garder les options non gérées.
 
 `crates/blast-ice/src/config.rs` ligne 44
 
@@ -3666,7 +3666,7 @@ pub struct Mount {
 
 ### [ICE-07] Chemins
 
-basedir, logdir, webroot, adminroot, fichier PID et certificat TLS.
+basedir, logdir, webroot, adminroot, fichier PID et certificat TLS (paths/ssl-certificate en 2.4, security/tls-context/tls-certificate en 2.5).
 
 `crates/blast-ice/src/config.rs` ligne 75
 
@@ -3685,7 +3685,7 @@ pub struct Paths {
 
 ### [ICE-08] Journalisation
 
-Fichiers d'accès et d'erreurs, niveau de 1 à 4, taille maximale et archivage.
+Fichiers d'accès et d'erreurs, niveau de 1 à 4, taille maximale et archivage (balise ajoutée seulement si l'archivage est activé).
 
 `crates/blast-ice/src/config.rs` ligne 87
 
@@ -3762,7 +3762,7 @@ pub struct IceDocument {
 
 Extrait la configuration éditable ; une balise absente prend la valeur par défaut d'Icecast, une limite d'auditeurs négative signifie « sans limite ».
 
-`crates/blast-ice/src/config.rs` ligne 258
+`crates/blast-ice/src/config.rs` ligne 296
 
 ```rust
 pub fn read(&self) -> IceConfig {
@@ -3784,10 +3784,11 @@ pub fn read(&self) -> IceConfig {
 
 Réécrit les balises gérées ; une valeur vide retire la balise. Ports et mountpoints sont reconstruits à l'emplacement des anciens, à partir de leur balise d'origine.
 
-`crates/blast-ice/src/config.rs` ligne 338
+`crates/blast-ice/src/config.rs` ligne 386
 
 ```rust
 pub fn apply(&mut self, cfg: &IceConfig) {
+    let modern = modern(&self.root);
     let r = &mut self.root;
     set(r, "location", &cfg.location);
     set(r, "admin", &cfg.admin);
@@ -3798,7 +3799,6 @@ pub fn apply(&mut self, cfg: &IceConfig) {
     for (name, v) in [
         ("clients", lim.clients),
         ("sources", lim.sources),
-        ("queue-size", lim.queue_size),
 …
 ```
 
@@ -3806,7 +3806,7 @@ pub fn apply(&mut self, cfg: &IceConfig) {
 
 Indentation de quatre espaces, sans déclaration XML, comme le fichier fourni avec Icecast.
 
-`crates/blast-ice/src/config.rs` ligne 450
+`crates/blast-ice/src/config.rs` ligne 529
 
 ```rust
 pub fn to_xml(&self) -> String {
@@ -3828,7 +3828,7 @@ pub fn to_xml(&self) -> String {
 
 Refuse un hostname vide, l'absence de port, un port en double (compatibilité Shoutcast comprise), un mot de passe vide, des limites nulles, un niveau de journal hors de 1 à 4, un mountpoint mal nommé ou en double, un secours qui pointe sur lui-même. Avertit pour un mot de passe « hackme » ou un secours non déclaré.
 
-`crates/blast-ice/src/config.rs` ligne 466
+`crates/blast-ice/src/config.rs` ligne 545
 
 ```rust
 impl IceConfig {
@@ -3850,7 +3850,7 @@ impl IceConfig {
 
 Rend webroot, adminroot, basedir et le certificat absolus par rapport au dossier d'installation, et place journaux et fichier PID dans le dossier indiqué. Sert quand la configuration est copiée hors du dossier d'Icecast.
 
-`crates/blast-ice/src/config.rs` ligne 567
+`crates/blast-ice/src/config.rs` ligne 646
 
 ```rust
 pub fn rebase(&mut self, base: &Path, log_dir: &Path) {
@@ -3872,7 +3872,7 @@ pub fn rebase(&mut self, base: &Path, log_dir: &Path) {
 
 Chemin relatif au dossier de travail (ou à basedir), chemin complet d'un journal et premier port d'écoute.
 
-`crates/blast-ice/src/config.rs` ligne 591
+`crates/blast-ice/src/config.rs` ligne 670
 
 ```rust
 pub fn resolve(&self, workdir: &Path, value: &str) -> PathBuf {
@@ -3893,7 +3893,7 @@ pub fn resolve(&self, workdir: &Path, value: &str) -> PathBuf {
 
 Ouvre le fichier en ajout sans le modifier, ou crée un fichier témoin dans le dossier s'il n'existe pas encore.
 
-`crates/blast-ice/src/config.rs` ligne 622
+`crates/blast-ice/src/config.rs` ligne 701
 
 ```rust
 pub fn is_writable(path: &Path) -> bool {
@@ -3914,7 +3914,7 @@ pub fn is_writable(path: &Path) -> bool {
 
 Copie l'ancien fichier en .bak-<horodatage>, écrit un fichier temporaire puis le renomme, et ne garde que les dernières sauvegardes.
 
-`crates/blast-ice/src/config.rs` ligne 636
+`crates/blast-ice/src/config.rs` ligne 715
 
 ```rust
 pub fn write_file(path: &Path, xml: &str, keep: usize) -> Result<Option<PathBuf>, String> {
@@ -3936,7 +3936,7 @@ pub fn write_file(path: &Path, xml: &str, keep: usize) -> Result<Option<PathBuf>
 
 Sauvegardes d'un fichier de configuration, de la plus ancienne à la plus récente.
 
-`crates/blast-ice/src/config.rs` ligne 666
+`crates/blast-ice/src/config.rs` ligne 745
 
 ```rust
 pub fn backups(path: &Path) -> Vec<PathBuf> {
@@ -4402,6 +4402,44 @@ pub fn error_message(body: &str) -> Option<String> {
         }
     }
 …
+```
+
+### [ICE-44] Format Icecast 2.5
+
+Reconnaît un fichier au format 2.5 : bloc security/tls-context, balise <tls> dans un port ou niveau de journal écrit en toutes lettres. La réécriture garde alors ce format.
+
+`crates/blast-ice/src/config.rs` ligne 201
+
+```rust
+fn modern(r: &Element) -> bool {
+    let tls_context = r
+        .get_child("security")
+        .is_some_and(|s| s.get_child("tls-context").is_some());
+    let tls_socket = elements(r, "listen-socket").any(|s| s.get_child("tls").is_some());
+    let level = r
+        .get_child("logging")
+        .map(|l| text(l, "loglevel"))
+        .unwrap_or_default();
+    tls_context || tls_socket || (!level.is_empty() && level.parse::<u8>().is_err())
+}
+```
+
+### [ICE-45] Niveau de journal
+
+Lit le niveau en chiffre (1 à 4, Icecast 2.4) ou en toutes lettres (error, warning, information, debug, Icecast 2.5) ; il est réécrit dans la forme du fichier.
+
+`crates/blast-ice/src/config.rs` ligne 214
+
+```rust
+fn level_from(value: &str, default: u8) -> u8 {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "error" | "eror" => 1,
+        "warning" | "warn" => 2,
+        "information" | "info" => 3,
+        "debug" | "dbug" => 4,
+        v => v.parse().unwrap_or(default),
+    }
+}
 ```
 
 
