@@ -250,6 +250,12 @@ pub fn save_chat(
     Ok(state.view(warning))
 }
 
+// [APP-46]
+#[tauri::command]
+pub fn save_deck_gains(state: tauri::State<'_, App>, gains: [f32; 2]) -> Result<(), String> {
+    state.commit(move |cfg| cfg.audio.deck_gain_db = gains.map(|g| (g * 2.0).round() / 2.0))
+}
+
 // [APP-15]
 #[tauri::command]
 pub async fn test_aura(

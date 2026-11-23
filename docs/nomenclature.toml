@@ -186,7 +186,7 @@ definition = "État, position et durée en trames, renvoyés à chaque tick."
 
 [codes.MIX-06]
 titre = "Événements du mixeur"
-definition = "Fin de titre, transition automatique, fin de fondu, fin d'un son de pad et tick de mesure."
+definition = "Fin de titre, transition automatique, fin de fondu, fin d'un son de pad et tick de mesure (niveaux de sortie et de chaque platine après son volume, micro, ducking, réduction)."
 
 [codes.MIX-07]
 titre = "Voix Sound FX"
@@ -3238,3 +3238,39 @@ definition = "Fil de connexion, file des messages à envoyer avec leur plateform
 [codes.SEC-09]
 titre = "Clé de la session Social Stream Ninja"
 definition = "Nom de l'entrée du trousseau qui garde l'identifiant de session : il permet d'écrire dans tes chats, il est donc traité comme un secret."
+
+[codes.CTL-188]
+titre = "Volume des platines"
+definition = "Applique le volume de chaque platine en dB (de -60, coupé, à +6) quand il change, à la reprise des réglages comme pendant un glissement du curseur."
+
+[codes.CTL-189]
+titre = "Plage du volume des platines"
+definition = "Volume minimal (-60 dB, platine coupée) et maximal (+6 dB) d'une platine."
+
+[codes.APP-46]
+titre = "Enregistrement du volume des platines"
+definition = "Garde le volume des deux platines dans les réglages, arrondi au demi-décibel, quand le curseur est relâché."
+
+[codes.HTM-40]
+titre = "Volume et niveau de la platine A"
+definition = "Curseur VOL, valeur en dB et VU-mètre gauche/droite de la platine A."
+
+[codes.HTM-41]
+titre = "Volume et niveau de la platine B"
+definition = "Curseur VOL, valeur en dB et VU-mètre gauche/droite de la platine B."
+
+[codes.STY-21]
+titre = "Volume et niveau des platines"
+definition = "Ligne VOL sous les boutons d'une platine : curseur à la couleur de la platine, valeur et VU-mètre fin."
+
+[codes.UI-139]
+titre = "État des niveaux des platines"
+definition = "Retombée des VU-mètres de chaque platine, curseur en cours de glissement et affichage du volume en dB (−∞ en bas de course)."
+
+[codes.UI-140]
+titre = "Niveau d'une platine"
+definition = "Met à jour le VU-mètre de la platine et, hors glissement, le curseur et la valeur du volume."
+
+[codes.UI-141]
+titre = "Enregistrement des volumes"
+definition = "Envoie les volumes des deux platines aux réglages."

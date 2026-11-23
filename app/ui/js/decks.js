@@ -1,4 +1,4 @@
-import { $, S, send, fmt, dbWidth } from "./core.js";
+import { $, S, send, fmt, dbWidth, invoke } from "./core.js";
 import { view } from "./theme.js";
 import { renderVoice } from "./voice.js";
 import { renderPadStates } from "./pads.js";
@@ -15,7 +15,33 @@ const STATE_LABEL = {
 
 const decks = {};
 const meterHold = { l: 0, r: 0, red: 0, clipUntil: 0 };
+// [UI-139]
+const deckHold = { A: [0, 0], B: [0, 0] };
+const volHeld = { A: false, B: false };
+const dbText = (db) => (db <= -60 ? "−∞" : `${db > 0 ? "+" : ""}${Number(db).toFixed(db % 1 ? 1 : 0)} dB`);
 let crossfaderHeld = false;
+
+// [UI-140]
+function renderDeckLevel(id, el, st) {
+  const i = id === "A" ? 0 : 1;
+  const peak = (st.deck_peak && st.deck_peak[i]) || [0, 0];
+  const hold = deckHold[id];
+  hold[0] = Math.max(dbWidth(peak[0]), hold[0] * 0.85);
+  hold[1] = Math.max(dbWidth(peak[1]), hold[1] * 0.85);
+  $(".deck-vu-l", el).style.width = `${(hold[0] * 100).toFixed(1)}%`;
+  $(".deck-vu-r", el).style.width = `${(hold[1] * 100).toFixed(1)}%`;
+  const db = st.deck_gain_db ? st.deck_gain_db[i] : 0;
+  if (!volHeld[id] && Number.isFinite(db)) {
+    $(".deck-vol", el).value = db;
+    $(".deck-vol-v", el).textContent = dbText(db);
+  }
+}
+
+// [UI-141]
+function saveDeckGains() {
+  const gains = ["A", "B"].map((id) => Number($(".deck-vol", decks[id]).value));
+  invoke("save_deck_gains", { gains }).catch(() => {});
+}
 
 // [UI-22]
 function renderDeck(id, d) {
@@ -29,6 +55,7 @@ function renderDeck(id, d) {
   $(".deck-title", el).title = d.path || "";
   $(".deck-artist", el).innerHTML = d.artist ? "" : "&nbsp;";
   if (d.artist) $(".deck-artist", el).textContent = d.artist;
+  renderDeckLevel(id, el, st);
   const remaining = Math.max(0, d.duration - d.position);
   $(".elapsed", el).textContent = fmt(d.position);
   $(".duration", el).textContent = fmt(Math.round(d.duration));
@@ -123,6 +150,22 @@ export function init() {
     el.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-action]");
       if (btn) send({ type: btn.dataset.action, deck: id });
+    });
+    const vol = $(".deck-vol", el);
+    vol.addEventListener("pointerdown", () => (volHeld[id] = true));
+    vol.addEventListener("input", () => {
+      $(".deck-vol-v", el).textContent = dbText(Number(vol.value));
+      send({ type: "deck_gain", deck: id, db: Number(vol.value) });
+    });
+    vol.addEventListener("change", () => {
+      volHeld[id] = false;
+      saveDeckGains();
+    });
+    vol.addEventListener("dblclick", () => {
+      vol.value = 0;
+      $(".deck-vol-v", el).textContent = dbText(0);
+      send({ type: "deck_gain", deck: id, db: 0 });
+      saveDeckGains();
     });
     $(".progress", el).addEventListener("click", (e) => {
       const r = e.currentTarget.getBoundingClientRect();

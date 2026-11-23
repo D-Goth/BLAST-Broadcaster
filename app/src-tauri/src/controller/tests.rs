@@ -109,6 +109,7 @@ impl Harness {
             decks,
             crossfader: self.c.crossfader,
             peak: [0.0; 2],
+            deck_peak: [[0.0; 2]; 2],
             sfx: 0,
             mic_peak: 0.0,
             mic_open: false,

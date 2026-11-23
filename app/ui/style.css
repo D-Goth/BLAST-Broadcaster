@@ -303,6 +303,13 @@ input:focus, select:focus, .btn:focus-visible { outline: none; border-color: var
   background: repeating-linear-gradient(45deg, transparent 0 4px, color-mix(in srgb, var(--text-muted) 35%, transparent) 4px 8px);
 }
 .deck-controls { display: flex; gap: 8px; }
+/* [STY-21] */
+.deck-level { display: grid; grid-template-columns: auto minmax(60px, 1fr) 62px minmax(80px, 1.2fr); align-items: center; gap: 8px; margin-top: 10px; }
+.deck-level-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--text-muted); }
+.deck-vol { width: 100%; accent-color: var(--deck-color, var(--accent)); }
+.deck-vol-v { font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-align: right; white-space: nowrap; }
+.deck-vu { display: flex; flex-direction: column; gap: 3px; }
+.deck-vu .meter-bar { height: 5px; border-radius: 3px; }
 .drop-hint {
   position: absolute;
   inset: 0;

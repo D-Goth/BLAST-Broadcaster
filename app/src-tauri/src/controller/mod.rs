@@ -48,6 +48,10 @@ use rotation::RotationState;
 use views::{Notice, EV_NOTICE};
 use voice::MicState;
 
+// [CTL-189]
+const DECK_GAIN_MIN_DB: f32 = -60.0;
+const DECK_GAIN_MAX_DB: f32 = 6.0;
+
 // [CTL-01]
 pub trait Ui: Send + 'static {
     fn emit(&self, event: &'static str, payload: serde_json::Value);
@@ -245,6 +249,8 @@ struct Controller {
     decks: [DeckSide; 2],
     crossfader: f32,
     peak: [f32; 2],
+    deck_peak: [[f32; 2]; 2],
+    deck_gain_db: [f32; 2],
     reduction: f32,
     automix: bool,
     fade: f32,
@@ -292,6 +298,8 @@ impl Controller {
             decks: Default::default(),
             crossfader: 0.0,
             peak: [0.0; 2],
+            deck_peak: [[0.0; 2]; 2],
+            deck_gain_db: [f32::NAN; 2],
             reduction: 0.0,
             automix: false,
             fade: 6.0,
@@ -315,6 +323,7 @@ impl Controller {
         }
         c.send_automix();
         c.apply_voice(&config.voice);
+        c.apply_deck_gains(config.audio.deck_gain_db);
         c.sync_pads(&config.soundboard);
         c.sync_jingles(&config.jingles);
         c.load_library_tracks();
@@ -459,12 +468,34 @@ impl Controller {
                 self.send_automix();
                 self.fill_automix();
             }
+            UiCommand::DeckGain { deck, db } => {
+                let mut gains = self.deck_gain_db;
+                gains[deck.index()] = db;
+                self.apply_deck_gains(gains);
+            }
             UiCommand::FadeSeconds { value } => {
                 self.fade = value.clamp(0.0, 30.0);
                 self.send_automix();
             }
         }
         self.emit_state();
+    }
+
+    // [CTL-188]
+    fn apply_deck_gains(&mut self, gains: [f32; 2]) {
+        for (i, (db, deck)) in gains.into_iter().zip([Deck::A, Deck::B]).enumerate() {
+            let db = db.clamp(DECK_GAIN_MIN_DB, DECK_GAIN_MAX_DB);
+            if self.deck_gain_db[i] == db {
+                continue;
+            }
+            self.deck_gain_db[i] = db;
+            let gain = if db <= DECK_GAIN_MIN_DB {
+                0.0
+            } else {
+                blast_core::dsp::db_to_gain(db)
+            };
+            self.send(Command::SetDeckGain(deck.id(), gain));
+        }
     }
 
     // [CTL-19]
@@ -492,6 +523,7 @@ impl Controller {
         self.apply_automation(cfg.automation.clone());
         self.apply_aura(cfg.aura.clone());
         self.apply_voice(&cfg.voice);
+        self.apply_deck_gains(cfg.audio.deck_gain_db);
         self.sync_pads(&cfg.soundboard);
         self.sync_jingles(&cfg.jingles);
         if cfg.categories != self.categories {
@@ -547,6 +579,7 @@ impl Controller {
                 decks,
                 crossfader,
                 peak,
+                deck_peak,
                 sfx,
                 mic_peak,
                 mic_open,
@@ -565,6 +598,7 @@ impl Controller {
                 }
                 self.crossfader = crossfader;
                 self.peak = peak;
+                self.deck_peak = deck_peak;
                 self.fill_automix();
                 self.update_song();
                 self.track_history();

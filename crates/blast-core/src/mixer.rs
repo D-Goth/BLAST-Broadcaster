@@ -99,6 +99,7 @@ pub enum Event {
         decks: [DeckStatus; 2],
         crossfader: f32,
         peak: [f32; 2],
+        deck_peak: [[f32; 2]; 2],
         sfx: u64,
         mic_peak: f32,
         mic_open: bool,
@@ -178,6 +179,7 @@ pub struct Mixer {
     tick_every: usize,
     tick_count: usize,
     peak: [f32; 2],
+    deck_peak: [[f32; 2]; 2],
     voices: Vec<Voice>,
     retired: Vec<Arc<Track>>,
     sfx_gain: f32,
@@ -218,6 +220,7 @@ impl Mixer {
             tick_every: (sample_rate / 10).max(1) as usize,
             tick_count: 0,
             peak: [0.0; 2],
+            deck_peak: [[0.0; 2]; 2],
             voices: Vec::with_capacity(MAX_VOICES),
             retired: Vec::with_capacity(MAX_VOICES * 2),
             sfx_gain: 1.0,
@@ -579,6 +582,10 @@ impl Mixer {
             let (ga, gb) = crossfade_gains(self.crossfader);
             let (la, ra) = self.next_sample(0, &mut emit);
             let (lb, rb) = self.next_sample(1, &mut emit);
+            for (p, (l, r)) in self.deck_peak.iter_mut().zip([(la, ra), (lb, rb)]) {
+                p[0] = p[0].max(l.abs());
+                p[1] = p[1].max(r.abs());
+            }
             self.step_fade(&mut emit);
 
             let mic_target = if self.mic_open { 1.0 } else { 0.0 };
@@ -630,6 +637,7 @@ impl Mixer {
                     decks: [self.decks[0].status(), self.decks[1].status()],
                     crossfader: self.crossfader,
                     peak: self.peak,
+                    deck_peak: self.deck_peak,
                     sfx: self.sfx_mask(),
                     mic_peak: self.mic_peak,
                     mic_open: self.mic_open,
@@ -640,6 +648,7 @@ impl Mixer {
                         .map_or(0.0, |c| c.take_reduction()),
                 });
                 self.peak = [0.0; 2];
+                self.deck_peak = [[0.0; 2]; 2];
                 self.mic_peak = 0.0;
             }
         }
@@ -924,6 +933,26 @@ mod tests {
             "retour de la musique : {}",
             out[2 * 1499]
         );
+    }
+
+    #[test]
+    fn each_deck_reports_its_own_level_after_its_volume() {
+        let mut m = Mixer::new(1000);
+        m.apply(Command::Load(DeckId::A, tone(500, 0.5)));
+        m.apply(Command::Load(DeckId::B, tone(500, 0.8)));
+        m.apply(Command::SetDeckGain(DeckId::B, 0.5));
+        m.apply(Command::Play(DeckId::A));
+        m.apply(Command::Play(DeckId::B));
+        let mut ticks = Vec::new();
+        let mut out = vec![0.0; 200];
+        m.render(&mut out, |e| {
+            if let Event::Tick { deck_peak, .. } = e {
+                ticks.push(deck_peak);
+            }
+        });
+        let last = ticks.last().unwrap();
+        assert!((last[0][0] - 0.5).abs() < 1e-6);
+        assert!((last[1][1] - 0.4).abs() < 1e-6);
     }
 
     #[test]

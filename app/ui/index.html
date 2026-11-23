@@ -86,6 +86,16 @@
           <button class="btn icon" data-action="eject" title="Éjecter"><svg class="ico"><use href="#i-eject"/></svg></button>
           <button class="btn icon next" data-action="next" title="Titre suivant : fondu vers l'autre platine (charge le prochain titre de la playlist si besoin)"><svg class="ico"><use href="#i-next"/></svg></button>
         </div>
+        <!-- [HTM-40] -->
+        <div class="deck-level">
+          <span class="deck-level-label">VOL</span>
+          <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" title="Volume de la platine (double-clic : 0 dB)">
+          <output class="deck-vol-v">0 dB</output>
+          <div class="deck-vu" title="Niveau de la platine, après son volume et avant le crossfader">
+            <div class="meter-bar"><div class="meter-fill deck-vu-l"></div></div>
+            <div class="meter-bar"><div class="meter-fill deck-vu-r"></div></div>
+          </div>
+        </div>
         <div class="drop-hint">Déposer pour charger la platine A</div>
       </article>
 
@@ -138,6 +148,16 @@
           <button class="btn icon" data-action="stop" title="Stop (retour au début)"><svg class="ico"><use href="#i-stop"/></svg></button>
           <button class="btn icon" data-action="eject" title="Éjecter"><svg class="ico"><use href="#i-eject"/></svg></button>
           <button class="btn icon next" data-action="next" title="Titre suivant : fondu vers l'autre platine (charge le prochain titre de la playlist si besoin)"><svg class="ico"><use href="#i-next"/></svg></button>
+        </div>
+        <!-- [HTM-41] -->
+        <div class="deck-level">
+          <span class="deck-level-label">VOL</span>
+          <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" title="Volume de la platine (double-clic : 0 dB)">
+          <output class="deck-vol-v">0 dB</output>
+          <div class="deck-vu" title="Niveau de la platine, après son volume et avant le crossfader">
+            <div class="meter-bar"><div class="meter-fill deck-vu-l"></div></div>
+            <div class="meter-bar"><div class="meter-fill deck-vu-r"></div></div>
+          </div>
         </div>
         <div class="drop-hint">Déposer pour charger la platine B</div>
       </article>

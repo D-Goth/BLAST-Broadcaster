@@ -357,6 +357,8 @@ impl Controller {
             decks: [self.deck_view(0), self.deck_view(1)],
             crossfader: self.crossfader,
             peak: self.peak,
+            deck_peak: self.deck_peak,
+            deck_gain_db: self.deck_gain_db,
             automix: self.automix,
             fade: self.fade,
             on_air: self.is_playing(side).then(|| Deck::from_index(side)),

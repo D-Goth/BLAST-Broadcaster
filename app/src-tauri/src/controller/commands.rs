@@ -118,6 +118,10 @@ pub enum UiCommand {
     AutoMix {
         enabled: bool,
     },
+    DeckGain {
+        deck: Deck,
+        db: f32,
+    },
     FadeSeconds {
         value: f32,
     },

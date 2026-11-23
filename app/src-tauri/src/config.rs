@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct AudioSettings {
     pub device: Option<String>,
     pub master_preset: String,
+    pub deck_gain_db: [f32; 2],
 }
 
 impl Default for AudioSettings {
@@ -17,6 +18,7 @@ impl Default for AudioSettings {
         Self {
             device: None,
             master_preset: "doux".into(),
+            deck_gain_db: [0.0; 2],
         }
     }
 }
