@@ -150,6 +150,46 @@ Testé contre Icecast 2.4.4 (sortie normale et port de compatibilité Shoutcast)
 titre mis à jour au changement de morceau, reconnexion après redémarrage du serveur.
 Shoutcast v2 (DNAS 2) n'a été testé que contre un serveur simulé.
 
+## Serveur Icecast (module de gestion)
+
+Gérer son propre serveur Icecast depuis BLAST, sans éditer `icecast.xml` à la main.
+
+```
+ onglet Serveur Icecast (ui/js/icecast.js) ── invoke("ice_*") ──▶ icecast.rs (IceManager, profils, trousseau)
+                                                             │
+                                  blast-ice ◀────────────────┘
+                                  ├─ config.rs  : icecast.xml ⇄ IceConfig, validation, sauvegardes
+                                  ├─ client.rs  : /admin/stats, listclients, killclient, killsource, moveclients, metadata
+                                  ├─ stats.rs   : lecture des réponses XML
+                                  └─ process.rs : détection, lancement, arrêt, PID, fin des journaux
+```
+
+| Fichier | Rôle |
+|---|---|
+| `blast-ice/src/config.rs` | Le fichier est lu comme un arbre XML complet (`xmltree`). Seules les balises gérées sont réécrites : commentaires, relais, authentification des mountpoints, en-têtes HTTP et sécurité restent intacts. Une valeur vide retire la balise. Avant chaque écriture : validation, copie `icecast.xml.bak-<horodatage>` (10 gardées), fichier temporaire puis renommage |
+| `blast-ice/src/client.rs` | Interface admin d'Icecast en HTTP(S) avec authentification Basic, délai de 5 s, certificats du système |
+| `blast-ice/src/process.rs` | Lancement `icecast -c icecast.xml` depuis le dossier d'installation (les chemins relatifs `./web`, `./log` en partent), sans fenêtre de console sous Windows ; le PID est noté pour reprendre le contrôle après un redémarrage de BLAST |
+| `app/src-tauri/src/icecast.rs` | Profils de serveurs (`[[icecast.servers]]` dans `config.toml`), mot de passe admin dans le trousseau (`icecast:<id>`), commandes Tauri |
+
+**Local ou distant** : un serveur local est piloté entièrement (démarrage, configuration, journaux). Un serveur distant
+(VPS) est surveillé et administré par son interface admin ; sa configuration et son démarrage passeront par SSH.
+
+**Windows et Program Files** : l'installateur d'Icecast place `icecast.xml` dans un dossier protégé. BLAST le détecte
+(fichier en lecture seule) et propose de **copier la configuration dans BLAST** : la copie va dans le dossier de réglages
+(`%APPDATA%\fr.black-lab.blast\icecast\<id>\icecast.xml`), avec des chemins absolus vers `web` et `admin` de
+l'installation et des journaux dans le dossier de données de BLAST. L'original n'est jamais modifié.
+
+**Mots de passe** : Icecast lit les siens en clair dans `icecast.xml` ; un hash ne lui servirait à rien, et BLAST doit
+envoyer le vrai mot de passe admin à chaque requête. Le mot de passe admin est donc rangé chiffré dans le trousseau du
+système, jamais dans `config.toml`. Pour un serveur local sans mot de passe enregistré, il est relu dans `icecast.xml`.
+Une connexion admin en HTTP vers un hôte distant est signalée : le mot de passe y circule en clair.
+
+**Tableau de bord** : `ice_status` toutes les 2 s tant que l'onglet est affiché, rien quand les Réglages sont fermés. Le débit sortant est calculé sur 30 s à partir des octets envoyés. Les mountpoints déclarés sans
+source apparaissent « en attente », avec leur secours.
+
+Testé contre Icecast 2.4.4 : lecture et réécriture de la configuration, lancement et arrêt, statistiques admin,
+liste et déconnexion d'auditeurs, changement de titre, déplacement d'auditeurs (refus lisible si la destination n'existe pas).
+
 ## Voice FX et Sound FX (M5)
 
 ```
@@ -280,6 +320,8 @@ Le gain de la chaîne antenne est calculé sur le mélange antenne et appliqué 
 | Files temps réel | `crossbeam-channel`, `rtrb` | MIT / Apache-2.0 |
 | Encodage MP3 | `mp3lame-encoder` (LAME compilé avec le projet) | LGPL (LAME), MIT |
 | Trousseau | `keyring` | MIT / Apache-2.0 |
+| icecast.xml | `xmltree`, `xml-rs` | MIT |
+| Mots de passe aléatoires | `getrandom` | MIT / Apache-2.0 |
 | OBS | `tungstenite`, `sha2`, `base64` | MIT / Apache-2.0 |
 | Ligne de commande, WAV | `clap`, `hound` | MIT / Apache-2.0 |
 

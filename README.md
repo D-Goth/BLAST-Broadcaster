@@ -22,6 +22,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 **Diffusion**
 - Plusieurs sorties simultanées : MP3, AAC, Opus, Ogg Vorbis, FLAC
 - Serveurs Icecast, Shoutcast v1 et v2, métadonnées « titre en cours »
+- Gestion de son propre serveur Icecast (local ou VPS) : lancement, configuration sans éditer le XML, surveillance
 - Historique de diffusion exportable
 
 **Live**
@@ -42,6 +43,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 | `blast-library` | Bibliothèque musicale, file d'attente, automatisation |
 | `blast-aura` | Pilotage d'OBS Studio |
 | `blast-live` | Chat, commandes viewers, invités |
+| `blast-ice` | Gestion d'un serveur Icecast : icecast.xml, statistiques, administration, lancement |
 | `blast-cli` | Outil `blast` en ligne de commande pour tester le moteur |
 | `app/src-tauri` | Application de bureau (Tauri) : contrôleur, playlist, thèmes |
 | `app/ui` | Interface HTML/CSS/JS |
@@ -131,7 +133,8 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 | Règles de séparation | **Réglages → Automation** : pas le même artiste avant 120 min, pas le même titre avant 240 min (réglables). L'auto-mix et le bouton Suivant sautent les titres en attente, marqués d'une horloge dans la playlist |
 | Soundboard | 36 pads sur 3 pages ; clic ou **F1 à F12** pour jouer (re-clic = stop), **STOP** coupe tout ; glisser un fichier (ou un titre de la playlist) sur un pad pour l'assigner ; clic droit : choisir, renommer, vider |
 | Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |
-| Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut |
+| Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut pour lancer ou arrêter la diffusion (durée et auditeurs s'y affichent) ; le **+** à côté ouvre le détail de chaque sortie |
+| Serveur Icecast | **Réglages → Serveur Icecast** : ajoute ton Icecast local (détecté dans Program Files) ou un VPS. **Démarrer / Arrêter**, tableau de bord en direct (auditeurs, pic, sources, débit, graphique, mountpoints), **Configuration** et **Mountpoints** par formulaires (une sauvegarde de `icecast.xml` avant chaque écriture), **Auditeurs** avec déconnexion, **Journal**. **Diffuser BLAST ici** crée la sortie correspondante dans Réglages → Diffusion |
 | OBS | **Réglages → Aura / OBS** : adresse, port, mot de passe et source texte « Now Playing » ; puis onglet **AURA · OBS** (à côté de SOUND FX) ou bouton **OBS** de la barre du haut |
 | Pilotage OBS | STREAM, REC, PAUSE REC, REPLAY, SNAP (capture dans `~/Images/BLAST`), MUTE et volume d'une source audio, changement de scène ; minuteurs ▶ stream et ⏺ enregistrement dans la barre du haut |
 
@@ -151,6 +154,33 @@ d'entrée même micro fermé, pour régler son gain avant de prendre l'antenne.
 
 Un titre chargé mais pas encore joué, remplacé par un autre, retourne en tête de playlist.
 Les fichiers illisibles restent dans la playlist, marqués ⚠, et sont sautés par l'auto-mix.
+
+## Premiers pas avec Icecast
+
+Icecast est un serveur de diffusion libre et gratuit (Windows et Linux), qui remplace le serveur SHOUTcast.
+La différence qui surprend en venant de SHOUTcast : le **point de montage** (mountpoint).
+
+- SHOUTcast v1 diffuse un seul flux par port : les auditeurs ouvrent `http://adresse:8000/`.
+- Icecast peut héberger plusieurs flux sur le même port, chacun à son adresse : `http://adresse:8000/live`
+  pour la radio en 320 kb/s, `http://adresse:8000/mobile` en 64 kb/s… `/live` n'est qu'un nom, choisis le tien.
+- **Inutile de déclarer un point de montage** : Icecast accepte n'importe lequel du moment que la source donne le
+  mot de passe des sources. Il apparaît quand BLAST se connecte et disparaît quand il se déconnecte.
+
+Le chemin le plus court :
+
+1. **Réglages → Serveur Icecast** : ajoute ton installation (détectée dans Program Files sous Windows).
+2. Onglet **CONFIGURATION** : si le fichier est en lecture seule (Program Files), **Copier la configuration dans
+   BLAST** ; change les trois mots de passe (le bouton dé en génère), puis **Enregistrer et démarrer**. Laisse vide
+   le champ « Compatibilité Shoutcast » des ports, réservé aux vieux logiciels.
+3. **TABLEAU DE BORD** → **Créer la sortie BLAST vers /live** (ou, à la main, Réglages → Diffusion : Icecast 2,
+   `localhost`, port 8000, point de montage `/live`, identifiant `source`, mot de passe des sources).
+4. **DIFFUSER**, puis écouter dans VLC : `http://adresse-du-pc:8000/live`.
+
+L'onglet **MOUNTPOINTS** est facultatif : il sert à donner des règles à un flux précis (limite d'auditeurs, mot de
+passe propre, **secours** vers un autre flux si ta diffusion tombe, nom et genre imposés).
+
+Pour être écouté depuis Internet, il faut aussi ouvrir le port d'Icecast (8000 par défaut) dans le pare-feu de
+l'ordinateur et le rediriger sur ta box.
 
 ## Mettre à jour
 

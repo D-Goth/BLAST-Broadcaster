@@ -23,6 +23,8 @@
     <symbol id="i-mute" viewBox="0 0 24 24"><path d="M3.5 9h4l5-4.5v15l-5-4.5h-4z"/><path d="M16 9l5.5 6M21.5 9L16 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.2"/><path d="M3.8 21a8.2 8.2 0 0 1 16.4 0z"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-dice" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.6"/><circle cx="15.5" cy="15.5" r="1.6"/><circle cx="12" cy="12" r="1.6"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="6.5" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="17.5" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
   </svg>
   <!-- [HTM-02] -->
@@ -33,11 +35,14 @@
       <span class="brand-sub">Broadcaster</span>
     </div>
     <div id="onair" class="onair">ON AIR</div>
-    <button id="cast-btn" class="cast-btn" title="Démarrer ou arrêter la diffusion vers les serveurs">
-      <span class="cast-dot"></span><span id="cast-label">DIFFUSER</span>
-      <span id="cast-time" class="cast-extra hidden">00:00:00</span>
-      <span id="cast-listeners" class="cast-extra hidden"></span>
-    </button>
+    <div class="cast-group">
+      <button id="cast-btn" class="cast-btn" title="Démarrer ou arrêter la diffusion vers les serveurs">
+        <span class="cast-dot"></span><span id="cast-label">DIFFUSER</span>
+        <span id="cast-time" class="cast-extra hidden">00:00:00</span>
+        <span id="cast-listeners" class="cast-extra hidden"></span>
+      </button>
+      <button id="cast-more" class="cast-more" title="Détail de la diffusion">+</button>
+    </div>
     <button id="obs-pill" class="obs-pill" title="OBS (module Aura)">
       <span class="obs-dot"></span><span class="obs-name">OBS</span>
       <span id="obs-live" class="obs-timer live hidden"><svg class="ico"><use href="#i-play"/></svg><span>00:00:00</span></span>
@@ -320,6 +325,7 @@
       <aside class="modal-tabs">
         <div class="modal-title">RÉGLAGES</div>
         <button class="tab active" data-tab="cast">Diffusion</button>
+        <button class="tab" data-tab="icecast">Serveur Icecast</button>
         <button class="tab" data-tab="aura">Aura / OBS</button>
         <button class="tab" data-tab="audio">Audio</button>
         <button class="tab" data-tab="automation">Automation</button>
@@ -633,8 +639,290 @@
           <p class="muted">En cas de souci, joins le fichier journal (blast.log) à ton rapport : il ne contient aucun mot de passe.</p>
         </div>
       </section>
+      <!-- [HTM-26] -->
+      <section class="tab-page hidden ice-tab" data-page="icecast">
+        <div class="ice-side">
+          <div class="form-section">Serveurs</div>
+          <div class="ice-servers" id="ice-servers"></div>
+          <button class="btn small wide" id="ice-add">+ Ajouter un serveur</button>
+        </div>
+        <section class="ice-main">
+          <!-- [HTM-27] -->
+          <div class="ice-welcome" id="ice-welcome">
+            <div class="about-name">Serveur Icecast</div>
+            <p class="muted">Lance, configure et surveille ton serveur Icecast sans éditer <code>icecast.xml</code> à la main. Un serveur <b>local</b> est piloté entièrement (démarrage, configuration, journaux). Un serveur <b>distant</b> (VPS) est surveillé et administré par son interface admin.</p>
+            <div class="form-section">Installations trouvées sur cet ordinateur</div>
+            <div class="ice-detected" id="ice-detected"></div>
+            <div class="form-actions">
+              <button class="btn small" id="ice-add-local">Serveur local (choisir le dossier)</button>
+              <button class="btn small" id="ice-add-remote">Serveur distant (VPS)</button>
+            </div>
+          </div>
+
+          <div class="ice-body hidden" id="ice-body">
+            <!-- [HTM-28] -->
+            <header class="ice-head">
+              <span class="dot" id="ice-dot"></span>
+              <div class="ice-ident">
+                <div class="ice-name" id="ice-name"></div>
+                <div class="ice-sub muted" id="ice-sub"></div>
+              </div>
+              <span class="spacer"></span>
+              <button class="btn ghost small" id="ice-web" title="Ouvrir la page d'état du serveur dans le navigateur">Page web</button>
+              <button class="btn small" data-power="restart">Redémarrer</button>
+              <button class="btn small" data-power="stop">Arrêter</button>
+              <button class="btn accent small" data-power="start">Démarrer</button>
+            </header>
+            <nav class="fx-tabs ice-tabs">
+              <button class="fx-tab active" data-itab="dash">TABLEAU DE BORD</button>
+              <button class="fx-tab" data-itab="config" data-local>CONFIGURATION</button>
+              <button class="fx-tab" data-itab="mounts" data-local>MOUNTPOINTS</button>
+              <button class="fx-tab" data-itab="listeners">AUDITEURS</button>
+              <button class="fx-tab" data-itab="log" data-local>JOURNAL</button>
+              <button class="fx-tab" data-itab="profile">CONNEXION</button>
+            </nav>
+
+            <!-- [HTM-29] -->
+            <div class="ice-page" data-ipage="dash">
+              <div class="ice-banner hidden" id="ice-banner"></div>
+              <div class="ice-tiles">
+                <div class="ice-tile"><small>Auditeurs</small><b id="it-listeners">—</b><span id="it-listeners-sub" class="muted"></span></div>
+                <div class="ice-tile"><small>Pic</small><b id="it-peak">—</b><span class="muted">record des mountpoints actifs</span></div>
+                <div class="ice-tile"><small>Sources</small><b id="it-sources">—</b><span id="it-sources-sub" class="muted"></span></div>
+                <div class="ice-tile"><small>En ligne depuis</small><b id="it-uptime">—</b><span id="it-started" class="muted"></span></div>
+                <div class="ice-tile"><small>Débit sortant</small><b id="it-rate">—</b><span id="it-sent" class="muted"></span></div>
+                <div class="ice-tile"><small>Connexions</small><b id="it-conns">—</b><span id="it-conns-sub" class="muted"></span></div>
+              </div>
+              <div class="ice-chart-box">
+                <div class="ice-chart-head"><span class="form-section-inline">AUDITEURS — 10 DERNIÈRES MINUTES</span><span class="spacer"></span><span class="muted" id="ice-chart-max"></span></div>
+                <canvas id="ice-chart" height="110"></canvas>
+              </div>
+              <div class="ice-table-wrap">
+                <table class="ice-table" id="ice-mount-table">
+                  <thead><tr><th>Mountpoint</th><th>État</th><th>Titre en cours</th><th class="right">Auditeurs</th><th class="right">Pic</th><th>Format</th><th>Source</th><th class="right">Depuis</th><th></th></tr></thead>
+                  <tbody></tbody>
+                </table>
+                <div class="ice-none hidden" id="ice-mount-none">
+                  <p class="muted">Aucun flux en cours. Un point de montage (mountpoint) est l'adresse d'un flux sur le serveur, par exemple <code>/live</code> : les auditeurs écoutent <code>http://adresse:port/live</code>. Pas besoin de le déclarer : il apparaît dès que BLAST se connecte avec le mot de passe des sources.</p>
+                  <div class="form-actions"><button class="btn accent small" id="ice-quick-link" title="Ajoute dans Réglages → Diffusion une sortie Icecast vers /live avec le mot de passe des sources">Créer la sortie BLAST vers /live</button><span class="muted">puis DIFFUSER</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- [HTM-30] -->
+            <div class="ice-page hidden" data-ipage="config">
+              <div class="ice-file" id="ice-file">
+                <code id="ice-file-path"></code>
+                <span class="chip" id="ice-file-state"></span>
+                <span class="muted" id="ice-file-backups"></span>
+                <span class="spacer"></span>
+                <button class="btn small hidden" id="ice-adopt" title="Copie icecast.xml dans le dossier de BLAST, avec des chemins absolus, pour pouvoir le modifier sans droits administrateur">Copier la configuration dans BLAST</button>
+              </div>
+              <div class="ice-noconf hidden" id="ice-noconf">
+                <p class="muted" id="ice-noconf-text"></p>
+                <div class="form-actions"><button class="btn accent small" id="ice-create">Créer une configuration neuve</button><button class="btn small" id="ice-goto-profile">Choisir un fichier existant</button></div>
+              </div>
+              <form class="form ice-form" id="ice-config-form" autocomplete="off">
+                <div class="form-section">Serveur</div>
+                <div class="grid3">
+                  <label>Nom d'hôte public (hostname)<input data-k="hostname" placeholder="radio.black-lab.fr"></label>
+                  <label>Lieu<input data-k="location"></label>
+                  <label>Contact admin<input data-k="admin" placeholder="contact@black-lab.fr"></label>
+                </div>
+                <div class="form-section">Sécurité</div>
+                <div class="grid2">
+                  <label>Mot de passe des sources<span class="pw"><input data-k="auth.source_password" type="password"><button type="button" class="btn ghost small" data-eye title="Afficher"><svg class="ico"><use href="#i-eye"/></svg></button><button type="button" class="btn ghost small" data-gen title="Générer un mot de passe"><svg class="ico"><use href="#i-dice"/></svg></button></span></label>
+                  <label>Mot de passe des relais<span class="pw"><input data-k="auth.relay_password" type="password"><button type="button" class="btn ghost small" data-eye title="Afficher"><svg class="ico"><use href="#i-eye"/></svg></button><button type="button" class="btn ghost small" data-gen title="Générer un mot de passe"><svg class="ico"><use href="#i-dice"/></svg></button></span></label>
+                  <label>Identifiant admin<input data-k="auth.admin_user"></label>
+                  <label>Mot de passe admin<span class="pw"><input data-k="auth.admin_password" type="password"><button type="button" class="btn ghost small" data-eye title="Afficher"><svg class="ico"><use href="#i-eye"/></svg></button><button type="button" class="btn ghost small" data-gen title="Générer un mot de passe"><svg class="ico"><use href="#i-dice"/></svg></button></span></label>
+                </div>
+                <p class="muted small-note">Icecast lit ces mots de passe en clair dans son fichier : garde <code>icecast.xml</code> hors de portée. BLAST recopie l'identifiant admin dans le trousseau du système pour le tableau de bord.</p>
+                <div class="form-section">Ports d'écoute</div>
+                <div class="ice-rows" id="ice-sockets"></div>
+                <div><button type="button" class="btn ghost small" id="ice-socket-add">+ Ajouter un port</button></div>
+                <div class="form-section">Limites</div>
+                <div class="grid4">
+                  <label>Auditeurs max (total)<input data-k="limits.clients" type="number" min="1"></label>
+                  <label>Sources max<input data-k="limits.sources" type="number" min="1"></label>
+                  <label>File par auditeur (octets)<input data-k="limits.queue_size" type="number" min="1024" step="1024"></label>
+                  <label>Rafale à la connexion (octets)<input data-k="limits.burst_size" type="number" min="0" step="1024"></label>
+                  <label>Délai client (s)<input data-k="limits.client_timeout" type="number" min="1"></label>
+                  <label>Délai en-têtes (s)<input data-k="limits.header_timeout" type="number" min="1"></label>
+                  <label>Délai source (s)<input data-k="limits.source_timeout" type="number" min="1"></label>
+                </div>
+                <div class="form-section">Chemins</div>
+                <div class="grid2">
+                  <label>Dossier des journaux<input data-k="paths.logdir"></label>
+                  <label>Pages web (webroot)<input data-k="paths.webroot"></label>
+                  <label>Pages admin (adminroot)<input data-k="paths.adminroot"></label>
+                  <label>Dossier de base (basedir)<input data-k="paths.basedir" placeholder="facultatif"></label>
+                  <label>Fichier PID<input data-k="paths.pidfile" placeholder="facultatif"></label>
+                  <label>Certificat TLS (.pem)<input data-k="paths.ssl_certificate" placeholder="pour un port en HTTPS"></label>
+                </div>
+                <div class="form-section">Journalisation</div>
+                <div class="grid4">
+                  <label>Journal d'accès<input data-k="logging.accesslog"></label>
+                  <label>Journal d'erreurs<input data-k="logging.errorlog"></label>
+                  <label>Niveau
+                    <select data-k="logging.loglevel" data-num>
+                      <option value="1">1 · erreurs</option><option value="2">2 · avertissements</option><option value="3">3 · informations</option><option value="4">4 · débogage</option>
+                    </select>
+                  </label>
+                  <label>Taille max (Ko)<input data-k="logging.logsize" type="number" min="1"></label>
+                  <label class="check"><input data-k="logging.logarchive" type="checkbox"> Archiver au lieu d'écraser</label>
+                </div>
+              </form>
+            </div>
+
+            <!-- [HTM-31] -->
+            <div class="ice-page hidden" data-ipage="mounts">
+              <p class="muted ice-intro">Facultatif. Icecast accepte n'importe quel point de montage avec le mot de passe des sources : déclare-en un ici seulement pour lui donner des règles (limite d'auditeurs, mot de passe propre, flux de secours si ta diffusion tombe, nom et genre imposés).</p>
+              <div class="cast-layout">
+                <div class="out-list">
+                  <div class="out-items" id="ice-mount-list"></div>
+                  <button class="btn small wide" id="ice-mount-add">+ Nouveau mountpoint</button>
+                </div>
+                <form class="form" id="ice-mount-form" autocomplete="off">
+                  <div class="form-empty muted" id="ice-mount-empty">Sans mountpoint déclaré, Icecast accepte n'importe quel point de montage avec le mot de passe des sources. En déclarer un permet de lui donner un mot de passe propre, une limite d'auditeurs et un secours.</div>
+                  <div class="form-body" id="ice-mount-body">
+                    <div class="grid2">
+                      <label>Point de montage<input data-m="mount_name" placeholder="/live"></label>
+                      <label>Limite d'auditeurs (0 = aucune)<input data-m="max_listeners" type="number" min="0"></label>
+                      <label>Identifiant de la source<input data-m="username" placeholder="source (par défaut)"></label>
+                      <label>Mot de passe propre<span class="pw"><input data-m="password" type="password" placeholder="vide = mot de passe des sources"><button type="button" class="btn ghost small" data-eye title="Afficher"><svg class="ico"><use href="#i-eye"/></svg></button><button type="button" class="btn ghost small" data-gen title="Générer un mot de passe"><svg class="ico"><use href="#i-dice"/></svg></button></span></label>
+                    </div>
+                    <div class="form-section">Secours</div>
+                    <div class="grid2">
+                      <label>Mountpoint de secours<input data-m="fallback_mount" list="ice-mount-names" placeholder="/autodj"></label>
+                      <label class="check"><input data-m="fallback_override" type="checkbox"> Ramener les auditeurs ici quand la source revient</label>
+                    </div>
+                    <p class="muted small-note">Si la source de ce mountpoint tombe, les auditeurs basculent sur le secours au lieu d'être coupés.</p>
+                    <datalist id="ice-mount-names"></datalist>
+                    <div class="form-section">Présentation (remplace ce qu'envoie la source)</div>
+                    <div class="grid2">
+                      <label>Nom du flux<input data-m="stream_name"></label>
+                      <label>Genre<input data-m="genre"></label>
+                      <label class="span2">Description<input data-m="stream_description"></label>
+                      <label>Site web<input data-m="stream_url"></label>
+                      <label>Débit annoncé (kb/s)<input data-m="bitrate" placeholder="128"></label>
+                      <label>Annuaire public
+                        <select data-m="public">
+                          <option value="">Laisser la source décider</option>
+                          <option value="1">Toujours publier</option>
+                          <option value="0">Ne jamais publier</option>
+                        </select>
+                      </label>
+                      <label class="check"><input data-m="hidden" type="checkbox"> Masquer de la page d'état publique</label>
+                    </div>
+                    <div class="form-actions">
+                      <button type="button" class="btn ghost small danger" id="ice-mount-delete">Retirer ce mountpoint</button>
+                      <span class="spacer"></span>
+                      <span class="form-result" id="ice-mount-result"></span>
+                      <button type="button" class="btn small" id="ice-mount-link" title="Ajoute une sortie dans Réglages → Diffusion qui envoie le son de BLAST vers ce mountpoint">Diffuser BLAST ici</button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- [HTM-32] -->
+            <div class="ice-page hidden" data-ipage="listeners">
+              <div class="form-actions ice-tools">
+                <label class="fx-select">Mountpoint <select id="ice-lis-mount"></select></label>
+                <span class="muted" id="ice-lis-info"></span>
+                <span class="spacer"></span>
+                <button class="btn small" id="ice-lis-refresh">Actualiser</button>
+              </div>
+              <div class="ice-table-wrap">
+                <table class="ice-table" id="ice-lis-table">
+                  <thead><tr><th>Adresse IP</th><th>Lecteur</th><th class="right">Connecté depuis</th><th class="right">ID</th><th></th></tr></thead>
+                  <tbody></tbody>
+                </table>
+                <div class="muted ice-none hidden" id="ice-lis-none">Personne à l'écoute sur ce mountpoint.</div>
+              </div>
+            </div>
+
+            <!-- [HTM-33] -->
+            <div class="ice-page hidden" data-ipage="log">
+              <div class="form-actions ice-tools">
+                <button class="chip-btn active" data-ilog="error">Erreurs</button>
+                <button class="chip-btn" data-ilog="access">Accès</button>
+                <button class="chip-btn" data-ilog="console">Console</button>
+                <span class="spacer"></span>
+                <label class="check small-check"><input type="checkbox" id="ice-log-auto" checked> Suivre en direct</label>
+                <button class="btn small" id="ice-log-refresh">Actualiser</button>
+              </div>
+              <pre class="ice-log" id="ice-log"></pre>
+            </div>
+
+            <!-- [HTM-34] -->
+            <div class="ice-page hidden" data-ipage="profile">
+              <form class="form" id="ice-profile-form" autocomplete="off">
+                <div class="grid2">
+                  <label>Nom<input name="name" required></label>
+                  <label>Emplacement
+                    <select name="remote"><option value="false">Local (cet ordinateur)</option><option value="true">Distant (VPS, serveur dédié)</option></select>
+                  </label>
+                </div>
+                <div class="form-section" data-where="local">Installation</div>
+                <div class="grid2" data-where="local">
+                  <label class="span2">Dossier d'installation d'Icecast<span class="pw"><input name="install_dir" placeholder="C:\Program Files\Icecast"><button type="button" class="btn small" id="ice-pick-dir">Parcourir…</button></span></label>
+                  <label class="span2">Fichier de configuration<span class="pw"><input name="config_path" placeholder="trouvé automatiquement dans le dossier"><button type="button" class="btn small" id="ice-pick-xml">Parcourir…</button></span></label>
+                  <label class="span2 muted" id="ice-exe-info"></label>
+                </div>
+                <div class="form-section">Connexion à l'interface admin</div>
+                <div class="grid2">
+                  <label>Adresse<input name="host" required></label>
+                  <label>Port<input name="port" type="number" min="1" max="65535" required></label>
+                  <label>Identifiant admin<input name="admin_user"></label>
+                  <label>Mot de passe admin<input name="password" type="password"></label>
+                  <label class="check span2"><input name="https" type="checkbox"> HTTPS (Icecast derrière un certificat TLS)</label>
+                </div>
+                <p class="muted small-note" id="ice-pw-note"></p>
+                <div class="form-section" data-where="local">Démarrage</div>
+                <div class="grid2" data-where="local">
+                  <label class="check span2"><input name="autostart" type="checkbox"> Lancer Icecast au démarrage de BLAST</label>
+                  <label class="check span2"><input name="stop_on_exit" type="checkbox"> L'arrêter quand je ferme BLAST</label>
+                </div>
+                <div class="form-actions">
+                  <button type="button" class="btn ghost small danger" id="ice-delete">Retirer ce serveur</button>
+                  <span class="spacer"></span>
+                  <span class="form-result" id="ice-profile-result"></span>
+                  <button type="submit" class="btn accent small">Enregistrer</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- [HTM-35] -->
+            <footer class="ice-savebar hidden" id="ice-savebar">
+              <span>Modifications de la configuration non enregistrées</span>
+              <span class="form-result" id="ice-save-result"></span>
+              <span class="spacer"></span>
+              <button class="btn ghost small" id="ice-revert">Annuler</button>
+              <button class="btn small" id="ice-save">Enregistrer</button>
+              <button class="btn accent small" id="ice-save-restart">Enregistrer et redémarrer</button>
+            </footer>
+          </div>
+        </section>
+      </section>
     </div>
   </div>
+
+  <!-- [HTM-37] -->
+  <div id="cast-panel" class="pad-menu cast-panel hidden">
+    <div class="cast-panel-head"><b id="cp-state"></b><span class="spacer"></span><span class="muted" id="cp-time"></span></div>
+    <div class="muted cp-song" id="cp-song"></div>
+    <div class="cp-outputs" id="cp-outputs"></div>
+    <div class="cp-total muted" id="cp-total"></div>
+    <div class="form-actions">
+      <button class="btn ghost small" id="cp-settings">Gérer les sorties…</button>
+      <span class="spacer"></span>
+      <button class="btn accent small" id="cp-toggle">Démarrer</button>
+    </div>
+  </div>
+
+  <!-- [HTM-36] -->
+  <div id="ice-menu" class="pad-menu ice-menu hidden"></div>
 
   <div id="toasts" class="toasts"></div>
   <div id="ghost" class="drag-ghost"></div>

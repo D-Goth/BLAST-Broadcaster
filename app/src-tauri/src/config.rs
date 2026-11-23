@@ -193,6 +193,50 @@ impl AppearanceSettings {
     }
 }
 
+// [CFG-15]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct IceServerProfile {
+    pub id: String,
+    pub name: String,
+    pub remote: bool,
+    pub install_dir: Option<PathBuf>,
+    pub exe: Option<PathBuf>,
+    pub config_path: Option<PathBuf>,
+    pub host: String,
+    pub port: u16,
+    pub https: bool,
+    pub admin_user: String,
+    pub autostart: bool,
+    pub stop_on_exit: bool,
+}
+
+impl Default for IceServerProfile {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: "Icecast local".into(),
+            remote: false,
+            install_dir: None,
+            exe: None,
+            config_path: None,
+            host: "localhost".into(),
+            port: 8000,
+            https: false,
+            admin_user: "admin".into(),
+            autostart: false,
+            stop_on_exit: false,
+        }
+    }
+}
+
+// [CFG-16]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct IcecastSettings {
+    pub servers: Vec<IceServerProfile>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
@@ -208,6 +252,7 @@ pub struct AppConfig {
     pub appearance: AppearanceSettings,
     pub library: LibrarySettings,
     pub rotation: blast_library::Rotation,
+    pub icecast: IcecastSettings,
 }
 
 // [CFG-09]
@@ -265,6 +310,11 @@ mod tests {
         cfg.rotation.default_clock = Some("soir".into());
         cfg.appearance.background = Some("background-1.jpg".into());
         cfg.library.dirs.push("/musique".into());
+        cfg.icecast.servers.push(super::IceServerProfile {
+            id: "ice-1".into(),
+            install_dir: Some("C:/Program Files/Icecast".into()),
+            ..Default::default()
+        });
         let text = toml::to_string_pretty(&cfg).unwrap();
         let back: super::AppConfig = toml::from_str(&text).unwrap();
         assert_eq!(back, cfg);
