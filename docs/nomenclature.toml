@@ -9,10 +9,12 @@ PROT = "Protocoles Icecast / Shoutcast et statistiques (blast-cast)"
 AURA = "Pilotage d'OBS par obs-websocket (blast-aura)"
 LIB = "Bibliothèque SQLite, historique et règles de séparation (blast-library)"
 LIVE = "Chat en direct (blast-live, en préparation)"
+ICE = "Serveur Icecast : configuration icecast.xml, statistiques, administration et processus (blast-ice)"
 CLI = "Outil en ligne de commande « blast » (blast-cli)"
 APP = "Démarrage de l'application et commandes Tauri"
 CFG = "Réglages enregistrés (config.toml)"
 SEC = "Mots de passe dans le trousseau du système"
+ICM = "Gestion des serveurs Icecast côté application"
 JRN = "Journal de diagnostic (blast.log)"
 UPD = "Vérification des mises à jour sur GitHub"
 PL = "Playlist côté application"
@@ -2531,3 +2533,443 @@ definition = "Variation de gain par échantillon pour que la musique parcoure to
 [codes.HTM-25]
 titre = "Réglages repliables du Voice FX"
 definition = "Égaliseur micro et temps du ducking ; repliés sur une même ligne, une section ouverte prend toute la largeur."
+
+[codes.ICE-01]
+titre = "Erreurs Icecast"
+definition = "Serveur injoignable, identifiants admin refusés, statut HTTP inattendu, réponse illisible, action refusée par Icecast ou erreur de fichier, avec un message en français."
+
+[codes.ICE-02]
+titre = "Mot de passe aléatoire"
+definition = "Caractères alphanumériques sans les signes ambigus (0, O, 1, l, I), tirés par le générateur aléatoire du système."
+
+[codes.ICE-03]
+titre = "Limites du serveur"
+definition = "Clients, sources, taille de file par auditeur, délais client, en-têtes et source, rafale à la connexion ; valeurs par défaut d'Icecast."
+
+[codes.ICE-04]
+titre = "Authentification du serveur"
+definition = "Mots de passe des sources et des relais, identifiant et mot de passe admin."
+
+[codes.ICE-05]
+titre = "Port d'écoute"
+definition = "Port, adresse d'écoute, compatibilité Shoutcast (qui occupe aussi le port suivant) et HTTPS. `key` désigne la balise d'origine pour en garder les options non gérées."
+
+[codes.ICE-06]
+titre = "Mountpoint déclaré"
+definition = "Nom, identifiant et mot de passe propres, limite d'auditeurs, secours et retour automatique, présentation imposée, annuaire (laisser la source décider, toujours, jamais) et masquage."
+
+[codes.ICE-07]
+titre = "Chemins"
+definition = "basedir, logdir, webroot, adminroot, fichier PID et certificat TLS."
+
+[codes.ICE-08]
+titre = "Journalisation"
+definition = "Fichiers d'accès et d'erreurs, niveau de 1 à 4, taille maximale et archivage."
+
+[codes.ICE-09]
+titre = "Configuration éditable"
+definition = "Partie de icecast.xml présentée dans l'interface : serveur, sécurité, ports, limites, mountpoints, chemins et journaux."
+
+[codes.ICE-10]
+titre = "Modèle de configuration neuve"
+definition = "icecast.xml minimal : un port 8000, en-tête CORS, alias de la page d'état, chroot désactivé."
+
+[codes.ICE-11]
+titre = "Document icecast.xml"
+definition = "Arbre XML complet du fichier. Seules les balises gérées sont modifiées : commentaires, relais, authentification des mountpoints, en-têtes et sécurité sont conservés."
+
+[codes.ICE-12]
+titre = "Lecture de la configuration"
+definition = "Extrait la configuration éditable ; une balise absente prend la valeur par défaut d'Icecast, une limite d'auditeurs négative signifie « sans limite »."
+
+[codes.ICE-13]
+titre = "Application de la configuration"
+definition = "Réécrit les balises gérées ; une valeur vide retire la balise. Ports et mountpoints sont reconstruits à l'emplacement des anciens, à partir de leur balise d'origine."
+
+[codes.ICE-14]
+titre = "Écriture du XML"
+definition = "Indentation de quatre espaces, sans déclaration XML, comme le fichier fourni avec Icecast."
+
+[codes.ICE-15]
+titre = "Validation"
+definition = "Refuse un hostname vide, l'absence de port, un port en double (compatibilité Shoutcast comprise), un mot de passe vide, des limites nulles, un niveau de journal hors de 1 à 4, un mountpoint mal nommé ou en double, un secours qui pointe sur lui-même. Avertit pour un mot de passe « hackme » ou un secours non déclaré."
+
+[codes.ICE-16]
+titre = "Chemins absolus"
+definition = "Rend webroot, adminroot, basedir et le certificat absolus par rapport au dossier d'installation, et place journaux et fichier PID dans le dossier indiqué. Sert quand la configuration est copiée hors du dossier d'Icecast."
+
+[codes.ICE-17]
+titre = "Résolution des chemins"
+definition = "Chemin relatif au dossier de travail (ou à basedir), chemin complet d'un journal et premier port d'écoute."
+
+[codes.ICE-18]
+titre = "Test d'écriture"
+definition = "Ouvre le fichier en ajout sans le modifier, ou crée un fichier témoin dans le dossier s'il n'existe pas encore."
+
+[codes.ICE-19]
+titre = "Écriture avec sauvegarde"
+definition = "Copie l'ancien fichier en .bak-<horodatage>, écrit un fichier temporaire puis le renomme, et ne garde que les dernières sauvegardes."
+
+[codes.ICE-20]
+titre = "Liste des sauvegardes"
+definition = "Sauvegardes d'un fichier de configuration, de la plus ancienne à la plus récente."
+
+[codes.ICE-21]
+titre = "Statistiques d'un mountpoint"
+definition = "Auditeurs, pic, limite, débit, nom, genre, titre en cours (artiste ajouté s'il est séparé), type, adresse et logiciel de la source, début de diffusion, octets envoyés."
+
+[codes.ICE-22]
+titre = "Statistiques du serveur"
+definition = "Version, hôte, date de lancement, auditeurs, sources, clients, compteurs de connexions et mountpoints actifs."
+
+[codes.ICE-23]
+titre = "Auditeur"
+definition = "Identifiant Icecast, adresse IP, lecteur utilisé et durée de connexion en secondes."
+
+[codes.ICE-24]
+titre = "Lecture des dates"
+definition = "Date ISO 8601 d'Icecast (décalage +0100 ou +01:00), sinon format RFC 2822 ; renvoie un horodatage Unix."
+
+[codes.ICE-25]
+titre = "Lecture de /admin/stats"
+definition = "Transforme la réponse XML des statistiques admin en statistiques du serveur."
+
+[codes.ICE-26]
+titre = "Lecture de /admin/listclients"
+definition = "Transforme la liste XML des auditeurs d'un mountpoint."
+
+[codes.ICE-27]
+titre = "Réponse d'une action admin"
+definition = "Lit <iceresponse> : return vaut 1 en cas de succès, sinon le message est renvoyé comme refus."
+
+[codes.ICE-28]
+titre = "Actions admin"
+definition = "Déconnecter un auditeur, couper une source, déplacer les auditeurs vers un autre mountpoint, changer le titre affiché."
+
+[codes.ICE-29]
+titre = "Point d'accès admin"
+definition = "Hôte, port, HTTPS, identifiant et mot de passe admin, logiciel annoncé. Une adresse IPv6 est mise entre crochets."
+
+[codes.ICE-30]
+titre = "Encodage d'URL"
+definition = "Encode un paramètre de requête en pourcentages, « / » compris dans les caractères gardés."
+
+[codes.ICE-31]
+titre = "Requête HTTP"
+definition = "GET avec authentification Basic, délai de 5 s, certificats du système, 401 ou 403 : identifiants refusés, 400 : message de la page d'erreur d'Icecast, corps limité à 8 Mo."
+
+[codes.ICE-32]
+titre = "Sonde"
+definition = "Interroge /status-json.xsl sans authentification pour savoir si le serveur répond et lire sa version."
+
+[codes.ICE-33]
+titre = "Statistiques admin"
+definition = "Lit /admin/stats avec les identifiants admin."
+
+[codes.ICE-34]
+titre = "Liste des auditeurs"
+definition = "Lit /admin/listclients pour un mountpoint."
+
+[codes.ICE-35]
+titre = "Exécution d'une action admin"
+definition = "Appelle killclient, killsource, moveclients ou metadata (mode updinfo) et renvoie le message d'Icecast."
+
+[codes.ICE-36]
+titre = "Installation détectée"
+definition = "Dossier, exécutable, fichier de configuration, dossiers web et admin d'une installation d'Icecast."
+
+[codes.ICE-37]
+titre = "Recherche dans un dossier"
+definition = "Cherche icecast.exe, icecast2.exe, icecast ou icecast2 à la racine ou dans bin, puis icecast.xml et les dossiers web et admin."
+
+[codes.ICE-38]
+titre = "Détection"
+definition = "Sous Windows, les dossiers de Program Files dont le nom contient « icecast » ; ailleurs, les paquets icecast2, icecast, /usr/local et Homebrew."
+
+[codes.ICE-39]
+titre = "Processus Icecast"
+definition = "Lance l'exécutable avec -c dans son dossier de travail, sortie vers console.log, sans fenêtre de console sous Windows ; échec si Icecast s'arrête dans les 1,2 s. Reprend un PID existant. Arrêt par SIGTERM puis arrêt forcé, ou TerminateProcess sous Windows."
+
+[codes.ICE-40]
+titre = "Arrêt par PID"
+definition = "taskkill /F sous Windows, kill -KILL ailleurs, pour un Icecast lancé lors d'une session précédente de BLAST."
+
+[codes.ICE-41]
+titre = "Vérification d'un PID"
+definition = "Le nom du processus contient « icecast » (/proc sous Linux, tasklist sous Windows, ps sinon), pour ne jamais arrêter un autre programme qui aurait repris le même numéro."
+
+[codes.ICE-42]
+titre = "Fin d'un fichier"
+definition = "Dernières lignes d'un journal, en lisant au plus les 256 derniers Ko."
+
+[codes.ICE-43]
+titre = "Message d'une page d'erreur"
+definition = "Texte d'une page d'erreur HTML d'Icecast, sans le code HTTP placé devant."
+
+[codes.ICM-01]
+titre = "Sauvegardes gardées"
+definition = "Nombre de copies .bak gardées pour chaque icecast.xml modifié par BLAST."
+
+[codes.ICM-02]
+titre = "Gestionnaire des serveurs"
+definition = "Processus Icecast suivis par BLAST, dossier de données (PID, console, journaux des copies) et dossier de réglages (copies de icecast.xml)."
+
+[codes.ICM-03]
+titre = "Identifiant sûr"
+definition = "Lettres, chiffres, tirets et soulignés seulement : l'identifiant sert de nom de dossier."
+
+[codes.ICM-04]
+titre = "Dossier de travail"
+definition = "Dossier d'installation s'il existe, sinon le dossier de l'exécutable (son parent s'il s'appelle bin). Les chemins relatifs de icecast.xml en partent."
+
+[codes.ICM-05]
+titre = "État d'un serveur local"
+definition = "En marche et lancé par BLAST ou non ; reprend le processus noté dans icecast.pid après un redémarrage de BLAST."
+
+[codes.ICM-06]
+titre = "Lancement"
+definition = "Vérifie l'exécutable et la configuration, la valide, crée le dossier des journaux, lance Icecast et note son PID. Refusé pour un serveur distant."
+
+[codes.ICM-07]
+titre = "Arrêt"
+definition = "Arrête le processus lancé ou repris par BLAST ; un Icecast lancé comme service Windows n'est pas touché."
+
+[codes.ICM-08]
+titre = "Arrêt à la fermeture"
+definition = "À la fermeture de BLAST, arrête les serveurs locaux réglés ainsi et lancés par BLAST."
+
+[codes.ICM-09]
+titre = "Vue d'un serveur"
+definition = "Profil, présence d'un mot de passe admin et indication d'une configuration copiée dans BLAST."
+
+[codes.ICM-10]
+titre = "Vue de la fenêtre Icecast"
+definition = "Serveurs, installations détectées, emplacement des mots de passe et avertissement éventuel."
+
+[codes.ICM-11]
+titre = "État renvoyé à l'interface"
+definition = "Processus en marche, lancé par BLAST, serveur joignable, version, statistiques et message d'erreur."
+
+[codes.ICM-12]
+titre = "Vue de la configuration"
+definition = "Configuration, chemin, droit d'écriture, copie gérée par BLAST, nombre de sauvegardes, avertissements et message."
+
+[codes.ICM-13]
+titre = "Construction de la vue"
+definition = "Assemble la vue de la fenêtre Icecast à partir des réglages et du trousseau."
+
+[codes.ICM-14]
+titre = "Construction de la vue de configuration"
+definition = "Charge icecast.xml d'un serveur local ; un serveur distant demandera SSH."
+
+[codes.ICM-15]
+titre = "Commande ice_list"
+definition = "Renvoie la vue de la fenêtre Icecast."
+
+[codes.ICM-16]
+titre = "Commande ice_detect"
+definition = "Cherche une installation dans un dossier donné, ou aux emplacements habituels."
+
+[codes.ICM-17]
+titre = "Commande ice_save_server"
+definition = "Valide le profil, crée son identifiant, cherche l'exécutable, reprend port, identifiant et mot de passe admin dans icecast.xml, range le mot de passe dans le trousseau, prévient si l'admin d'un hôte distant passe en HTTP."
+
+[codes.ICM-18]
+titre = "Commande ice_delete_server"
+definition = "Arrête le serveur s'il a été lancé par BLAST, efface son mot de passe et son profil ; icecast.xml n'est pas supprimé."
+
+[codes.ICM-19]
+titre = "Commande ice_status"
+definition = "Statistiques admin, sinon sonde publique, avec un message adapté (arrêté, en démarrage, mot de passe manquant ou refusé)."
+
+[codes.ICM-20]
+titre = "Commande ice_power"
+definition = "Démarre, arrête ou redémarre un serveur local."
+
+[codes.ICM-21]
+titre = "Commande ice_get_config"
+definition = "Renvoie la vue de la configuration d'un serveur."
+
+[codes.ICM-22]
+titre = "Commande ice_save_config"
+definition = "Valide, vérifie le droit d'écriture, applique au document, relit le résultat, écrit avec sauvegarde, recopie identifiant, mot de passe admin et port dans le profil, puis redémarre si demandé."
+
+[codes.ICM-23]
+titre = "Commande ice_adopt_config"
+definition = "Copie icecast.xml dans le dossier de réglages de BLAST avec des chemins absolus, pour le modifier sans droits administrateur ; l'original n'est pas touché."
+
+[codes.ICM-24]
+titre = "Commande ice_new_config"
+definition = "Crée une configuration neuve à mots de passe aléatoires dans le dossier de réglages de BLAST, avec les pages web et admin de l'installation."
+
+[codes.ICM-25]
+titre = "Commande ice_listeners"
+definition = "Liste les auditeurs d'un mountpoint."
+
+[codes.ICM-26]
+titre = "Commande ice_admin"
+definition = "Exécute une action admin et la note dans le journal de BLAST."
+
+[codes.ICM-27]
+titre = "Commande ice_log"
+definition = "Fin du journal d'erreurs, d'accès ou de la console d'Icecast."
+
+[codes.ICM-28]
+titre = "Commande ice_link_output"
+definition = "Ajoute dans Diffusion une sortie Icecast vers un mountpoint, avec son mot de passe (propre ou celui des sources) et sa présentation."
+
+[codes.ICM-29]
+titre = "Lancement automatique"
+definition = "Au démarrage de BLAST, lance dans un fil séparé les serveurs locaux réglés ainsi."
+
+[codes.ICM-30]
+titre = "Commande ice_open_web"
+definition = "Ouvre la page d'état du serveur dans le navigateur."
+
+[codes.CFG-15]
+titre = "Profil d'un serveur Icecast"
+definition = "Nom, local ou distant, dossier d'installation, exécutable, fichier de configuration, adresse, port, HTTPS, identifiant admin, lancement au démarrage et arrêt à la fermeture. Le mot de passe admin est dans le trousseau."
+
+[codes.CFG-16]
+titre = "Serveurs Icecast"
+definition = "Liste des profils de serveurs Icecast."
+
+[codes.SEC-07]
+titre = "Clé d'un serveur Icecast"
+definition = "Nom du mot de passe admin d'un serveur Icecast dans le trousseau."
+
+[codes.STY-18]
+titre = "Fenêtre Icecast"
+definition = "Pastille de la barre du haut, liste des serveurs, en-tête, tuiles, graphique, tableaux, formulaires, journal et barre d'enregistrement."
+
+[codes.HTM-26]
+titre = "Fenêtre Icecast"
+definition = "Liste des serveurs à gauche, contenu du serveur choisi à droite."
+
+[codes.HTM-27]
+titre = "Accueil Icecast"
+definition = "Présentation, installations détectées et ajout d'un serveur local ou distant."
+
+[codes.HTM-28]
+titre = "En-tête du serveur"
+definition = "État, nom, adresse, version, boutons page web, Redémarrer, Arrêter et Démarrer."
+
+[codes.HTM-29]
+titre = "Tableau de bord Icecast"
+definition = "Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints."
+
+[codes.HTM-30]
+titre = "Configuration Icecast"
+definition = "Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute, limites, chemins, journalisation."
+
+[codes.HTM-31]
+titre = "Mountpoints Icecast"
+definition = "Liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST."
+
+[codes.HTM-32]
+titre = "Auditeurs Icecast"
+definition = "Choix du mountpoint et tableau des auditeurs avec déconnexion."
+
+[codes.HTM-33]
+titre = "Journal Icecast"
+definition = "Erreurs, accès ou console, suivi en direct."
+
+[codes.HTM-34]
+titre = "Connexion Icecast"
+definition = "Profil : emplacement, installation, configuration, accès admin et démarrage."
+
+[codes.HTM-35]
+titre = "Barre d'enregistrement Icecast"
+definition = "Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer et redémarrer."
+
+[codes.HTM-36]
+titre = "Menu d'actions Icecast"
+definition = "Menu flottant des actions sur un mountpoint."
+
+[codes.UI-108]
+titre = "État du module Icecast"
+definition = "Serveur choisi, onglet, états et historiques par serveur, configuration chargée et brouillon en cours de modification."
+
+[codes.UI-109]
+titre = "Outils de format Icecast"
+definition = "Échappement HTML, octets, durées, accès aux champs par chemin (auth.admin_password)."
+
+[codes.UI-110]
+titre = "Liste des serveurs"
+definition = "Un bouton par serveur avec son état et ses auditeurs."
+
+[codes.UI-111]
+titre = "Choix d'un serveur"
+definition = "Charge sa configuration si le serveur est local puis son état ; prévient si un brouillon est abandonné."
+
+[codes.UI-112]
+titre = "Onglets Icecast"
+definition = "Affiche une page ; les onglets réservés aux serveurs locaux sont désactivés pour un serveur distant ou non enregistré."
+
+[codes.UI-113]
+titre = "Actualisation de l'état"
+definition = "Interroge ice_status, enregistre l'historique des auditeurs et le débit sortant calculé sur 30 s."
+
+[codes.UI-114]
+titre = "En-tête Icecast"
+definition = "Pastille d'état, adresse, version, origine du processus et boutons selon l'état."
+
+[codes.UI-115]
+titre = "Tableau de bord Icecast"
+definition = "Bandeau d'information, tuiles et tableau des mountpoints (actifs et déclarés en attente de source)."
+
+[codes.UI-116]
+titre = "Graphique des auditeurs"
+definition = "Courbe en escalier des 10 dernières minutes, aux couleurs du thème."
+
+[codes.UI-117]
+titre = "Actions sur un mountpoint"
+definition = "Menu flottant : voir les auditeurs, changer le titre, déplacer les auditeurs, couper la source."
+
+[codes.UI-118]
+titre = "Chargement de la configuration"
+definition = "Lit icecast.xml et prépare un brouillon modifiable."
+
+[codes.UI-119]
+titre = "Formulaire de configuration"
+definition = "Remplit les champs data-k depuis le brouillon et les désactive si le fichier est en lecture seule."
+
+[codes.UI-120]
+titre = "Ports d'écoute"
+definition = "Une ligne par port ; le dernier port ne peut pas être retiré."
+
+[codes.UI-121]
+titre = "Mountpoints"
+definition = "Liste et formulaire des mountpoints du brouillon."
+
+[codes.UI-122]
+titre = "Enregistrement de la configuration"
+definition = "Envoie le brouillon, redémarre si demandé et recharge les profils."
+
+[codes.UI-123]
+titre = "Liste des auditeurs"
+definition = "Auditeurs du mountpoint choisi, du plus ancien au plus récent, avec déconnexion confirmée."
+
+[codes.UI-124]
+titre = "Journal"
+definition = "Fin du journal choisi, erreurs et avertissements colorés, défilement suivi."
+
+[codes.UI-125]
+titre = "Profil du serveur"
+definition = "Formulaire de connexion, choix du dossier et du fichier, détection de l'exécutable, avertissement HTTP pour un VPS."
+
+[codes.UI-126]
+titre = "Pastille ICECAST"
+definition = "État global et total des auditeurs dans la barre du haut, actualisés toutes les 10 s quand la fenêtre est fermée."
+
+[codes.UI-127]
+titre = "Ouverture de la fenêtre Icecast"
+definition = "Charge les profils, choisit un serveur et lance les actualisations ; fermeture par Échap ou clic hors du panneau."
+
+[codes.UI-128]
+titre = "Démarrer, arrêter, redémarrer"
+definition = "Commandes du serveur local, avec retour dans une notification."
+
+[codes.UI-129]
+titre = "Accueil Icecast"
+definition = "Installations détectées pas encore ajoutées."

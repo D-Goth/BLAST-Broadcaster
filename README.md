@@ -22,6 +22,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 **Diffusion**
 - Plusieurs sorties simultanées : MP3, AAC, Opus, Ogg Vorbis, FLAC
 - Serveurs Icecast, Shoutcast v1 et v2, métadonnées « titre en cours »
+- Gestion de son propre serveur Icecast (local ou VPS) : lancement, configuration sans éditer le XML, surveillance
 - Historique de diffusion exportable
 
 **Live**
@@ -42,6 +43,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 | `blast-library` | Bibliothèque musicale, file d'attente, automatisation |
 | `blast-aura` | Pilotage d'OBS Studio |
 | `blast-live` | Chat, commandes viewers, invités |
+| `blast-ice` | Gestion d'un serveur Icecast : icecast.xml, statistiques, administration, lancement |
 | `blast-cli` | Outil `blast` en ligne de commande pour tester le moteur |
 | `app/src-tauri` | Application de bureau (Tauri) : contrôleur, playlist, thèmes |
 | `app/ui` | Interface HTML/CSS/JS |
@@ -132,6 +134,7 @@ Les captures OBS (SNAP) vont dans `Images\BLAST`.
 | Soundboard | 36 pads sur 3 pages ; clic ou **F1 à F12** pour jouer (re-clic = stop), **STOP** coupe tout ; glisser un fichier (ou un titre de la playlist) sur un pad pour l'assigner ; clic droit : choisir, renommer, vider |
 | Thèmes | Sélecteur en haut à droite ; **Thèmes…** indique le dossier où déposer tes propres fichiers `.toml` |
 | Diffuser | **Réglages → Diffusion** : ajouter une sortie (Icecast, Shoutcast v1 ou v2), **Tester la connexion**, **Enregistrer** ; puis bouton **DIFFUSER** dans la barre du haut |
+| Serveur Icecast | Bouton **ICECAST** de la barre du haut : ajoute ton Icecast local (détecté dans Program Files) ou un VPS. **Démarrer / Arrêter**, tableau de bord en direct (auditeurs, pic, sources, débit, graphique, mountpoints), **Configuration** et **Mountpoints** par formulaires (une sauvegarde de `icecast.xml` avant chaque écriture), **Auditeurs** avec déconnexion, **Journal**. **Diffuser BLAST ici** crée la sortie correspondante dans Réglages → Diffusion |
 | OBS | **Réglages → Aura / OBS** : adresse, port, mot de passe et source texte « Now Playing » ; puis onglet **AURA · OBS** (à côté de SOUND FX) ou bouton **OBS** de la barre du haut |
 | Pilotage OBS | STREAM, REC, PAUSE REC, REPLAY, SNAP (capture dans `~/Images/BLAST`), MUTE et volume d'une source audio, changement de scène ; minuteurs ▶ stream et ⏺ enregistrement dans la barre du haut |
 

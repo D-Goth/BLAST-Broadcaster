@@ -25,6 +25,11 @@ pub fn output_key(id: &str) -> String {
 // [SEC-05]
 pub const AURA_KEY: &str = "aura";
 
+// [SEC-07]
+pub fn ice_key(id: &str) -> String {
+    format!("icecast:{id}")
+}
+
 // [SEC-06]
 impl Secrets {
     pub fn get(&self, key: &str) -> Option<String> {
