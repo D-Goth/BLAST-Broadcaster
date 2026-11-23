@@ -2395,3 +2395,55 @@ definition = "Liste compacte (id, motif) des entrées bloquées par les règles 
 [codes.CTL-154]
 titre = "Publication des motifs d'attente"
 definition = "Émet blast://blocked sans renvoyer toute la playlist."
+
+[codes.PL-16]
+titre = "Entrée sauvegardée"
+definition = "Forme d'une entrée dans playlist.json : chemin, tags, durée, type et étiquette de grille."
+
+[codes.PL-17]
+titre = "Playlist sauvegardée"
+definition = "Contenu de playlist.json : version du format, titres des platines en cours, entrées dans l'ordre."
+
+[codes.PL-18]
+titre = "Écriture de la playlist"
+definition = "Écrit playlist.json dans un fichier temporaire, force l'écriture sur disque puis le renomme."
+
+[codes.PL-19]
+titre = "Lecture de la playlist"
+definition = "Relit playlist.json sans relire les tags des fichiers."
+
+[codes.CTL-155]
+titre = "Délai de sauvegarde"
+definition = "Temps maximal entre une modification de la playlist et son écriture sur disque."
+
+[codes.CTL-156]
+titre = "Instantané de la playlist"
+definition = "Copie des entrées et des titres des platines envoyée au fil de sauvegarde."
+
+[codes.CTL-157]
+titre = "État de la sauvegarde"
+definition = "Chemin de playlist.json, canal du fil de sauvegarde et heure de la première modification non écrite."
+
+[codes.CTL-158]
+titre = "Fil de sauvegarde"
+definition = "Écrit le dernier instantané reçu, hors du fil du contrôleur."
+
+[codes.CTL-159]
+titre = "Reprise de la playlist"
+definition = "Au démarrage, recharge playlist.json : titres des platines en tête, puis la playlist, reclassée selon les catégories."
+
+[codes.CTL-160]
+titre = "Prise d'instantané"
+definition = "Copie la playlist et les titres en cours sur les platines."
+
+[codes.CTL-161]
+titre = "Sauvegarde différée"
+definition = "Envoie un instantané au fil de sauvegarde quand le délai est écoulé."
+
+[codes.CTL-162]
+titre = "Sauvegarde immédiate"
+definition = "Écrit la playlist tout de suite, à la fermeture de l'application."
+
+[codes.APP-44]
+titre = "Fermeture"
+definition = "À la sortie, demande au contrôleur d'écrire la playlist et attend jusqu'à 5 s."

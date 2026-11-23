@@ -33,14 +33,14 @@ ne pas le modifier à la main.
 | [`LIB`](#lib) | Bibliothèque SQLite, historique et règles de séparation (blast-library) | 53 |
 | [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 4 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
-| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 43 |
+| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 44 |
 | [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 14 |
 | [`SEC`](#sec) | Mots de passe dans le trousseau du système | 6 |
 | [`JRN`](#jrn) | Journal de diagnostic (blast.log) | 8 |
 | [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
-| [`PL`](#pl) | Playlist côté application | 15 |
+| [`PL`](#pl) | Playlist côté application | 19 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 144 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 152 |
 | [`UI`](#ui) | Interface : modules JavaScript | 104 |
 | [`STY`](#sty) | Interface : feuille de style | 17 |
 | [`HTM`](#htm) | Interface : structure de la page | 23 |
@@ -4490,6 +4490,28 @@ pub async fn rotation_counts(
 …
 ```
 
+### [APP-44] Fermeture
+
+À la sortie, demande au contrôleur d'écrire la playlist et attend jusqu'à 5 s.
+
+`app/src-tauri/src/main.rs` ligne 118
+
+```rust
+fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
+    if !matches!(event, tauri::RunEvent::Exit) {
+        return;
+    }
+    let Some(state) = handle.try_state::<api::App>() else {
+        return;
+    };
+    let (done, wait) = crossbeam_channel::bounded(1);
+    if state
+        .tx
+        .send(controller::UiCommand::Shutdown { done })
+        .is_ok()
+…
+```
+
 
 ## CFG
 
@@ -5297,7 +5319,7 @@ Nom et couleur de la catégorie qui a ajouté un titre à la playlist.
 `app/src-tauri/src/playlist.rs` ligne 31
 
 ```rust
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct SlotTag {
     pub name: String,
     pub color: String,
@@ -5402,6 +5424,88 @@ pub fn dedupe(&mut self) -> usize {
 …
 ```
 
+### [PL-16] Entrée sauvegardée
+
+Forme d'une entrée dans playlist.json : chemin, tags, durée, type et étiquette de grille.
+
+`app/src-tauri/src/playlist.rs` ligne 326
+
+```rust
+#[derive(Serialize, Deserialize)]
+struct SavedEntry {
+    path: PathBuf,
+    title: String,
+    #[serde(default)]
+    artist: String,
+    #[serde(default)]
+    album: String,
+    #[serde(default)]
+    genre: String,
+    #[serde(default)]
+    year: Option<i32>,
+…
+```
+
+### [PL-17] Playlist sauvegardée
+
+Contenu de playlist.json : version du format, titres des platines en cours, entrées dans l'ordre.
+
+`app/src-tauri/src/playlist.rs` ligne 351
+
+```rust
+#[derive(Serialize, Deserialize, Default)]
+struct SavedQueue {
+    version: u32,
+    #[serde(default)]
+    decks: Vec<PathBuf>,
+    entries: Vec<SavedEntry>,
+}
+```
+
+### [PL-18] Écriture de la playlist
+
+Écrit playlist.json dans un fichier temporaire, force l'écriture sur disque puis le renomme.
+
+`app/src-tauri/src/playlist.rs` ligne 360
+
+```rust
+pub fn save_queue(path: &Path, entries: &[Entry], decks: &[PathBuf]) -> Result<(), String> {
+    use std::io::Write;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let queue = SavedQueue {
+        version: 1,
+        decks: decks.to_vec(),
+        entries: entries
+            .iter()
+            .map(|e| SavedEntry {
+                path: e.path.clone(),
+…
+```
+
+### [PL-19] Lecture de la playlist
+
+Relit playlist.json sans relire les tags des fichiers.
+
+`app/src-tauri/src/playlist.rs` ligne 396
+
+```rust
+pub fn load_queue(path: &Path) -> Result<(Vec<Entry>, Vec<PathBuf>), String> {
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let queue: SavedQueue =
+        serde_json::from_reader(std::io::BufReader::new(file)).map_err(|e| e.to_string())?;
+    let entries = queue
+        .entries
+        .into_iter()
+        .map(|s| Entry {
+            id: 0,
+            path: s.path,
+            title: s.title,
+            artist: s.artist,
+…
+```
+
 
 ## THM
 
@@ -5468,7 +5572,7 @@ Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliot
 
 Ce dont le contrôleur a besoin côté interface : émettre un événement et connaître le dossier des images. Remplaçable dans les tests.
 
-`app/src-tauri/src/controller/mod.rs` ligne 47
+`app/src-tauri/src/controller/mod.rs` ligne 49
 
 ```rust
 pub trait Ui: Send + 'static {
@@ -5481,7 +5585,7 @@ pub trait Ui: Send + 'static {
 
 Implémentation réelle : émet vers la fenêtre, journalise les échecs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 53
+`app/src-tauri/src/controller/mod.rs` ligne 55
 
 ```rust
 struct TauriUi(AppHandle);
@@ -5491,7 +5595,7 @@ struct TauriUi(AppHandle);
 
 Moteur démarré (ou erreur), nom de la sortie et fréquence.
 
-`app/src-tauri/src/controller/mod.rs` ligne 71
+`app/src-tauri/src/controller/mod.rs` ligne 73
 
 ```rust
 pub struct Audio {
@@ -5506,7 +5610,7 @@ pub struct Audio {
 
 Démarre le moteur sur la sortie choisie, se replie sur la sortie par défaut et journalise l'échec.
 
-`app/src-tauri/src/controller/mod.rs` ligne 79
+`app/src-tauri/src/controller/mod.rs` ligne 81
 
 ```rust
 impl Audio {
@@ -5528,7 +5632,7 @@ impl Audio {
 
 Résultats rendus par les fils de fond : scan, décodage d'un titre ou d'un pad, relevé d'auditeurs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 122
+`app/src-tauri/src/controller/mod.rs` ligne 124
 
 ```rust
 enum Work {
@@ -5550,7 +5654,7 @@ enum Work {
 
 Horodatage Unix en millisecondes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 159
+`app/src-tauri/src/controller/mod.rs` ligne 161
 
 ```rust
 pub fn now_ms() -> u64 {
@@ -5565,7 +5669,7 @@ pub fn now_ms() -> u64 {
 
 Horodatage Unix en secondes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 167
+`app/src-tauri/src/controller/mod.rs` ligne 169
 
 ```rust
 pub fn now_secs() -> i64 {
@@ -5577,7 +5681,7 @@ pub fn now_secs() -> i64 {
 
 Démarre le fil du contrôleur avec audio et bibliothèque, renvoie le canal de commandes.
 
-`app/src-tauri/src/controller/mod.rs` ligne 172
+`app/src-tauri/src/controller/mod.rs` ligne 174
 
 ```rust
 pub fn spawn(
@@ -5599,7 +5703,7 @@ pub fn spawn(
 
 Ouvre la base ; en cas d'échec, désactive historique et règles et prévient l'utilisateur.
 
-`app/src-tauri/src/controller/mod.rs` ligne 201
+`app/src-tauri/src/controller/mod.rs` ligne 204
 
 ```rust
 fn open_library(
@@ -5621,7 +5725,7 @@ fn open_library(
 
 État central : platines, playlist, diffusion, pads, micro, OBS et automation.
 
-`app/src-tauri/src/controller/mod.rs` ligne 224
+`app/src-tauri/src/controller/mod.rs` ligne 227
 
 ```rust
 struct Controller {
@@ -5643,7 +5747,7 @@ struct Controller {
 
 Applique les réglages au moteur, connecte OBS si demandé, charge les pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 257
+`app/src-tauri/src/controller/mod.rs` ligne 261
 
 ```rust
 fn new(
@@ -5665,7 +5769,7 @@ fn new(
 
 Toutes les 15 ms : commandes de l'interface, travaux de fond, événements du moteur, prise antenne, OBS, sorties, statistiques et entretien.
 
-`app/src-tauri/src/controller/mod.rs` ligne 312
+`app/src-tauri/src/controller/mod.rs` ligne 317
 
 ```rust
 fn run(mut self) {
@@ -5687,7 +5791,7 @@ fn run(mut self) {
 
 Applique les résultats des fils de fond.
 
-`app/src-tauri/src/controller/mod.rs` ligne 336
+`app/src-tauri/src/controller/mod.rs` ligne 343
 
 ```rust
 fn drain_work(&mut self) {
@@ -5701,7 +5805,7 @@ fn drain_work(&mut self) {
 
 Lit jusqu'à 64 événements par tour et ne garde que le dernier tick.
 
-`app/src-tauri/src/controller/mod.rs` ligne 343
+`app/src-tauri/src/controller/mod.rs` ligne 350
 
 ```rust
 fn pump_engine(&mut self) {
@@ -5723,7 +5827,7 @@ fn pump_engine(&mut self) {
 
 Transmet une commande au mixeur si le moteur tourne.
 
-`app/src-tauri/src/controller/mod.rs` ligne 363
+`app/src-tauri/src/controller/mod.rs` ligne 370
 
 ```rust
 fn send(&self, cmd: Command) {
@@ -5737,7 +5841,7 @@ fn send(&self, cmd: Command) {
 
 Sérialise une vue et l'envoie à l'interface.
 
-`app/src-tauri/src/controller/mod.rs` ligne 370
+`app/src-tauri/src/controller/mod.rs` ligne 377
 
 ```rust
 fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
@@ -5752,7 +5856,7 @@ fn emit<T: Serialize>(&self, event: &'static str, payload: &T) {
 
 Affiche un message à l'utilisateur et journalise avertissements et erreurs.
 
-`app/src-tauri/src/controller/mod.rs` ligne 378
+`app/src-tauri/src/controller/mod.rs` ligne 385
 
 ```rust
 fn notice(&self, level: &'static str, message: impl Into<String>) {
@@ -5768,21 +5872,21 @@ fn notice(&self, level: &'static str, message: impl Into<String>) {
 
 Dirige chaque commande de l'interface vers son traitement, puis publie l'état.
 
-`app/src-tauri/src/controller/mod.rs` ligne 387
+`app/src-tauri/src/controller/mod.rs` ligne 394
 
 ```rust
 fn handle(&mut self, cmd: UiCommand) {
     match cmd {
         UiCommand::Refresh => self.refresh(),
+        UiCommand::Shutdown { done } => {
+            self.flush_queue();
+            let _ = done.send(());
+        }
         UiCommand::CastStart => self.start_casting(),
         UiCommand::CastStop => self.stop_casting(),
         UiCommand::Next { deck } => self.next(deck),
         UiCommand::MicOpen { open } => self.mic_open(open),
         UiCommand::PadPlay { index } => self.pad_play(index),
-        UiCommand::PadStopAll => self.send(Command::StopAllSfx),
-        UiCommand::JinglePlay { index } => self.jingle_play(index),
-        UiCommand::JingleStopAll => self.jingle_stop_all(),
-        UiCommand::JingleRescan => self.rescan_jingles(),
 …
 ```
 
@@ -5790,7 +5894,7 @@ fn handle(&mut self, cmd: UiCommand) {
 
 Republie toutes les vues et l'avertissement de démarrage éventuel.
 
-`app/src-tauri/src/controller/mod.rs` ligne 444
+`app/src-tauri/src/controller/mod.rs` ligne 455
 
 ```rust
 fn refresh(&mut self) {
@@ -5811,7 +5915,7 @@ fn refresh(&mut self) {
 
 Applique traitement antenne, automation, OBS, voix, pads et sorties modifiés.
 
-`app/src-tauri/src/controller/mod.rs` ligne 458
+`app/src-tauri/src/controller/mod.rs` ligne 469
 
 ```rust
 fn apply_config(&mut self, cfg: AppConfig) {
@@ -5833,7 +5937,7 @@ fn apply_config(&mut self, cfg: AppConfig) {
 
 Dirige chaque résultat de fond vers son traitement.
 
-`app/src-tauri/src/controller/mod.rs` ligne 479
+`app/src-tauri/src/controller/mod.rs` ligne 490
 
 ```rust
 fn on_work(&mut self, w: Work) {
@@ -5855,7 +5959,7 @@ fn on_work(&mut self, w: Work) {
 
 Met à jour platines, vumètres et micro à chaque tick ; gère fin de titre, fondus et fin des sons de pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 513
+`app/src-tauri/src/controller/mod.rs` ligne 524
 
 ```rust
 fn on_event(&mut self, e: Event) {
@@ -5877,7 +5981,7 @@ fn on_event(&mut self, e: Event) {
 
 Platine désignée par la position du crossfader.
 
-`app/src-tauri/src/controller/mod.rs` ligne 557
+`app/src-tauri/src/controller/mod.rs` ligne 568
 
 ```rust
 fn on_air_side(&self) -> usize {
@@ -5936,13 +6040,13 @@ Tout ce que l'interface peut demander au contrôleur ; les réglages passent par
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum UiCommand {
     Refresh,
+    #[serde(skip)]
+    Shutdown {
+        done: crossbeam_channel::Sender<()>,
+    },
     AddPaths {
         paths: Vec<PathBuf>,
         index: Option<usize>,
-    },
-    LoadPaths {
-        deck: Deck,
-        paths: Vec<PathBuf>,
     },
 …
 ```
@@ -8091,6 +8195,152 @@ pub(super) fn emit_blocked(&self) {
         .collect();
     self.emit(EV_BLOCKED, &BlockedView { blocked });
 }
+```
+
+### [CTL-155] Délai de sauvegarde
+
+Temps maximal entre une modification de la playlist et son écriture sur disque.
+
+`app/src-tauri/src/controller/queue.rs` ligne 12
+
+```rust
+const SAVE_AFTER: Duration = Duration::from_secs(2);
+```
+
+### [CTL-156] Instantané de la playlist
+
+Copie des entrées et des titres des platines envoyée au fil de sauvegarde.
+
+`app/src-tauri/src/controller/queue.rs` ligne 15
+
+```rust
+struct Snapshot {
+    entries: Vec<Entry>,
+    decks: Vec<PathBuf>,
+}
+```
+
+### [CTL-157] État de la sauvegarde
+
+Chemin de playlist.json, canal du fil de sauvegarde et heure de la première modification non écrite.
+
+`app/src-tauri/src/controller/queue.rs` ligne 21
+
+```rust
+#[derive(Default)]
+pub struct QueueState {
+    path: Option<PathBuf>,
+    tx: Option<Sender<Snapshot>>,
+    dirty: Cell<Option<Instant>>,
+}
+```
+
+### [CTL-158] Fil de sauvegarde
+
+Écrit le dernier instantané reçu, hors du fil du contrôleur.
+
+`app/src-tauri/src/controller/queue.rs` ligne 37
+
+```rust
+fn saver(path: PathBuf, rx: Receiver<Snapshot>) {
+    while let Ok(mut snap) = rx.recv() {
+        while let Ok(newer) = rx.try_recv() {
+            snap = newer;
+        }
+        if let Err(e) = save_queue(&path, &snap.entries, &snap.decks) {
+            journal::warn(format!(
+                "sauvegarde de la playlist {} : {e}",
+                path.display()
+            ));
+        }
+    }
+…
+```
+
+### [CTL-159] Reprise de la playlist
+
+Au démarrage, recharge playlist.json : titres des platines en tête, puis la playlist, reclassée selon les catégories.
+
+`app/src-tauri/src/controller/queue.rs` ligne 53
+
+```rust
+pub(super) fn restore_queue(&mut self, path: PathBuf) {
+    if path.exists() {
+        match load_queue(&path) {
+            Ok((entries, decks)) => {
+                let mut items: Vec<Entry> = decks
+                    .iter()
+                    .filter(|p| p.exists())
+                    .map(|p| make_entry(p, &self.categories))
+                    .collect();
+                items.extend(entries);
+                let n = items.len();
+                self.playlist.insert(items, None);
+…
+```
+
+### [CTL-160] Prise d'instantané
+
+Copie la playlist et les titres en cours sur les platines.
+
+`app/src-tauri/src/controller/queue.rs` ligne 86
+
+```rust
+fn snapshot(&self) -> Snapshot {
+    Snapshot {
+        entries: self.playlist.entries().to_vec(),
+        decks: self
+            .decks
+            .iter()
+            .filter(|d| !d.meta.finished)
+            .filter_map(|d| d.meta.path.clone())
+            .collect(),
+    }
+}
+```
+
+### [CTL-161] Sauvegarde différée
+
+Envoie un instantané au fil de sauvegarde quand le délai est écoulé.
+
+`app/src-tauri/src/controller/queue.rs` ligne 99
+
+```rust
+pub(super) fn save_queue_if_due(&mut self) {
+    let due = self
+        .queue
+        .dirty
+        .get()
+        .is_some_and(|t| t.elapsed() >= SAVE_AFTER);
+    if !due {
+        return;
+    }
+    self.queue.dirty.set(None);
+    let snap = self.snapshot();
+    if let Some(tx) = &self.queue.tx {
+…
+```
+
+### [CTL-162] Sauvegarde immédiate
+
+Écrit la playlist tout de suite, à la fermeture de l'application.
+
+`app/src-tauri/src/controller/queue.rs` ligne 116
+
+```rust
+pub(super) fn flush_queue(&mut self) {
+    if self.queue.dirty.take().is_none() {
+        return;
+    }
+    let Some(path) = self.queue.path.clone() else {
+        return;
+    };
+    let snap = self.snapshot();
+    if let Err(e) = save_queue(&path, &snap.entries, &snap.decks) {
+        journal::warn(format!(
+            "sauvegarde de la playlist {} : {e}",
+            path.display()
+…
 ```
 
 

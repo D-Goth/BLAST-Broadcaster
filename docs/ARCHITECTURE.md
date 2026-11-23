@@ -96,6 +96,11 @@ de bout en bout (fichiers WAV générés, base SQLite en mémoire, moteur absent
 se mélange donc sans reconstruire 40 000 lignes. Les motifs d'attente des règles de rotation arrivent à part
 (`blast://blocked`, [CTL-154]) toutes les 30 s, sans renvoyer toute la playlist.
 
+**Reprise de la playlist** : chaque publication de la playlist la marque comme modifiée ; au plus 2 s après
+([CTL-155]), un instantané part vers un fil dédié qui écrit `playlist.json` (fichier temporaire, `sync_all`, renommage,
+[PL-18]). Les tags y sont gardés, la reprise ne relit donc aucun fichier audio. À la fermeture, `RunEvent::Exit`
+([APP-44]) fait écrire la playlist tout de suite.
+
 **Journal** : `blast.log` dans le dossier de données (`~/.local/share/fr.black-lab.blast/logs` sous Linux,
 `%LOCALAPPDATA%\fr.black-lab.blast\logs` sous Windows). Avertissements et erreurs affichés à l'utilisateur
 y sont recopiés, ainsi que les erreurs qui n'ont pas besoin de l'interrompre (statistiques, bibliothèque).

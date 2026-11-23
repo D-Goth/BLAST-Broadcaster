@@ -115,6 +115,7 @@ impl Controller {
     }
 
     pub(super) fn emit_playlist(&self) {
+        self.queue.mark();
         let now = now_secs();
         let entries: Vec<Entry> = self
             .playlist

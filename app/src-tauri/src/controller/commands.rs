@@ -62,6 +62,10 @@ pub enum ObsAction {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum UiCommand {
     Refresh,
+    #[serde(skip)]
+    Shutdown {
+        done: crossbeam_channel::Sender<()>,
+    },
     AddPaths {
         paths: Vec<PathBuf>,
         index: Option<usize>,

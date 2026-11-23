@@ -104,10 +104,31 @@ fn main() {
             api::save_rotation,
             api::rotation_counts
         ])
-        .run(tauri::generate_context!());
-    if let Err(e) = result {
-        journal::error(format!("arrêt anormal : {e}"));
-        eprintln!("BLAST Broadcaster : {e}");
-        std::process::exit(1);
+        .build(tauri::generate_context!());
+    match result {
+        Ok(app) => app.run(on_event),
+        Err(e) => {
+            journal::error(format!("arrêt anormal : {e}"));
+            eprintln!("BLAST Broadcaster : {e}");
+            std::process::exit(1);
+        }
+    }
+}
+
+// [APP-44]
+fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
+    if !matches!(event, tauri::RunEvent::Exit) {
+        return;
+    }
+    let Some(state) = handle.try_state::<api::App>() else {
+        return;
+    };
+    let (done, wait) = crossbeam_channel::bounded(1);
+    if state
+        .tx
+        .send(controller::UiCommand::Shutdown { done })
+        .is_ok()
+    {
+        let _ = wait.recv_timeout(std::time::Duration::from_secs(5));
     }
 }

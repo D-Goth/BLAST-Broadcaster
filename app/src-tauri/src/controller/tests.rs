@@ -448,3 +448,46 @@ fn clockwheel_fills_the_playlist_from_the_library() {
     assert_eq!(paths.len(), 3);
     assert!(h.c.playlist.entries().iter().all(|e| e.slot.is_some()));
 }
+
+#[test]
+fn playlist_survives_restart() {
+    let mut h = Harness::new("queue");
+    h.wav("01-a.wav");
+    h.wav("02-b.wav");
+    h.wav("03-c.wav");
+    let file = h.dir.join("state").join("playlist.json");
+    h.c.restore_queue(file.clone());
+    h.c.handle(UiCommand::AddPaths {
+        paths: vec![h.dir.clone()],
+        index: None,
+    });
+    h.work(1);
+    h.c.handle(UiCommand::Shuffle { spread: false });
+    let order: Vec<PathBuf> =
+        h.c.playlist
+            .entries()
+            .iter()
+            .map(|e| e.path.clone())
+            .collect();
+    let (done, wait) = unbounded();
+    h.c.handle(UiCommand::Shutdown { done });
+    assert!(wait.try_recv().is_ok());
+    assert!(file.exists());
+
+    let mut back = Harness::new("queue-back");
+    back.c.restore_queue(file);
+    let restored: Vec<PathBuf> = back
+        .c
+        .playlist
+        .entries()
+        .iter()
+        .map(|e| e.path.clone())
+        .collect();
+    assert_eq!(restored, order);
+    assert!(back
+        .c
+        .playlist
+        .entries()
+        .iter()
+        .all(|e| e.duration.is_some()));
+}
