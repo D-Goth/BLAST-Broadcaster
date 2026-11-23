@@ -29,6 +29,7 @@ async function subscribe() {
     S.entries = e.payload.entries;
     playlist.renderPlaylist(e.payload.total);
   });
+  await listen("blast://blocked", (e) => playlist.setBlocked(e.payload.blocked));
   await listen("blast://notice", (e) => toast(e.payload.level, e.payload.message));
   await listen("blast://obs", (e) => obs.setObs(e.payload));
   await listen("blast://history", (e) => playlist.setHistory(e.payload));

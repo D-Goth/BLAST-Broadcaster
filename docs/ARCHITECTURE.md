@@ -62,7 +62,7 @@ le master est simplement écrêté à ±1 (le limiteur arrive en M6), et symphon
  app/ui (HTML/CSS/JS)  ── invoke("blast", {cmd}) ──▶  api.rs ──▶ file de commandes
         ▲                                                         │
         │ événements blast://state (10/s), blast://playlist,      ▼
-        │ blast://notice, cast, pads, obs, history         controller/ (thread dédié)
+        │ blast://blocked, notice, cast, pads, obs, history       controller/ (thread dédié)
         └──────────────────────────────────────────────── │  possède Engine, Playlist, Caster,
                                                            │  AuraClient, Library
                                                            ├─ threads de décodage
@@ -81,7 +81,7 @@ le master est simplement écrêté à ±1 (le limiteur arrive en M6), et symphon
 | `src-tauri/src/journal.rs` | Journal `blast.log` (rotation à 1 Mo) |
 | `src-tauri/src/update.rs` | Vérification des versions publiées sur GitHub |
 | `src-tauri/src/themes.rs` | Thèmes intégrés (`themes/*.toml` compilés dans le binaire) et thèmes utilisateur |
-| `ui/js/` | Modules ES : `core` (outils communs), `main` (démarrage et abonnements), `decks`, `playlist`, `dnd`, `cast`, `settings`, `voice`, `pads`, `obs`, `shortcuts`, `theme`, `update` |
+| `ui/js/` | Modules ES : `core` (outils communs), `main` (démarrage et abonnements), `decks`, `playlist`, `vlist`, `dnd`, `cast`, `settings`, `voice`, `pads`, `obs`, `shortcuts`, `theme`, `update` |
 
 **Contrôleur** (`controller/`) : `mod.rs` tient la boucle principale (toutes les 15 ms) et l'aiguillage ;
 chaque domaine a son module et son état : `decks.rs` (platines, fondus, auto-mix), `playlist_ops.rs`,
@@ -90,6 +90,11 @@ chaque domaine a son module et son état : `decks.rs` (platines, fondus, auto-mi
 Le contrôleur n'appelle pas Tauri directement : il passe par le trait `Ui` ([CTL-01]), remplacé dans
 `controller/tests.rs` par une interface qui enregistre les événements. Les tests y pilotent le contrôleur
 de bout en bout (fichiers WAV générés, base SQLite en mémoire, moteur absent).
+
+**Listes longues** : la playlist et l'historique passent par `vlist.js` ([UI-102]). Seules les lignes visibles
+(plus une marge, [UI-101]) existent dans le DOM ; un espaceur donne la hauteur totale. Une playlist de 40 000 titres
+se mélange donc sans reconstruire 40 000 lignes. Les motifs d'attente des règles de rotation arrivent à part
+(`blast://blocked`, [CTL-154]) toutes les 30 s, sans renvoyer toute la playlist.
 
 **Journal** : `blast.log` dans le dossier de données (`~/.local/share/fr.black-lab.blast/logs` sous Linux,
 `%LOCALAPPDATA%\fr.black-lab.blast\logs` sous Windows). Avertissements et erreurs affichés à l'utilisateur

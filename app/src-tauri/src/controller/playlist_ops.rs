@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::thread;
 
 use super::commands::Deck;
-use super::views::{PlaylistView, EV_PLAYLIST};
+use super::views::{BlockedView, PlaylistView, EV_BLOCKED, EV_PLAYLIST};
 use super::{now_secs, Controller, Work};
 use crate::journal;
 use crate::playlist::{self, Entry};
@@ -100,6 +100,18 @@ impl Controller {
         };
         self.notice("info", msg);
         self.emit_playlist();
+    }
+
+    // [CTL-154]
+    pub(super) fn emit_blocked(&self) {
+        let now = now_secs();
+        let blocked = self
+            .playlist
+            .entries()
+            .iter()
+            .filter_map(|e| self.violation_for(e, now).map(|why| (e.id, why)))
+            .collect();
+        self.emit(EV_BLOCKED, &BlockedView { blocked });
     }
 
     pub(super) fn emit_playlist(&self) {

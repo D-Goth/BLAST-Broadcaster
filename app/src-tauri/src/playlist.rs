@@ -13,13 +13,17 @@ pub struct Entry {
     pub path: PathBuf,
     pub title: String,
     pub artist: String,
+    #[serde(skip_serializing)]
     pub album: String,
+    #[serde(skip_serializing)]
     pub genre: String,
+    #[serde(skip_serializing)]
     pub year: Option<i32>,
     pub duration: Option<f64>,
     pub error: Option<String>,
     pub blocked: Option<String>,
     pub kind: Kind,
+    #[serde(skip_serializing)]
     pub bpm: Option<f32>,
     pub slot: Option<SlotTag>,
 }

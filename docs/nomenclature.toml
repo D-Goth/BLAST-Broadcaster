@@ -1233,7 +1233,7 @@ definition = "Purge de l'historique au plus une fois par heure."
 
 [codes.CTL-62]
 titre = "Rafraîchissement des règles"
-definition = "Toutes les 30 s, la playlist est republiée pour mettre à jour les motifs d'attente."
+definition = "Toutes les 30 s, seuls les motifs d'attente sont republiés (événement blast://blocked)."
 
 [codes.CTL-63]
 titre = "Taille de l'historique affiché"
@@ -2073,8 +2073,8 @@ titre = "Choix du dossier de jingles"
 definition = "Sélecteur de dossier du système."
 
 [codes.UI-82]
-titre = "Liste de l'historique"
-definition = "Lignes du filtre choisi, avec le type de chaque passage."
+titre = "Ligne de l'historique"
+definition = "Construit une ligne du filtre choisi à la demande de la liste virtuelle, avec le type du passage."
 
 [codes.UI-83]
 titre = "Menu d'export"
@@ -2371,3 +2371,27 @@ definition = "Mélanger, mélanger en espaçant les artistes, retirer les doublo
 [codes.HTM-23]
 titre = "Menu Mélanger"
 definition = "Actions de mélange et de nettoyage de la playlist."
+
+[codes.UI-101]
+titre = "Marge de la liste virtuelle"
+definition = "Nombre de lignes rendues en plus au-dessus et au-dessous de la zone visible."
+
+[codes.UI-102]
+titre = "Liste virtuelle"
+definition = "Ne crée que les lignes visibles d'une longue liste ; un espaceur donne la hauteur totale et le rendu suit le défilement."
+
+[codes.UI-103]
+titre = "Ligne de la playlist"
+definition = "Construit une ligne de la playlist à la demande de la liste virtuelle."
+
+[codes.UI-104]
+titre = "Motifs d'attente"
+definition = "Applique les motifs d'attente reçus aux entrées et redessine seulement les lignes visibles."
+
+[codes.CTL-153]
+titre = "Vue des motifs d'attente"
+definition = "Liste compacte (id, motif) des entrées bloquées par les règles de rotation."
+
+[codes.CTL-154]
+titre = "Publication des motifs d'attente"
+definition = "Émet blast://blocked sans renvoyer toute la playlist."
