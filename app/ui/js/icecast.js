@@ -507,7 +507,7 @@ function renderSockets() {
     row.innerHTML = `
       <label>Port<input type="number" min="1" max="65535" data-s="port"></label>
       <label>Adresse d'écoute<input data-s="bind_address" placeholder="toutes (0.0.0.0)"></label>
-      <label>Compatibilité Shoutcast<input data-s="shoutcast_mount" placeholder="mountpoint, ex. /live (port +1)"></label>
+      <label title="Pour les vieux logiciels qui ne parlent que le protocole Shoutcast : ils se connectent au port suivant et arrivent sur ce point de montage">Compatibilité Shoutcast (facultatif)<input data-s="shoutcast_mount" placeholder="laisser vide en général"></label>
       <label class="check"><input type="checkbox" data-s="ssl"> HTTPS</label>
       <button type="button" class="btn ghost small danger">Retirer</button>`;
     for (const el of $$("[data-s]", row)) {
@@ -820,6 +820,16 @@ function schedule() {
   }, every);
 }
 
+// [UI-130]
+async function quickLink() {
+  try {
+    const msg = await invoke("ice_link_output", { id: I.sel, mount: "/live" });
+    toast("info", msg, [{ label: "Voir la sortie", run: () => { closeIcecast(); openSettings("cast"); } }]);
+  } catch (e) {
+    toast("error", String(e));
+  }
+}
+
 // [UI-127]
 export const isOpen = () => !$("#icecast").classList.contains("hidden");
 
@@ -939,6 +949,7 @@ export function init() {
     renderMounts();
     renderSavebar();
   });
+  $("#ice-quick-link").addEventListener("click", quickLink);
   $("#ice-mount-link").addEventListener("click", async () => {
     const m = I.mount != null ? I.draft.mounts[I.mount] : null;
     if (!m) return;

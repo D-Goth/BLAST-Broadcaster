@@ -43,7 +43,7 @@ ne pas le modifier à la main.
 | [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
 | [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 157 |
-| [`UI`](#ui) | Interface : modules JavaScript | 129 |
+| [`UI`](#ui) | Interface : modules JavaScript | 130 |
 | [`STY`](#sty) | Interface : feuille de style | 18 |
 | [`HTM`](#htm) | Interface : structure de la page | 36 |
 
@@ -12377,7 +12377,7 @@ function renderSockets() {
     row.innerHTML = `
       <label>Port<input type="number" min="1" max="65535" data-s="port"></label>
       <label>Adresse d'écoute<input data-s="bind_address" placeholder="toutes (0.0.0.0)"></label>
-      <label>Compatibilité Shoutcast<input data-s="shoutcast_mount" placeholder="mountpoint, ex. /live (port +1)"></label>
+      <label title="Pour les vieux logiciels qui ne parlent que le protocole Shoutcast : ils se connectent au port suivant et arrivent sur ce point de montage">Compatibilité Shoutcast (facultatif)<input data-s="shoutcast_mount" placeholder="laisser vide en général"></label>
       <label class="check"><input type="checkbox" data-s="ssl"> HTTPS</label>
 …
 ```
@@ -12518,7 +12518,7 @@ function renderPill() {
 
 Charge les profils, choisit un serveur et lance les actualisations ; fermeture par Échap ou clic hors du panneau.
 
-`app/ui/js/icecast.js` ligne 823
+`app/ui/js/icecast.js` ligne 833
 
 ```js
 export const isOpen = () => !$("#icecast").classList.contains("hidden");
@@ -12566,6 +12566,23 @@ function renderWelcome() {
     row.className = "ice-found";
     row.innerHTML = `<code></code><span class="muted"></span><button class="btn accent small">Ajouter</button>`;
 …
+```
+
+### [UI-130] Sortie BLAST vers /live
+
+Depuis le tableau de bord sans flux en cours, crée en un clic la sortie Icecast vers /live avec le mot de passe des sources.
+
+`app/ui/js/icecast.js` ligne 823
+
+```js
+async function quickLink() {
+  try {
+    const msg = await invoke("ice_link_output", { id: I.sel, mount: "/live" });
+    toast("info", msg, [{ label: "Voir la sortie", run: () => { closeIcecast(); openSettings("cast"); } }]);
+  } catch (e) {
+    toast("error", String(e));
+  }
+}
 ```
 
 
@@ -12776,7 +12793,7 @@ Fenêtre des réglages, onglets, formulaires, liste des sorties et onglet À pro
 
 Pile des notifications et notification de mise à jour.
 
-`app/ui/style.css` ligne 781
+`app/ui/style.css` ligne 783
 
 ```css
 .toasts { position: fixed; right: 16px; bottom: 40px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
@@ -12786,7 +12803,7 @@ Pile des notifications et notification de mise à jour.
 
 Sortie audio et résumé de la diffusion.
 
-`app/ui/style.css` ligne 800
+`app/ui/style.css` ligne 802
 
 ```css
 .statusbar {
@@ -12804,7 +12821,7 @@ Sortie audio et résumé de la diffusion.
 
 Masque un élément quel que soit son style.
 
-`app/ui/style.css` ligne 835
+`app/ui/style.css` ligne 837
 
 ```css
 .hidden { display: none !important; }
@@ -12814,7 +12831,7 @@ Masque un élément quel que soit son style.
 
 Image de fond assombrie sous la page ; panneaux translucides qui floutent ce qui est derrière eux (backdrop-filter).
 
-`app/ui/style.css` ligne 811
+`app/ui/style.css` ligne 813
 
 ```css
 html.glass body {
@@ -13260,7 +13277,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 ### [HTM-29] Tableau de bord Icecast
 
-Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints.
+Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints ; sans flux, explication du point de montage et bouton de sortie vers /live.
 
 `app/ui/index.html` ligne 693
 
@@ -13277,7 +13294,7 @@ Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des audi
 
 Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute, limites, chemins, journalisation.
 
-`app/ui/index.html` ligne 717
+`app/ui/index.html` ligne 720
 
 ```html
 <div class="ice-page hidden" data-ipage="config">
@@ -13290,24 +13307,24 @@ Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute,
 
 ### [HTM-31] Mountpoints Icecast
 
-Liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST.
+Explication (onglet facultatif), liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST.
 
-`app/ui/index.html` ligne 782
+`app/ui/index.html` ligne 785
 
 ```html
 <div class="ice-page hidden" data-ipage="mounts">
+  <p class="muted ice-intro">Facultatif. Icecast accepte n'importe quel point de montage avec le mot de passe des sources : déclare-en un ici seulement pour lui donner des règles (limite d'auditeurs, mot de passe propre, flux de secours si ta diffusion tombe, nom et genre imposés).</p>
   <div class="cast-layout">
     <div class="out-list">
       <div class="out-items" id="ice-mount-list"></div>
       <button class="btn small wide" id="ice-mount-add">+ Nouveau mountpoint</button>
-    </div>
 ```
 
 ### [HTM-32] Auditeurs Icecast
 
 Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
-`app/ui/index.html` ligne 832
+`app/ui/index.html` ligne 836
 
 ```html
 <div class="ice-page hidden" data-ipage="listeners">
@@ -13322,7 +13339,7 @@ Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
 Erreurs, accès ou console, suivi en direct.
 
-`app/ui/index.html` ligne 849
+`app/ui/index.html` ligne 853
 
 ```html
 <div class="ice-page hidden" data-ipage="log">
@@ -13337,7 +13354,7 @@ Erreurs, accès ou console, suivi en direct.
 
 Profil : emplacement, installation, configuration, accès admin et démarrage.
 
-`app/ui/index.html` ligne 862
+`app/ui/index.html` ligne 866
 
 ```html
 <div class="ice-page hidden" data-ipage="profile">
@@ -13352,7 +13369,7 @@ Profil : emplacement, installation, configuration, accès admin et démarrage.
 
 Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer et redémarrer.
 
-`app/ui/index.html` ligne 900
+`app/ui/index.html` ligne 904
 
 ```html
 <footer class="ice-savebar hidden" id="ice-savebar">
@@ -13367,7 +13384,7 @@ Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer e
 
 Menu flottant des actions sur un mountpoint.
 
-`app/ui/index.html` ligne 914
+`app/ui/index.html` ligne 918
 
 ```html
 <div id="ice-menu" class="pad-menu ice-menu hidden"></div>
