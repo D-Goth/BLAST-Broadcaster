@@ -3426,3 +3426,23 @@ definition = "Indique la sortie casque utilisée, ou pourquoi elle est indisponi
 [codes.UI-149]
 titre = "Affichage du CUE"
 definition = "Allume le bouton CUE et indique où la pré-écoute est entendue."
+
+[codes.UI-150]
+titre = "Zones d'aimantation"
+definition = "Rayon d'aimantation en part de la course du curseur : 3,5 % pour le cran principal, 2 % pour les autres."
+
+[codes.UI-151]
+titre = "Crans d'un curseur"
+definition = "Lit la liste de crans de l'attribut data-detents (premier = cran principal)."
+
+[codes.UI-152]
+titre = "Aimantation"
+definition = "Pendant le glissement, colle la valeur sur un cran quand elle passe à proximité."
+
+[codes.UI-153]
+titre = "Repères des crans"
+definition = "Ajoute une datalist pour que le curseur affiche une graduation à chaque cran."
+
+[codes.UI-154]
+titre = "Retour au cran principal"
+definition = "Double-clic : remet le curseur sur son premier cran et prévient ses écouteurs (sauf data-reset=off, ex. crossfader)."

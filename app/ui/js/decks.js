@@ -239,12 +239,6 @@ export function init() {
       volHeld[id] = false;
       saveDeckGains();
     });
-    vol.addEventListener("dblclick", () => {
-      vol.value = 0;
-      $(".deck-vol-v", el).textContent = dbText(0);
-      send({ type: "deck_gain", deck: id, db: 0 });
-      saveDeckGains();
-    });
     $(".cue-btn", el).addEventListener("click", () => {
       const c = S.state && S.state.cue;
       send({ type: "deck_cue", deck: id, on: !(c && c.decks[id === "A" ? 0 : 1]) });
@@ -258,11 +252,11 @@ export function init() {
     const resetPitch = () => {
       pitch.value = 0;
       setPitch(0);
+      pitchHeld[id] = false;
     };
     pitch.addEventListener("pointerdown", () => (pitchHeld[id] = true));
     pitch.addEventListener("input", () => setPitch(Number(pitch.value)));
     pitch.addEventListener("change", () => (pitchHeld[id] = false));
-    pitch.addEventListener("dblclick", resetPitch);
     $(".pitch-v", el).addEventListener("click", resetPitch);
     $(".deck-cover", el).addEventListener("click", () => zoomCover(id));
     $(".progress", el).addEventListener("click", (e) => {

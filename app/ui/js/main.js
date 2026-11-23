@@ -6,6 +6,7 @@ import * as dnd from "./dnd.js";
 import * as cast from "./cast.js";
 import * as settings from "./settings.js";
 import * as voice from "./voice.js";
+import * as detents from "./detents.js";
 import * as pads from "./pads.js";
 import * as obs from "./obs.js";
 import * as shortcuts from "./shortcuts.js";
@@ -46,7 +47,7 @@ async function subscribe() {
 
 // [UI-17]
 async function start() {
-  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast, chat]) m.init();
+  for (const m of [detents, theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast, chat]) m.init();
   $("#themes-folder").addEventListener("click", async () => {
     try {
       const dir = await invoke("themes_dir");

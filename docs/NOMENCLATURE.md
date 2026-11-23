@@ -43,7 +43,7 @@ ne pas le modifier à la main.
 | [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
 | [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 184 |
-| [`UI`](#ui) | Interface : modules JavaScript | 148 |
+| [`UI`](#ui) | Interface : modules JavaScript | 153 |
 | [`STY`](#sty) | Interface : feuille de style | 24 |
 | [`HTM`](#htm) | Interface : structure de la page | 48 |
 
@@ -11733,7 +11733,7 @@ export async function pickAudio(multiple, title) {
 
 Met à jour l'horloge de la barre du haut.
 
-`app/ui/js/main.js` ligne 19
+`app/ui/js/main.js` ligne 20
 
 ```js
 function tickClock() {
@@ -11745,7 +11745,7 @@ function tickClock() {
 
 Relie chaque événement blast:// à son module.
 
-`app/ui/js/main.js` ligne 24
+`app/ui/js/main.js` ligne 25
 
 ```js
 async function subscribe() {
@@ -11767,11 +11767,11 @@ async function subscribe() {
 
 Initialise les modules, s'abonne, charge thèmes et voix, active le glisser-déposer puis vérifie les mises à jour.
 
-`app/ui/js/main.js` ligne 47
+`app/ui/js/main.js` ligne 48
 
 ```js
 async function start() {
-  for (const m of [theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast, chat]) m.init();
+  for (const m of [detents, theme, decks, playlist, cast, settings, voice, pads, jingles, obs, shortcuts, update, appearance, rotation, icecast, chat]) m.init();
   $("#themes-folder").addEventListener("click", async () => {
     try {
       const dir = await invoke("themes_dir");
@@ -14154,7 +14154,7 @@ function renderPitch(id, el, st) {
 
 Glisser envoie le pitch ; double-clic sur le curseur ou clic sur la valeur le remet à 0 %.
 
-`app/ui/js/decks.js` ligne 252
+`app/ui/js/decks.js` ligne 246
 
 ```js
 const pitch = $(".pitch", el);
@@ -14188,6 +14188,89 @@ function renderCue(id, el, st) {
   el.classList.toggle("cueing", on);
   const where = c && c.device ? `casque : ${c.device}` : "même sortie : antenne à gauche, pré-écoute à droite";
   $(".cue-btn", el).title = `Pré-écoute (CUE) de la platine ${id}${on ? " — active" : ""} · ${where}`;
+}
+```
+
+### [UI-150] Zones d'aimantation
+
+Rayon d'aimantation en part de la course du curseur : 3,5 % pour le cran principal, 2 % pour les autres.
+
+`app/ui/js/detents.js` ligne 1
+
+```js
+const SNAP_FIRST = 0.035;
+```
+
+### [UI-151] Crans d'un curseur
+
+Lit la liste de crans de l'attribut data-detents (premier = cran principal).
+
+`app/ui/js/detents.js` ligne 6
+
+```js
+function detentsOf(el) {
+  return (el.dataset.detents || "")
+    .split(",")
+    .filter((s) => s.trim() !== "")
+    .map(Number)
+    .filter(Number.isFinite);
+}
+```
+
+### [UI-152] Aimantation
+
+Pendant le glissement, colle la valeur sur un cran quand elle passe à proximité.
+
+`app/ui/js/detents.js` ligne 15
+
+```js
+function snap(el) {
+  const marks = detentsOf(el);
+  if (!marks.length) return;
+  const v = Number(el.value);
+  const span = Number(el.max) - Number(el.min) || 1;
+  marks.forEach((d, i) => {
+    const zone = span * (i === 0 ? SNAP_FIRST : SNAP_OTHERS);
+    if (v !== d && Math.abs(v - d) <= zone) el.value = d;
+  });
+}
+```
+
+### [UI-153] Repères des crans
+
+Ajoute une datalist pour que le curseur affiche une graduation à chaque cran.
+
+`app/ui/js/detents.js` ligne 27
+
+```js
+function addTicks(el) {
+  const marks = detentsOf(el);
+  if (!marks.length || el.getAttribute("list")) return;
+  const dl = document.createElement("datalist");
+  dl.id = `detents-${++lists}`;
+  for (const d of marks) {
+    const o = document.createElement("option");
+    o.value = d;
+    dl.append(o);
+  }
+  document.body.append(dl);
+  el.setAttribute("list", dl.id);
+…
+```
+
+### [UI-154] Retour au cran principal
+
+Double-clic : remet le curseur sur son premier cran et prévient ses écouteurs (sauf data-reset=off, ex. crossfader).
+
+`app/ui/js/detents.js` ligne 42
+
+```js
+function reset(el) {
+  const [first] = detentsOf(el);
+  if (first === undefined || el.dataset.reset === "off") return;
+  el.value = first;
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 ```
 
@@ -14587,7 +14670,7 @@ Crossfader, fondu, auto-mix, préréglage antenne et vumètres.
   <div class="mixer-title">MIX</div>
   <div class="crossfader">
     <span class="xf-label a">A</span>
-    <input id="crossfader" type="range" min="0" max="1000" value="0">
+    <input id="crossfader" type="range" min="0" max="1000" value="0" data-detents="500" data-reset="off">
     <span class="xf-label b">B</span>
 ```
 
@@ -14780,7 +14863,7 @@ Dossier, relecture, volume, arrêt et grille des jingles.
   <button class="btn ghost small pager" id="jingle-rescan" title="Relire le dossier">&#8635;</button>
   <span id="jingle-info" class="muted fx-sub"></span>
   <span class="spacer"></span>
-  <input type="range" id="jingle-vol" min="-30" max="6" step="0.5" title="Volume des jingles">
+  <input type="range" id="jingle-vol" data-detents="0,-6,-12" min="-30" max="6" step="0.5" title="Volume des jingles">
 ```
 
 ### [HTM-18] Filtres de l'historique
@@ -14898,8 +14981,8 @@ Actions de mélange et de nettoyage de la playlist.
 <details class="eq">
   <summary>Égaliseur micro</summary>
   <div class="sliders">
-    <label><span>Grave</span><input type="range" id="eq-low" min="-12" max="12" step="0.5"><output id="eq-low-v"></output></label>
-    <label><span>Médium</span><input type="range" id="eq-mid" min="-12" max="12" step="0.5"><output id="eq-mid-v"></output></label>
+    <label><span>Grave</span><input type="range" id="eq-low" data-detents="0" min="-12" max="12" step="0.5"><output id="eq-low-v"></output></label>
+    <label><span>Médium</span><input type="range" id="eq-mid" data-detents="0" min="-12" max="12" step="0.5"><output id="eq-mid-v"></output></label>
 ```
 
 ### [HTM-26] Onglet Serveur Icecast
@@ -15121,7 +15204,7 @@ Curseur VOL, valeur en dB et VU-mètre gauche/droite de la platine A.
 ```html
 <div class="deck-level">
   <span class="deck-level-label">VOL</span>
-  <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" title="Volume de la platine (double-clic : 0 dB)">
+  <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" data-detents="0,-6,-12,-20" title="Volume de la platine (crans à 0, −6, −12 et −20 dB ; double-clic : 0 dB)">
   <output class="deck-vol-v">0 dB</output>
   <div class="deck-vu" title="Niveau de la platine, après son volume et avant le crossfader">
     <div class="meter-bar"><div class="meter-fill deck-vu-l"></div></div>
@@ -15136,7 +15219,7 @@ Curseur VOL, valeur en dB et VU-mètre gauche/droite de la platine B.
 ```html
 <div class="deck-level">
   <span class="deck-level-label">VOL</span>
-  <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" title="Volume de la platine (double-clic : 0 dB)">
+  <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" data-detents="0,-6,-12,-20" title="Volume de la platine (crans à 0, −6, −12 et −20 dB ; double-clic : 0 dB)">
   <output class="deck-vol-v">0 dB</output>
   <div class="deck-vu" title="Niveau de la platine, après son volume et avant le crossfader">
     <div class="meter-bar"><div class="meter-fill deck-vu-l"></div></div>
@@ -15181,7 +15264,7 @@ Curseur PITCH (−16 à +16 %) et valeur cliquable pour revenir à 0 %.
 ```html
   <div class="deck-pitch" title="Pitch : accélère ou ralentit le titre (vitesse et tonalité ensemble, comme une platine vinyle). Double-clic ou clic sur la valeur : 0 %">
     <span class="deck-level-label">PITCH</span>
-    <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0">
+    <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0" data-detents="0">
     <button type="button" class="pitch-v">0,0 %</button>
   </div>
 </div>
@@ -15196,7 +15279,7 @@ Curseur PITCH (−16 à +16 %) et valeur cliquable pour revenir à 0 %.
 ```html
   <div class="deck-pitch" title="Pitch : accélère ou ralentit le titre (vitesse et tonalité ensemble, comme une platine vinyle). Double-clic ou clic sur la valeur : 0 %">
     <span class="deck-level-label">PITCH</span>
-    <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0">
+    <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0" data-detents="0">
     <button type="button" class="pitch-v">0,0 %</button>
   </div>
 </div>

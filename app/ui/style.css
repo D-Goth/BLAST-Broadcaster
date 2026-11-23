@@ -562,10 +562,10 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .voicefx.disabled .vfx-main, .voicefx.disabled .mic-meter { opacity: .45; }
 .mic-meter .meter-fill { background: linear-gradient(90deg, var(--meter-low) 0 65%, var(--meter-mid) 65% 85%, var(--meter-high) 85% 100%); }
 .sliders { display: flex; flex-direction: column; gap: 0; }
-.sliders label { display: grid; grid-template-columns: 58px 1fr 50px; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); height: 22px; }
+.sliders label { display: grid; grid-template-columns: 58px minmax(0, 1fr) 60px; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); height: 22px; }
 .sliders label.check { display: flex; gap: 8px; color: var(--text); }
 .sliders input[type=range], #sfx-vol, #jingle-vol { accent-color: var(--accent); width: 100%; }
-.sliders output { font-family: var(--mono); font-size: 11px; text-align: right; color: var(--text); }
+.sliders output { font-family: var(--mono); font-size: 11px; text-align: right; color: var(--text); white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
 .vfx-more { display: flex; flex-wrap: wrap; gap: 0 18px; }
 .vfx-more details[open] { flex-basis: 100%; }
 .eq summary { cursor: pointer; font-size: 11px; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }

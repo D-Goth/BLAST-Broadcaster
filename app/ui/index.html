@@ -98,14 +98,14 @@
           <!-- [HTM-44] -->
           <div class="deck-pitch" title="Pitch : accélère ou ralentit le titre (vitesse et tonalité ensemble, comme une platine vinyle). Double-clic ou clic sur la valeur : 0 %">
             <span class="deck-level-label">PITCH</span>
-            <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0">
+            <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0" data-detents="0">
             <button type="button" class="pitch-v">0,0 %</button>
           </div>
         </div>
         <!-- [HTM-40] -->
         <div class="deck-level">
           <span class="deck-level-label">VOL</span>
-          <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" title="Volume de la platine (double-clic : 0 dB)">
+          <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" data-detents="0,-6,-12,-20" title="Volume de la platine (crans à 0, −6, −12 et −20 dB ; double-clic : 0 dB)">
           <output class="deck-vol-v">0 dB</output>
           <div class="deck-vu" title="Niveau de la platine, après son volume et avant le crossfader">
             <div class="meter-bar"><div class="meter-fill deck-vu-l"></div></div>
@@ -120,7 +120,7 @@
         <div class="mixer-title">MIX</div>
         <div class="crossfader">
           <span class="xf-label a">A</span>
-          <input id="crossfader" type="range" min="0" max="1000" value="0">
+          <input id="crossfader" type="range" min="0" max="1000" value="0" data-detents="500" data-reset="off">
           <span class="xf-label b">B</span>
         </div>
         <button id="fade-btn" class="btn accent wide">FONDU &rarr; B</button>
@@ -176,14 +176,14 @@
           <!-- [HTM-45] -->
           <div class="deck-pitch" title="Pitch : accélère ou ralentit le titre (vitesse et tonalité ensemble, comme une platine vinyle). Double-clic ou clic sur la valeur : 0 %">
             <span class="deck-level-label">PITCH</span>
-            <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0">
+            <input type="range" class="pitch" min="-16" max="16" step="0.1" value="0" data-detents="0">
             <button type="button" class="pitch-v">0,0 %</button>
           </div>
         </div>
         <!-- [HTM-41] -->
         <div class="deck-level">
           <span class="deck-level-label">VOL</span>
-          <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" title="Volume de la platine (double-clic : 0 dB)">
+          <input type="range" class="deck-vol" min="-60" max="6" step="0.5" value="0" data-detents="0,-6,-12,-20" title="Volume de la platine (crans à 0, −6, −12 et −20 dB ; double-clic : 0 dB)">
           <output class="deck-vol-v">0 dB</output>
           <div class="deck-vu" title="Niveau de la platine, après son volume et avant le crossfader">
             <div class="meter-bar"><div class="meter-fill deck-vu-l"></div></div>
@@ -269,18 +269,18 @@
         </div>
         <div class="meter mic-meter"><span>MIC</span><div class="meter-bar"><div class="meter-fill" id="meter-mic"></div></div></div>
         <div class="sliders">
-          <label><span>Micro</span><input type="range" id="mic-gain" min="-24" max="12" step="0.5"><output id="mic-gain-v"></output></label>
-          <label><span>Musique</span><input type="range" id="music-gain" min="-30" max="6" step="0.5"><output id="music-gain-v"></output></label>
-          <label><span>Ducking</span><input type="range" id="duck-db" min="-30" max="0" step="1"><output id="duck-db-v"></output></label>
+          <label><span>Micro</span><input type="range" id="mic-gain" data-detents="0,6,-6" min="-24" max="12" step="0.5"><output id="mic-gain-v"></output></label>
+          <label><span>Musique</span><input type="range" id="music-gain" data-detents="0,-6,-12" min="-30" max="6" step="0.5"><output id="music-gain-v"></output></label>
+          <label><span>Ducking</span><input type="range" id="duck-db" data-detents="-12,-6,-18,-24" min="-30" max="0" step="1"><output id="duck-db-v"></output></label>
         </div>
         <!-- [HTM-25] -->
         <div class="vfx-more">
         <details class="eq">
           <summary>Égaliseur micro</summary>
           <div class="sliders">
-            <label><span>Grave</span><input type="range" id="eq-low" min="-12" max="12" step="0.5"><output id="eq-low-v"></output></label>
-            <label><span>Médium</span><input type="range" id="eq-mid" min="-12" max="12" step="0.5"><output id="eq-mid-v"></output></label>
-            <label><span>Aigu</span><input type="range" id="eq-high" min="-12" max="12" step="0.5"><output id="eq-high-v"></output></label>
+            <label><span>Grave</span><input type="range" id="eq-low" data-detents="0" min="-12" max="12" step="0.5"><output id="eq-low-v"></output></label>
+            <label><span>Médium</span><input type="range" id="eq-mid" data-detents="0" min="-12" max="12" step="0.5"><output id="eq-mid-v"></output></label>
+            <label><span>Aigu</span><input type="range" id="eq-high" data-detents="0" min="-12" max="12" step="0.5"><output id="eq-high-v"></output></label>
             <label class="check"><input type="checkbox" id="eq-hpf"> Coupe-bas (souffle, vibrations)</label>
           </div>
         </details>
@@ -307,7 +307,7 @@
           <button class="btn ghost small pager" id="jingle-rescan" title="Relire le dossier">&#8635;</button>
           <span id="jingle-info" class="muted fx-sub"></span>
           <span class="spacer"></span>
-          <input type="range" id="jingle-vol" min="-30" max="6" step="0.5" title="Volume des jingles">
+          <input type="range" id="jingle-vol" data-detents="0,-6,-12" min="-30" max="6" step="0.5" title="Volume des jingles">
           <button class="btn small danger" id="jingle-stop" title="Couper les jingles">STOP</button>
         </div>
         <div class="pads jingles" id="jingles" data-fxpage="jingles" hidden></div>
@@ -339,7 +339,7 @@
           <span id="pad-page" class="muted">1/3</span>
           <button class="btn ghost small pager" id="pad-next" title="Page suivante">&rsaquo;</button>
           <span class="spacer"></span>
-          <input type="range" id="sfx-vol" min="-30" max="6" step="0.5" title="Volume des sons">
+          <input type="range" id="sfx-vol" data-detents="0,-6,-12" min="-30" max="6" step="0.5" title="Volume des sons">
           <button class="btn small danger" id="sfx-stop" title="Couper tous les sons">STOP</button>
         </div>
         <div class="pads" id="pads" data-fxpage="pads"></div>
