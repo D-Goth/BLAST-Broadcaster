@@ -107,7 +107,7 @@ scripts\install-windows.bat
 Le script compile, copie BLAST dans `%LOCALAPPDATA%\Programs\BLAST Broadcaster` et crée l'entrée
 **BLAST Broadcaster** dans le menu Démarrer (clic droit → Épingler à la barre des tâches).
 
-- Mettre à jour : `git pull` puis `scripts\install-windows.bat`
+- Mettre à jour : `git pull && scripts\install-windows.bat`
 - Désinstaller : `scripts\install-windows.bat /uninstall` (les réglages restent dans `%APPDATA%\fr.black-lab.blast`)
 
 Sous Windows, les mots de passe sont rangés dans le Gestionnaire d'identifiants, et le son passe par WASAPI.
@@ -209,7 +209,7 @@ ouvert ou qu'une platine est en lecture. Avec le `.deb`, Linux demande ton mot d
 **Compilé depuis les sources** : la mise à jour intégrée est désactivée ; dans le dossier du projet :
 
 - Linux : `git pull && ./scripts/install-linux.sh`
-- Windows (invite de commandes) : `git pull` puis `scripts\install-windows.bat`
+- Windows (invite de commandes) : `git pull && scripts\install-windows.bat`
 
 Publier une version : passer `version` dans `Cargo.toml`, puis pousser le tag `vX.Y.Z`. Le workflow
 *Publication* construit l'installateur Windows, l'AppImage et le `.deb`, les signe avec la clé des secrets

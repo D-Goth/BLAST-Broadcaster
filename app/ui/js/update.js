@@ -3,7 +3,7 @@ import { $, invoke, listen, toast, setResult } from "./core.js";
 // [UI-74]
 const UPGRADE = {
   linux: "git pull && ./scripts/install-linux.sh",
-  windows: "git pull puis scripts\\install-windows.bat",
+  windows: "git pull && scripts\\install-windows.bat",
 };
 
 let info = null;

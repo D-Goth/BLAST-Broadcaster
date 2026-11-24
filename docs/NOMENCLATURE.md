@@ -12869,7 +12869,7 @@ Commande à lancer selon le système.
 ```js
 const UPGRADE = {
   linux: "git pull && ./scripts/install-linux.sh",
-  windows: "git pull puis scripts\\install-windows.bat",
+  windows: "git pull && scripts\\install-windows.bat",
 };
 ```
 
