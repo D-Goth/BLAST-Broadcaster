@@ -28,7 +28,7 @@ L'interface (M3a) a été avancée avant la diffusion (M2) pour que la suite s'a
 | **M8** | Live : chat Twitch (lecture anonyme, jeton seulement pour écrire) ✅, commandes viewers (`!np`, `!request` avec file à valider, `!sfx`) ✅, bot Now Playing ✅, YouTube, TikTok, Kick, Facebook… par Social Stream Ninja ✅ ; YouTube direct en plan B si SSN disparaît | Interaction avec le public ✅ |
 | **M9** | Formats supplémentaires : Opus, Vorbis, AAC | Plusieurs formats en parallèle |
 | **M10** | Voice tracking, grille prioritaire (démarrage à l'heure pile), détail des critères des catégories ; planning et historique exportable déjà faits (M4c, M4e) | Programmation complète d'une grille |
-| **M11** | Packaging Linux (AppImage, .deb, Flatpak), Windows (MSI), macOS (DMG) | Installation en un clic |
+| **M11** | Mise à jour intégrée signée (installateur Windows, AppImage, .deb publiés à chaque tag) ✅ ; finitions des installateurs, Flatpak, MSI, macOS (DMG), signature de code Windows | Installation en un clic |
 
 ## Gestion des fichiers dans l'interface (M3a ✅)
 

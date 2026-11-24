@@ -510,6 +510,7 @@ pub struct AppInfo {
     config_dir: Option<String>,
     updates: config::UpdateSettings,
     platform: &'static str,
+    installer: Option<&'static str>,
 }
 
 // [APP-26]
@@ -528,6 +529,7 @@ pub fn app_info(state: tauri::State<'_, App>) -> AppInfo {
         config_dir: state.config_path.parent().map(|p| p.display().to_string()),
         updates,
         platform: std::env::consts::OS,
+        installer: update::installer(),
     }
 }
 
@@ -565,6 +567,73 @@ pub async fn check_update(
         }
     }
 }
+
+// [APP-48]
+#[tauri::command]
+pub async fn install_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, App>,
+) -> Result<(), String> {
+    use tauri::Emitter;
+    use tauri_plugin_updater::UpdaterExt;
+    if update::installer().is_none() {
+        return Err("Cette copie de BLAST a été compilée depuis les sources : mets-la à jour avec git pull et le script d'installation.".into());
+    }
+    let busy = |state: &tauri::State<'_, App>| -> Result<(), String> {
+        let (reply, rx) = crossbeam_channel::bounded(1);
+        state
+            .tx
+            .send(UiCommand::Busy { reply })
+            .map_err(|e| e.to_string())?;
+        match rx.recv_timeout(std::time::Duration::from_secs(2)) {
+            Ok(Some(why)) => Err(format!(
+                "Mise à jour refusée : {why}. Réessaie une fois hors antenne."
+            )),
+            _ => Ok(()),
+        }
+    };
+    busy(&state)?;
+    let update = app
+        .updater()
+        .map_err(|e| e.to_string())?
+        .check()
+        .await
+        .map_err(|e| format!("Vérification impossible : {e}"))?
+        .ok_or("BLAST est déjà à jour.")?;
+    journal::info(format!(
+        "mise à jour : téléchargement de la version {}",
+        update.version
+    ));
+    let mut done = 0usize;
+    let mut shown = 0usize;
+    let progress = app.clone();
+    let bytes = update
+        .download(
+            move |chunk, total| {
+                done += chunk;
+                if done - shown >= 256 * 1024 || total.is_some_and(|t| done as u64 >= t) {
+                    shown = done;
+                    let _ = progress.emit(EV_UPDATE_PROGRESS, (done as u64, total));
+                }
+            },
+            || {},
+        )
+        .await
+        .map_err(|e| format!("Téléchargement interrompu : {e}"))?;
+    busy(&state)?;
+    journal::info(format!(
+        "mise à jour : installation de la version {}",
+        update.version
+    ));
+    crate::prepare_exit(&app);
+    update
+        .install(bytes)
+        .map_err(|e| format!("Installation impossible : {e}"))?;
+    app.restart()
+}
+
+// [APP-50]
+pub const EV_UPDATE_PROGRESS: &str = "blast://update-progress";
 
 // [APP-28]
 #[tauri::command]

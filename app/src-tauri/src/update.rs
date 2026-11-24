@@ -31,6 +31,7 @@ pub struct UpdateInfo {
     pub url: String,
     pub notes: String,
     pub published: Option<String>,
+    pub installable: bool,
 }
 
 impl UpdateInfo {
@@ -43,6 +44,7 @@ impl UpdateInfo {
             url: releases_page(),
             notes: String::new(),
             published: None,
+            installable: false,
         }
     }
 }
@@ -98,9 +100,11 @@ fn evaluate(release: Release) -> UpdateInfo {
         return UpdateInfo::none();
     }
     let latest = release.tag_name.trim_start_matches(['v', 'V']).to_string();
+    let newer = is_newer(&latest, CURRENT);
     UpdateInfo {
         current: CURRENT.into(),
-        newer: is_newer(&latest, CURRENT),
+        newer,
+        installable: newer && installer().is_some(),
         name: release
             .name
             .filter(|n| !n.trim().is_empty())
@@ -109,6 +113,19 @@ fn evaluate(release: Release) -> UpdateInfo {
         url: release.html_url,
         notes: release.body.unwrap_or_default(),
         published: release.published_at,
+    }
+}
+
+// [UPD-11]
+pub fn installer() -> Option<&'static str> {
+    use tauri::utils::{config::BundleType, platform::bundle_type};
+    match bundle_type()? {
+        BundleType::Nsis => Some("nsis"),
+        BundleType::Msi => Some("msi"),
+        BundleType::AppImage => Some("appimage"),
+        BundleType::Deb => Some("deb"),
+        BundleType::Rpm => Some("rpm"),
+        _ => None,
     }
 }
 

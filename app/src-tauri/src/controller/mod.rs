@@ -430,6 +430,9 @@ impl Controller {
     fn handle(&mut self, cmd: UiCommand) {
         match cmd {
             UiCommand::Refresh => self.refresh(),
+            UiCommand::Busy { reply } => {
+                let _ = reply.send(self.busy_reason());
+            }
             UiCommand::Cover { deck, reply } => {
                 let cover = self.decks[deck.index()].meta.cover.as_ref();
                 let _ = reply.send(cover.map(|(_, c)| c.clone()));
@@ -521,6 +524,19 @@ impl Controller {
                 blast_core::dsp::db_to_gain(db)
             };
             self.send(Command::SetDeckGain(deck.id(), gain));
+        }
+    }
+
+    // [CTL-195]
+    pub(super) fn busy_reason(&self) -> Option<String> {
+        if self.cast.caster.is_active() {
+            Some("la diffusion est en cours".into())
+        } else if self.mic.open {
+            Some("le micro est ouvert".into())
+        } else if self.decks.iter().any(|d| d.is_playing()) {
+            Some("une platine est en lecture".into())
+        } else {
+            None
         }
     }
 

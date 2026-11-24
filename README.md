@@ -200,10 +200,21 @@ l'ordinateur et le rediriger sur ta box.
 
 BLAST vérifie au démarrage si une nouvelle version est publiée sur GitHub et te prévient
 (désactivable dans **Réglages → À propos**, où se trouve aussi le bouton « Vérifier maintenant »).
-Rien n'est téléchargé automatiquement. Pour mettre à jour, dans le dossier du projet :
+
+**Installé depuis la page des versions** (`.exe` Windows, AppImage ou `.deb` Linux) : le bandeau propose
+**Installer et redémarrer**. BLAST télécharge le paquet, vérifie sa signature, enregistre la playlist puis
+redémarre sur la nouvelle version. L'installation est refusée tant que la diffusion tourne, que le micro est
+ouvert ou qu'une platine est en lecture. Avec le `.deb`, Linux demande ton mot de passe administrateur.
+
+**Compilé depuis les sources** : la mise à jour intégrée est désactivée ; dans le dossier du projet :
 
 - Linux : `git pull && ./scripts/install-linux.sh`
 - Windows (invite de commandes) : `git pull` puis `scripts\install-windows.bat`
+
+Publier une version : passer `version` dans `Cargo.toml`, puis pousser le tag `vX.Y.Z`. Le workflow
+*Publication* construit l'installateur Windows, l'AppImage et le `.deb`, les signe avec la clé des secrets
+`TAURI_SIGNING_PRIVATE_KEY` et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, puis publie `latest.json`, que lisent
+les BLAST installés.
 
 En cas de souci, l'onglet **À propos** ouvre le dossier du journal `blast.log` (aucun mot de passe n'y figure).
 

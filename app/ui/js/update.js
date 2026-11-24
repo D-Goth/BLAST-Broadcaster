@@ -1,4 +1,4 @@
-import { $, invoke, toast, setResult } from "./core.js";
+import { $, invoke, listen, toast, setResult } from "./core.js";
 
 // [UI-74]
 const UPGRADE = {
@@ -16,8 +16,42 @@ function describe(u) {
   return `BLAST est à jour (${u.current}).`;
 }
 
+// [UI-155]
+let installing = false;
+let progressToast = null;
+
+function showProgress(text) {
+  if (!progressToast || !progressToast.isConnected) progressToast = toast("update", text);
+  progressToast.firstChild.textContent = text;
+}
+
+// [UI-156]
+async function installNow() {
+  if (installing) return;
+  installing = true;
+  showProgress("Téléchargement de la mise à jour…");
+  setResult("#about-result", "busy", "Téléchargement de la mise à jour…");
+  try {
+    await invoke("install_update");
+  } catch (e) {
+    if (progressToast) progressToast.remove();
+    toast("error", String(e));
+    setResult("#about-result", "err", String(e));
+  } finally {
+    installing = false;
+  }
+}
+
 // [UI-75]
 function announce(u) {
+  if (u.installable) {
+    toast("update", `BLAST ${u.latest} est disponible.`, [
+      { label: "Installer et redémarrer", run: installNow },
+      { label: "Voir la version", run: () => openLink(u.url) },
+      { label: "Ignorer cette version", run: () => invoke("save_updates", { checkOnStart: null, skip: u.latest }) },
+    ]);
+    return;
+  }
   const hint = UPGRADE[info && info.platform] || UPGRADE.linux;
   toast("update", `BLAST ${u.latest} est disponible — dans le dossier du projet : ${hint}`, [
     { label: "Voir la version", run: () => openLink(u.url) },
@@ -43,6 +77,7 @@ async function checkNow() {
     setResult("#about-result", u.newer ? "ok" : "", describe(u));
     $("#about-release").classList.toggle("hidden", !u.newer);
     $("#about-release").onclick = () => openLink(u.url);
+    $("#about-install").classList.toggle("hidden", !u.installable);
   } catch (e) {
     setResult("#about-result", "err", String(e));
   }
@@ -59,6 +94,10 @@ export async function renderAbout() {
   $("#about-version").textContent = info.version;
   $("#about-platform").textContent = info.platform;
   $("#about-upgrade").textContent = UPGRADE[info.platform] || UPGRADE.linux;
+  $("#about-upgrade").classList.toggle("hidden", !!info.installer);
+  $("#about-mode").textContent = info.installer
+    ? `Version installée par paquet (${info.installer}) : la mise à jour se télécharge et s'installe depuis BLAST.`
+    : "Version compilée depuis les sources : pour la mettre à jour, dans le dossier du projet :";
   $("#about-log").textContent = info.log_path || "—";
   $("#about-config").textContent = info.config_dir || "—";
   $("#about-auto").checked = !!info.updates.check_on_start;
@@ -66,6 +105,16 @@ export async function renderAbout() {
 
 export function init() {
   $("#about-check").addEventListener("click", checkNow);
+  $("#about-install").addEventListener("click", installNow);
+  listen("blast://update-progress", (e) => {
+    const [done, total] = e.payload;
+    const mb = (n) => (n / 1048576).toFixed(1).replace(".", ",");
+    const text = total
+      ? `Téléchargement de la mise à jour : ${Math.round((100 * done) / total)} % (${mb(done)} / ${mb(total)} Mo)`
+      : `Téléchargement de la mise à jour : ${mb(done)} Mo`;
+    showProgress(total && done >= total ? "Installation… BLAST va redémarrer." : text);
+    setResult("#about-result", "busy", text);
+  });
   $("#about-repo").addEventListener("click", () => info && openLink(info.repository));
   $("#about-auto").addEventListener("change", (e) => {
     invoke("save_updates", { checkOnStart: e.target.checked, skip: null }).catch((err) => toast("error", String(err)));

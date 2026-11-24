@@ -3446,3 +3446,35 @@ definition = "Ajoute une datalist pour que le curseur affiche une graduation à 
 [codes.UI-154]
 titre = "Retour au cran principal"
 definition = "Double-clic : remet le curseur sur son premier cran et prévient ses écouteurs (sauf data-reset=off, ex. crossfader)."
+
+[codes.UPD-11]
+titre = "Type d'installation"
+definition = "Paquet d'où vient la copie en cours (nsis, msi, appimage, deb, rpm) ; aucun pour une copie compilée depuis les sources, qui ne peut pas s'auto-mettre à jour."
+
+[codes.APP-48]
+titre = "Installer la mise à jour"
+definition = "Refuse pendant la diffusion, micro ouvert ou platine en lecture ; télécharge le paquet signé, vérifie la signature, prépare l'arrêt, installe puis redémarre BLAST."
+
+[codes.APP-49]
+titre = "Préparer la fermeture"
+definition = "Arrête le serveur Icecast lancé par BLAST et enregistre la playlist ; utilisé à la fermeture et avant une mise à jour."
+
+[codes.APP-50]
+titre = "Progression du téléchargement"
+definition = "Évènement envoyé environ tous les 256 Ko : octets reçus et taille totale."
+
+[codes.CTL-195]
+titre = "Raison de ne pas mettre à jour"
+definition = "Diffusion en cours, micro ouvert ou platine en lecture ; aucune sinon."
+
+[codes.HTM-49]
+titre = "Mode de mise à jour"
+definition = "Indique si la copie vient d'un paquet (mise à jour intégrée) ou des sources (git pull)."
+
+[codes.UI-155]
+titre = "Progression de la mise à jour"
+definition = "Bandeau de progression unique, mis à jour pendant le téléchargement."
+
+[codes.UI-156]
+titre = "Lancer la mise à jour"
+definition = "Bouton « Installer et redémarrer » du bandeau ou des réglages ; affiche le refus ou l'erreur éventuelle."

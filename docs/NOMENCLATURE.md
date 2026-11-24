@@ -34,18 +34,18 @@ ne pas le modifier à la main.
 | [`LIVE`](#live) | Chat en direct (blast-live, en préparation) | 30 |
 | [`ICE`](#ice) | Serveur Icecast : configuration icecast.xml, statistiques, administration et processus (blast-ice) | 45 |
 | [`CLI`](#cli) | Outil en ligne de commande « blast » (blast-cli) | 14 |
-| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 47 |
+| [`APP`](#app) | Démarrage de l'application et commandes Tauri | 50 |
 | [`CFG`](#cfg) | Réglages enregistrés (config.toml) | 17 |
 | [`SEC`](#sec) | Mots de passe dans le trousseau du système | 9 |
 | [`ICM`](#icm) | Gestion des serveurs Icecast côté application | 30 |
 | [`JRN`](#jrn) | Journal de diagnostic (blast.log) | 8 |
-| [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 10 |
+| [`UPD`](#upd) | Vérification des mises à jour sur GitHub | 11 |
 | [`PL`](#pl) | Playlist côté application | 22 |
 | [`THM`](#thm) | Thèmes de couleurs | 3 |
-| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 184 |
-| [`UI`](#ui) | Interface : modules JavaScript | 153 |
+| [`CTL`](#ctl) | Contrôleur : fil central qui relie interface, moteur, diffusion, OBS et bibliothèque | 185 |
+| [`UI`](#ui) | Interface : modules JavaScript | 155 |
 | [`STY`](#sty) | Interface : feuille de style | 24 |
-| [`HTM`](#htm) | Interface : structure de la page | 48 |
+| [`HTM`](#htm) | Interface : structure de la page | 49 |
 
 ## CORE
 
@@ -5446,6 +5446,7 @@ Construit l'application Tauri, déclare les commandes et journalise un arrêt an
 fn main() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
             api::blast,
@@ -5454,7 +5455,6 @@ fn main() {
             api::get_settings,
             api::save_output,
             api::delete_output,
-            api::test_output,
 …
 ```
 
@@ -5885,6 +5885,7 @@ pub struct AppInfo {
     config_dir: Option<String>,
     updates: config::UpdateSettings,
     platform: &'static str,
+    installer: Option<&'static str>,
 }
 ```
 
@@ -5892,7 +5893,7 @@ pub struct AppInfo {
 
 Renvoie les informations de l'onglet À propos.
 
-`app/src-tauri/src/api.rs` ligne 515
+`app/src-tauri/src/api.rs` ligne 516
 
 ```rust
 #[tauri::command]
@@ -5914,7 +5915,7 @@ pub fn app_info(state: tauri::State<'_, App>) -> AppInfo {
 
 Interroge GitHub ; au démarrage, ne signale que les versions plus récentes et non ignorées.
 
-`app/src-tauri/src/api.rs` ligne 534
+`app/src-tauri/src/api.rs` ligne 536
 
 ```rust
 #[tauri::command]
@@ -5936,7 +5937,7 @@ pub async fn check_update(
 
 Enregistre la vérification au démarrage et la version ignorée.
 
-`app/src-tauri/src/api.rs` ligne 569
+`app/src-tauri/src/api.rs` ligne 638
 
 ```rust
 #[tauri::command]
@@ -5958,7 +5959,7 @@ pub fn save_updates(
 
 Ouvre dans le navigateur un lien du dépôt GitHub, et seulement celui-ci.
 
-`app/src-tauri/src/api.rs` ligne 586
+`app/src-tauri/src/api.rs` ligne 655
 
 ```rust
 #[tauri::command]
@@ -5975,7 +5976,7 @@ pub fn open_link(url: String) -> Result<(), String> {
 
 Ouvre le dossier du journal ou des réglages.
 
-`app/src-tauri/src/api.rs` ligne 596
+`app/src-tauri/src/api.rs` ligne 665
 
 ```rust
 #[tauri::command]
@@ -6039,7 +6040,7 @@ pub fn save_jingles(
 
 JPEG, PNG, WebP et AVIF.
 
-`app/src-tauri/src/api.rs` ligne 609
+`app/src-tauri/src/api.rs` ligne 678
 
 ```rust
 const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
@@ -6049,7 +6050,7 @@ const IMAGE_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "avif"];
 
 40 Mo.
 
-`app/src-tauri/src/api.rs` ligne 611
+`app/src-tauri/src/api.rs` ligne 680
 
 ```rust
 const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
@@ -6059,7 +6060,7 @@ const MAX_IMAGE_BYTES: u64 = 40 * 1024 * 1024;
 
 Réglages du verre dépoli et chemin de l'image de fond copiée.
 
-`app/src-tauri/src/api.rs` ligne 614
+`app/src-tauri/src/api.rs` ligne 683
 
 ```rust
 #[derive(Serialize)]
@@ -6073,7 +6074,7 @@ pub struct AppearanceView {
 
 Lit les réglages et vérifie que l'image de fond existe encore ; gère le dossier de BLAST où l'image est copiée et le ménage des anciennes images.
 
-`app/src-tauri/src/api.rs` ligne 629
+`app/src-tauri/src/api.rs` ligne 698
 
 ```rust
 fn appearance_view(&self) -> AppearanceView {
@@ -6095,7 +6096,7 @@ fn appearance_view(&self) -> AppearanceView {
 
 Renvoie l'apparence au démarrage de l'interface.
 
-`app/src-tauri/src/api.rs` ligne 658
+`app/src-tauri/src/api.rs` ligne 727
 
 ```rust
 #[tauri::command]
@@ -6108,7 +6109,7 @@ pub fn get_appearance(state: tauri::State<'_, App>) -> AppearanceView {
 
 Enregistre activation, flou, opacité et assombrissement, bornés à des valeurs sûres.
 
-`app/src-tauri/src/api.rs` ligne 664
+`app/src-tauri/src/api.rs` ligne 733
 
 ```rust
 #[tauri::command]
@@ -6130,7 +6131,7 @@ pub fn save_appearance(
 
 Copie l'image choisie dans le dossier de BLAST sous un nom unique, active le verre et supprime l'image précédente.
 
-`app/src-tauri/src/api.rs` ligne 680
+`app/src-tauri/src/api.rs` ligne 749
 
 ```rust
 #[tauri::command]
@@ -6152,7 +6153,7 @@ pub fn set_background(
 
 Retire l'image de fond ; le verre s'affiche alors sur un dégradé du thème.
 
-`app/src-tauri/src/api.rs` ligne 708
+`app/src-tauri/src/api.rs` ligne 777
 
 ```rust
 #[tauri::command]
@@ -6167,7 +6168,7 @@ pub fn clear_background(state: tauri::State<'_, App>) -> Result<AppearanceView, 
 
 Enregistre les dossiers de la bibliothèque (vérifiés) ; le contrôleur les relit aussitôt.
 
-`app/src-tauri/src/api.rs` ligne 716
+`app/src-tauri/src/api.rs` ligne 785
 
 ```rust
 #[tauri::command]
@@ -6187,7 +6188,7 @@ pub fn save_library_dirs(
 
 Valide puis enregistre catégories, grilles, planning et grille hors planning.
 
-`app/src-tauri/src/api.rs` ligne 729
+`app/src-tauri/src/api.rs` ligne 798
 
 ```rust
 #[tauri::command]
@@ -6209,7 +6210,7 @@ pub fn save_rotation(
 
 Compte les titres de la bibliothèque qui correspondent à des règles de catégorie, pour l'aperçu en direct.
 
-`app/src-tauri/src/api.rs` ligne 744
+`app/src-tauri/src/api.rs` ligne 813
 
 ```rust
 #[tauri::command]
@@ -6231,22 +6232,14 @@ pub async fn rotation_counts(
 
 À la sortie, demande au contrôleur d'écrire la playlist et attend jusqu'à 5 s.
 
-`app/src-tauri/src/main.rs` ligne 147
+`app/src-tauri/src/main.rs` ligne 149
 
 ```rust
 fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
-    if !matches!(event, tauri::RunEvent::Exit) {
-        return;
+    if matches!(event, tauri::RunEvent::Exit) {
+        prepare_exit(handle);
     }
-    let Some(state) = handle.try_state::<api::App>() else {
-        return;
-    };
-    let servers = state
-        .config
-        .lock()
-        .map(|c| c.icecast.servers.clone())
-        .unwrap_or_default();
-…
+}
 ```
 
 ### [APP-45] Enregistrement du chat
@@ -6304,6 +6297,60 @@ pub async fn deck_cover(
     let cover = tauri::async_runtime::spawn_blocking(move || {
         rx.recv_timeout(std::time::Duration::from_secs(2))
 …
+```
+
+### [APP-48] Installer la mise à jour
+
+Refuse pendant la diffusion, micro ouvert ou platine en lecture ; télécharge le paquet signé, vérifie la signature, prépare l'arrêt, installe puis redémarre BLAST.
+
+`app/src-tauri/src/api.rs` ligne 571
+
+```rust
+#[tauri::command]
+pub async fn install_update(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, App>,
+) -> Result<(), String> {
+    use tauri::Emitter;
+    use tauri_plugin_updater::UpdaterExt;
+    if update::installer().is_none() {
+        return Err("Cette copie de BLAST a été compilée depuis les sources : mets-la à jour avec git pull et le script d'installation.".into());
+    }
+    let busy = |state: &tauri::State<'_, App>| -> Result<(), String> {
+        let (reply, rx) = crossbeam_channel::bounded(1);
+…
+```
+
+### [APP-49] Préparer la fermeture
+
+Arrête le serveur Icecast lancé par BLAST et enregistre la playlist ; utilisé à la fermeture et avant une mise à jour.
+
+`app/src-tauri/src/main.rs` ligne 156
+
+```rust
+pub(crate) fn prepare_exit(handle: &tauri::AppHandle) {
+    let Some(state) = handle.try_state::<api::App>() else {
+        return;
+    };
+    let servers = state
+        .config
+        .lock()
+        .map(|c| c.icecast.servers.clone())
+        .unwrap_or_default();
+    state.ice.stop_on_exit(&servers);
+    let (done, wait) = crossbeam_channel::bounded(1);
+    if state
+…
+```
+
+### [APP-50] Progression du téléchargement
+
+Évènement envoyé environ tous les 256 Ko : octets reçus et taille totale.
+
+`app/src-tauri/src/api.rs` ligne 635
+
+```rust
+pub const EV_UPDATE_PROGRESS: &str = "blast://update-progress";
 ```
 
 
@@ -7483,6 +7530,7 @@ pub struct UpdateInfo {
     pub url: String,
     pub notes: String,
     pub published: Option<String>,
+    pub installable: bool,
 }
 ```
 
@@ -7490,7 +7538,7 @@ pub struct UpdateInfo {
 
 Adresse de la page des versions sur GitHub.
 
-`app/src-tauri/src/update.rs` ligne 50
+`app/src-tauri/src/update.rs` ligne 52
 
 ```rust
 pub fn releases_page() -> String {
@@ -7502,7 +7550,7 @@ pub fn releases_page() -> String {
 
 Majeur, mineur, correctif et stabilité, comparables entre eux.
 
-`app/src-tauri/src/update.rs` ligne 55
+`app/src-tauri/src/update.rs` ligne 57
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -7518,7 +7566,7 @@ pub struct Version {
 
 Lit « v1.2.3 », « 1.2 » ou « 1.2.3-rc.1 ».
 
-`app/src-tauri/src/update.rs` ligne 64
+`app/src-tauri/src/update.rs` ligne 66
 
 ```rust
 pub fn parse_version(text: &str) -> Option<Version> {
@@ -7540,7 +7588,7 @@ pub fn parse_version(text: &str) -> Option<Version> {
 
 Indique si une version est plus récente que la version installée.
 
-`app/src-tauri/src/update.rs` ligne 87
+`app/src-tauri/src/update.rs` ligne 89
 
 ```rust
 pub fn is_newer(candidate: &str, current: &str) -> bool {
@@ -7555,7 +7603,7 @@ pub fn is_newer(candidate: &str, current: &str) -> bool {
 
 Ignore brouillons et préversions, puis compare à la version installée.
 
-`app/src-tauri/src/update.rs` ligne 95
+`app/src-tauri/src/update.rs` ligne 97
 
 ```rust
 fn evaluate(release: Release) -> UpdateInfo {
@@ -7563,13 +7611,13 @@ fn evaluate(release: Release) -> UpdateInfo {
         return UpdateInfo::none();
     }
     let latest = release.tag_name.trim_start_matches(['v', 'V']).to_string();
+    let newer = is_newer(&latest, CURRENT);
     UpdateInfo {
         current: CURRENT.into(),
-        newer: is_newer(&latest, CURRENT),
+        newer,
+        installable: newer && installer().is_some(),
         name: release
             .name
-            .filter(|n| !n.trim().is_empty())
-            .unwrap_or_else(|| release.tag_name.clone()),
 …
 ```
 
@@ -7577,7 +7625,7 @@ fn evaluate(release: Release) -> UpdateInfo {
 
 Interroge l'API GitHub avec le magasin de certificats du système ; aucune version publiée n'est pas une erreur.
 
-`app/src-tauri/src/update.rs` ligne 115
+`app/src-tauri/src/update.rs` ligne 132
 
 ```rust
 pub fn check() -> Result<UpdateInfo, String> {
@@ -7593,6 +7641,26 @@ pub fn check() -> Result<UpdateInfo, String> {
         .into();
     let url = format!("https://api.github.com/repos/{REPO}/releases/latest");
 …
+```
+
+### [UPD-11] Type d'installation
+
+Paquet d'où vient la copie en cours (nsis, msi, appimage, deb, rpm) ; aucun pour une copie compilée depuis les sources, qui ne peut pas s'auto-mettre à jour.
+
+`app/src-tauri/src/update.rs` ligne 119
+
+```rust
+pub fn installer() -> Option<&'static str> {
+    use tauri::utils::{config::BundleType, platform::bundle_type};
+    match bundle_type()? {
+        BundleType::Nsis => Some("nsis"),
+        BundleType::Msi => Some("msi"),
+        BundleType::AppImage => Some("appimage"),
+        BundleType::Deb => Some("deb"),
+        BundleType::Rpm => Some("rpm"),
+        _ => None,
+    }
+}
 ```
 
 
@@ -8416,15 +8484,15 @@ Dirige chaque commande de l'interface vers son traitement, puis publie l'état.
 fn handle(&mut self, cmd: UiCommand) {
     match cmd {
         UiCommand::Refresh => self.refresh(),
+        UiCommand::Busy { reply } => {
+            let _ = reply.send(self.busy_reason());
+        }
         UiCommand::Cover { deck, reply } => {
             let cover = self.decks[deck.index()].meta.cover.as_ref();
             let _ = reply.send(cover.map(|(_, c)| c.clone()));
         }
         UiCommand::Shutdown { done } => {
             self.flush_queue();
-            let _ = done.send(());
-        }
-        UiCommand::CastStart => self.start_casting(),
 …
 ```
 
@@ -8432,7 +8500,7 @@ fn handle(&mut self, cmd: UiCommand) {
 
 Republie toutes les vues et l'avertissement de démarrage éventuel.
 
-`app/src-tauri/src/controller/mod.rs` ligne 551
+`app/src-tauri/src/controller/mod.rs` ligne 567
 
 ```rust
 fn refresh(&mut self) {
@@ -8454,7 +8522,7 @@ fn refresh(&mut self) {
 
 Applique traitement antenne, automation, OBS, voix, pads et sorties modifiés.
 
-`app/src-tauri/src/controller/mod.rs` ligne 567
+`app/src-tauri/src/controller/mod.rs` ligne 583
 
 ```rust
 fn apply_config(&mut self, cfg: AppConfig) {
@@ -8476,7 +8544,7 @@ fn apply_config(&mut self, cfg: AppConfig) {
 
 Dirige chaque résultat de fond vers son traitement.
 
-`app/src-tauri/src/controller/mod.rs` ligne 590
+`app/src-tauri/src/controller/mod.rs` ligne 606
 
 ```rust
 fn on_work(&mut self, w: Work) {
@@ -8498,7 +8566,7 @@ fn on_work(&mut self, w: Work) {
 
 Met à jour platines, vumètres et micro à chaque tick ; gère fin de titre, fondus et fin des sons de pads.
 
-`app/src-tauri/src/controller/mod.rs` ligne 625
+`app/src-tauri/src/controller/mod.rs` ligne 641
 
 ```rust
 fn on_event(&mut self, e: Event) {
@@ -8520,7 +8588,7 @@ fn on_event(&mut self, e: Event) {
 
 Platine désignée par la position du crossfader.
 
-`app/src-tauri/src/controller/mod.rs` ligne 671
+`app/src-tauri/src/controller/mod.rs` ligne 687
 
 ```rust
 fn on_air_side(&self) -> usize {
@@ -8584,9 +8652,9 @@ pub enum UiCommand {
         done: crossbeam_channel::Sender<()>,
     },
     #[serde(skip)]
-    Cover {
-        deck: Deck,
-        reply: crossbeam_channel::Sender<Option<Arc<blast_core::Cover>>>,
+    Busy {
+        reply: crossbeam_channel::Sender<Option<String>>,
+    },
 …
 ```
 
@@ -11389,7 +11457,7 @@ pub(super) fn chat_broadcast(&mut self, text: &str) {
 
 Applique le volume de chaque platine en dB (de -60, coupé, à +6) quand il change, à la reprise des réglages comme pendant un glissement du curseur.
 
-`app/src-tauri/src/controller/mod.rs` ligne 510
+`app/src-tauri/src/controller/mod.rs` ligne 513
 
 ```rust
 fn apply_deck_gains(&mut self, gains: [f32; 2]) {
@@ -11443,7 +11511,7 @@ pub fn format_label(f: &AudioFormat) -> String {
 
 Borne le pitch à ±16 %, l'arrondit au dixième et envoie la vitesse au mixeur s'il a changé.
 
-`app/src-tauri/src/controller/mod.rs` ligne 527
+`app/src-tauri/src/controller/mod.rs` ligne 543
 
 ```rust
 fn set_pitch(&mut self, deck: Deck, percent: f32) {
@@ -11499,6 +11567,26 @@ pub struct CueView {
     pub decks: [bool; 2],
     pub device: Option<String>,
     pub error: Option<String>,
+}
+```
+
+### [CTL-195] Raison de ne pas mettre à jour
+
+Diffusion en cours, micro ouvert ou platine en lecture ; aucune sinon.
+
+`app/src-tauri/src/controller/mod.rs` ligne 530
+
+```rust
+pub(super) fn busy_reason(&self) -> Option<String> {
+    if self.cast.caster.is_active() {
+        Some("la diffusion est en cours".into())
+    } else if self.mic.open {
+        Some("le micro est ouvert".into())
+    } else if self.decks.iter().any(|d| d.is_playing()) {
+        Some("une platine est en lecture".into())
+    } else {
+        None
+    }
 }
 ```
 
@@ -12789,23 +12877,29 @@ const UPGRADE = {
 
 Notification avec « Voir la version » et « Ignorer cette version ».
 
-`app/ui/js/update.js` ligne 19
+`app/ui/js/update.js` ligne 45
 
 ```js
 function announce(u) {
+  if (u.installable) {
+    toast("update", `BLAST ${u.latest} est disponible.`, [
+      { label: "Installer et redémarrer", run: installNow },
+      { label: "Voir la version", run: () => openLink(u.url) },
+      { label: "Ignorer cette version", run: () => invoke("save_updates", { checkOnStart: null, skip: u.latest }) },
+    ]);
+    return;
+  }
   const hint = UPGRADE[info && info.platform] || UPGRADE.linux;
   toast("update", `BLAST ${u.latest} est disponible — dans le dossier du projet : ${hint}`, [
     { label: "Voir la version", run: () => openLink(u.url) },
-    { label: "Ignorer cette version", run: () => invoke("save_updates", { checkOnStart: null, skip: u.latest }) },
-  ]);
-}
+…
 ```
 
 ### [UI-76] Vérification au démarrage
 
 Vérifie si l'option est active et annonce une version plus récente.
 
-`app/ui/js/update.js` ligne 28
+`app/ui/js/update.js` ligne 62
 
 ```js
 export async function checkOnStart() {
@@ -12822,7 +12916,7 @@ export async function checkOnStart() {
 
 Bouton « Vérifier maintenant » de l'onglet À propos.
 
-`app/ui/js/update.js` ligne 38
+`app/ui/js/update.js` ligne 72
 
 ```js
 async function checkNow() {
@@ -12832,6 +12926,7 @@ async function checkNow() {
     setResult("#about-result", u.newer ? "ok" : "", describe(u));
     $("#about-release").classList.toggle("hidden", !u.newer);
     $("#about-release").onclick = () => openLink(u.url);
+    $("#about-install").classList.toggle("hidden", !u.installable);
   } catch (e) {
     setResult("#about-result", "err", String(e));
   }
@@ -12842,7 +12937,7 @@ async function checkNow() {
 
 Version, système, commande de mise à jour, journal et dossier de réglages.
 
-`app/ui/js/update.js` ligne 51
+`app/ui/js/update.js` ligne 86
 
 ```js
 export async function renderAbout() {
@@ -12855,8 +12950,8 @@ export async function renderAbout() {
   $("#about-version").textContent = info.version;
   $("#about-platform").textContent = info.platform;
   $("#about-upgrade").textContent = UPGRADE[info.platform] || UPGRADE.linux;
-  $("#about-log").textContent = info.log_path || "—";
-  $("#about-config").textContent = info.config_dir || "—";
+  $("#about-upgrade").classList.toggle("hidden", !!info.installer);
+  $("#about-mode").textContent = info.installer
 …
 ```
 
@@ -14274,6 +14369,38 @@ function reset(el) {
 }
 ```
 
+### [UI-155] Progression de la mise à jour
+
+Bandeau de progression unique, mis à jour pendant le téléchargement.
+
+`app/ui/js/update.js` ligne 19
+
+```js
+let installing = false;
+```
+
+### [UI-156] Lancer la mise à jour
+
+Bouton « Installer et redémarrer » du bandeau ou des réglages ; affiche le refus ou l'erreur éventuelle.
+
+`app/ui/js/update.js` ligne 28
+
+```js
+async function installNow() {
+  if (installing) return;
+  installing = true;
+  showProgress("Téléchargement de la mise à jour…");
+  setResult("#about-result", "busy", "Téléchargement de la mise à jour…");
+  try {
+    await invoke("install_update");
+  } catch (e) {
+    if (progressToast) progressToast.remove();
+    toast("error", String(e));
+    setResult("#about-result", "err", String(e));
+  } finally {
+…
+```
+
 
 ## STY
 
@@ -14989,7 +15116,7 @@ Actions de mélange et de nettoyage de la playlist.
 
 Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi à droite.
 
-`app/ui/index.html` ligne 753
+`app/ui/index.html` ligne 756
 
 ```html
 <section class="tab-page hidden ice-tab" data-page="icecast">
@@ -15004,7 +15131,7 @@ Onglet des Réglages : liste des serveurs à gauche, contenu du serveur choisi �
 
 Présentation, installations détectées et ajout d'un serveur local ou distant.
 
-`app/ui/index.html` ligne 761
+`app/ui/index.html` ligne 764
 
 ```html
 <div class="ice-welcome" id="ice-welcome">
@@ -15019,7 +15146,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 État, nom, adresse, version, boutons page web, Redémarrer, Arrêter et Démarrer.
 
-`app/ui/index.html` ligne 774
+`app/ui/index.html` ligne 777
 
 ```html
 <header class="ice-head">
@@ -15034,7 +15161,7 @@ Présentation, installations détectées et ajout d'un serveur local ou distant.
 
 Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des auditeurs et tableau des mountpoints ; sans flux, explication du point de montage et bouton de sortie vers /live.
 
-`app/ui/index.html` ligne 796
+`app/ui/index.html` ligne 799
 
 ```html
 <div class="ice-page" data-ipage="dash">
@@ -15049,7 +15176,7 @@ Tuiles (auditeurs, pic, sources, durée, débit, connexions), graphique des audi
 
 Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute, limites, chemins, journalisation.
 
-`app/ui/index.html` ligne 823
+`app/ui/index.html` ligne 826
 
 ```html
 <div class="ice-page hidden" data-ipage="config">
@@ -15064,7 +15191,7 @@ Fichier, droit d'écriture et formulaire : serveur, sécurité, ports d'écoute,
 
 Explication (onglet facultatif), liste des mountpoints déclarés et formulaire : accès, secours, présentation, annuaire, sortie BLAST.
 
-`app/ui/index.html` ligne 888
+`app/ui/index.html` ligne 891
 
 ```html
 <div class="ice-page hidden" data-ipage="mounts">
@@ -15079,7 +15206,7 @@ Explication (onglet facultatif), liste des mountpoints déclarés et formulaire 
 
 Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
-`app/ui/index.html` ligne 939
+`app/ui/index.html` ligne 942
 
 ```html
 <div class="ice-page hidden" data-ipage="listeners">
@@ -15094,7 +15221,7 @@ Choix du mountpoint et tableau des auditeurs avec déconnexion.
 
 Erreurs, accès ou console, suivi en direct.
 
-`app/ui/index.html` ligne 956
+`app/ui/index.html` ligne 959
 
 ```html
 <div class="ice-page hidden" data-ipage="log">
@@ -15109,7 +15236,7 @@ Erreurs, accès ou console, suivi en direct.
 
 Profil : emplacement, installation, configuration, accès admin et démarrage.
 
-`app/ui/index.html` ligne 969
+`app/ui/index.html` ligne 972
 
 ```html
 <div class="ice-page hidden" data-ipage="profile">
@@ -15124,7 +15251,7 @@ Profil : emplacement, installation, configuration, accès admin et démarrage.
 
 Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer et redémarrer.
 
-`app/ui/index.html` ligne 1007
+`app/ui/index.html` ligne 1010
 
 ```html
 <footer class="ice-savebar hidden" id="ice-savebar">
@@ -15139,7 +15266,7 @@ Apparaît quand la configuration a changé : annuler, enregistrer, enregistrer e
 
 Menu flottant des actions sur un mountpoint.
 
-`app/ui/index.html` ligne 1035
+`app/ui/index.html` ligne 1038
 
 ```html
 <div id="ice-menu" class="pad-menu ice-menu hidden"></div>
@@ -15154,7 +15281,7 @@ Menu flottant des actions sur un mountpoint.
 
 Panneau flottant sous le bouton DIFFUSER : en-tête, titre, sorties, total et boutons.
 
-`app/ui/index.html` ligne 1022
+`app/ui/index.html` ligne 1025
 
 ```html
 <div id="cast-panel" class="pad-menu cast-panel hidden">
@@ -15322,4 +15449,19 @@ Bouton de pré-écoute de la platine B.
   <button type="button" class="cue-btn" title="Pré-écoute (CUE) de la platine B : l'entendre au casque sans l'envoyer à l'antenne"><svg class="ico"><use href="#i-cue"/></svg>CUE</button>
   <span class="chip state">VIDE</span>
 </div>
+```
+
+### [HTM-49] Mode de mise à jour
+
+Indique si la copie vient d'un paquet (mise à jour intégrée) ou des sources (git pull).
+
+`app/ui/index.html` ligne 736
+
+```html
+<p class="muted" id="about-mode"></p>
+<pre class="about-cmd" id="about-upgrade"></pre>
+<label class="check"><input type="checkbox" id="about-auto"> Vérifier au démarrage de BLAST</label>
+<div class="form-actions">
+  <button type="button" class="btn ghost small" id="about-repo">Projet sur GitHub</button>
+  <span class="spacer"></span>
 ```

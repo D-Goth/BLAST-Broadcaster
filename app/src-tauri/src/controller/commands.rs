@@ -68,6 +68,10 @@ pub enum UiCommand {
         done: crossbeam_channel::Sender<()>,
     },
     #[serde(skip)]
+    Busy {
+        reply: crossbeam_channel::Sender<Option<String>>,
+    },
+    #[serde(skip)]
     Cover {
         deck: Deck,
         reply: crossbeam_channel::Sender<Option<Arc<blast_core::Cover>>>,

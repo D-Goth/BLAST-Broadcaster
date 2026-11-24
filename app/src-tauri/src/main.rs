@@ -80,6 +80,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 fn main() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
             api::blast,
@@ -107,6 +108,7 @@ fn main() {
             api::save_master_preset,
             api::app_info,
             api::check_update,
+            api::install_update,
             api::save_updates,
             api::open_link,
             api::open_folder,
@@ -146,9 +148,13 @@ fn main() {
 
 // [APP-44]
 fn on_event(handle: &tauri::AppHandle, event: tauri::RunEvent) {
-    if !matches!(event, tauri::RunEvent::Exit) {
-        return;
+    if matches!(event, tauri::RunEvent::Exit) {
+        prepare_exit(handle);
     }
+}
+
+// [APP-49]
+pub(crate) fn prepare_exit(handle: &tauri::AppHandle) {
     let Some(state) = handle.try_state::<api::App>() else {
         return;
     };
