@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>fr.black-lab.blast</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>PolyForm-Noncommercial-1.0.0</project_license>
+  <name>BLAST Broadcaster</name>
+  <summary>Console d'antenne pour webradio et live</summary>
+  <summary xml:lang="en">On-air console for web radio and live streaming</summary>
+  <developer id="fr.black-lab">
+    <name>Loïc HERAUDEAU (D-Goth)</name>
+  </developer>
+  <description>
+    <p>BLAST (Black-Lab Audio Streaming Tool) est une console d'antenne pour webradio, dans l'esprit de SAM Broadcaster.</p>
+    <ul>
+      <li>Deux platines avec pochette, pitch, pré-écoute (CUE), volume et VU-mètre</li>
+      <li>Playlist, historique, grilles horaires et auto-mix avec fondus</li>
+      <li>Micro avec effets de voix et ducking de la musique</li>
+      <li>Diffusion vers Icecast et SHOUTcast, gestion d'un serveur Icecast local</li>
+      <li>Pilotage d'OBS et chat Twitch, YouTube, TikTok… avec les requêtes des auditeurs</li>
+    </ul>
+    <p xml:lang="en">BLAST is an on-air console for web radio: two decks, playlist, scheduling, voice effects, Icecast/SHOUTcast streaming, OBS control and live chat.</p>
+  </description>
+  <launchable type="desktop-id">BLAST Broadcaster.desktop</launchable>
+  <icon type="stock">blast-broadcaster</icon>
+  <url type="homepage">https://github.com/D-Goth/BLAST-Broadcaster</url>
+  <url type="bugtracker">https://github.com/D-Goth/BLAST-Broadcaster/issues</url>
+  <url type="vcs-browser">https://github.com/D-Goth/BLAST-Broadcaster</url>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+  </categories>
+  <keywords>
+    <keyword>radio</keyword>
+    <keyword>webradio</keyword>
+    <keyword>icecast</keyword>
+    <keyword>shoutcast</keyword>
+    <keyword>broadcast</keyword>
+  </keywords>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Thème Black-Lab</caption>
+      <image>https://raw.githubusercontent.com/D-Goth/BLAST-Broadcaster/main/docs/img/interface-black-lab.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Thème clair</caption>
+      <image>https://raw.githubusercontent.com/D-Goth/BLAST-Broadcaster/main/docs/img/interface-light.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.2.1" date="2026-11-24"/>
+    <release version="0.2.0" date="2026-11-24"/>
+  </releases>
+</component>

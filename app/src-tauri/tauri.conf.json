@@ -41,7 +41,28 @@
       "icons/icon.png",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "publisher": "Loïc HERAUDEAU (D-Goth)",
+    "copyright": "Copyright (c) 2026 Loïc HERAUDEAU (D-Goth) — https://black-lab.fr",
+    "homepage": "https://github.com/D-Goth/BLAST-Broadcaster",
+    "category": "Music",
+    "licenseFile": "../../LICENSE",
+    "shortDescription": "Console d'antenne pour webradio et live",
+    "longDescription": "BLAST (Black-Lab Audio Streaming Tool) : deux platines avec pochette, pitch et pré-écoute, playlist, grilles horaires, auto-mix, micro avec effets de voix et ducking, diffusion Icecast et SHOUTcast, pilotage d'OBS et chat live.",
+    "linux": {
+      "deb": {
+        "section": "sound",
+        "desktopTemplate": "../../packaging/linux/blast-broadcaster.desktop.hbs",
+        "files": {
+          "/usr/share/metainfo/fr.black-lab.blast.metainfo.xml": "../../packaging/linux/fr.black-lab.blast.metainfo.xml"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/metainfo/fr.black-lab.blast.metainfo.xml": "../../packaging/linux/fr.black-lab.blast.metainfo.xml"
+        }
+      }
+    }
   },
   "plugins": {
     "updater": {

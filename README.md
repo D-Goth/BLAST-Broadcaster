@@ -211,6 +211,9 @@ ouvert ou qu'une platine est en lecture. Avec le `.deb`, Linux demande ton mot d
 - Linux : `git pull && ./scripts/install-linux.sh`
 - Windows (invite de commandes) : `git pull && scripts\install-windows.bat`
 
+Les paquets Linux embarquent une fiche AppStream (`packaging/linux/fr.black-lab.blast.metainfo.xml`) :
+Discover et GNOME Logiciels y lisent l'auteur, la licence, la description et les captures d'écran.
+
 Publier une version : passer `version` dans `Cargo.toml`, puis pousser le tag `vX.Y.Z`. Le workflow
 *Publication* construit l'installateur Windows, l'AppImage et le `.deb`, les signe avec la clé des secrets
 `TAURI_SIGNING_PRIVATE_KEY` et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, puis publie `latest.json`, que lisent
