@@ -8,9 +8,10 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 
 ![BLAST Broadcaster — thème Black-Lab](docs/img/interface-black-lab.png)
 
-> Statut : **les trois piliers sont en place** (automatisation et historique, grilles horaires, son antenne), avec
-> la diffusion, le serveur Icecast intégré, le pilotage d'OBS et le chat multi-plateformes. Voir la
-> [feuille de route](ROADMAP.md) pour la suite.
+> Statut : **version 0.2** — les trois piliers sont en place (automatisation et historique, grilles horaires,
+> son antenne), avec la diffusion, le serveur Icecast intégré, le pilotage d'OBS et le chat multi-plateformes.
+> Installateurs Windows et Linux sur la [page des versions](https://github.com/D-Goth/BLAST-Broadcaster/releases/latest),
+> avec mise à jour intégrée. Voir la [feuille de route](ROADMAP.md) pour la suite.
 
 ## Fonctionnalités
 
@@ -24,7 +25,8 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 - ✅ Box à jingles, Sound FX (36 pads, F1 à F12)
 - ✅ Micro avec ducking automatique (niveau, descente et remontée réglables), égaliseur, effets de voix
 - ✅ Son antenne : AGC, compresseur, limiteur à anticipation (presets Doux, Radio FM, Puissant)
-- ⏳ Jusqu'à 4 platines, cue points, pré-écoute casque (PFL), contrôleur MIDI, voice tracking
+- ✅ Curseurs aimantés sur leurs crans (0 dB, centre du crossfader…), double-clic pour y revenir
+- ⏳ File d'attente séparée, dispositions d'écran A/B/C, jusqu'à 4 platines, cue points, contrôleur MIDI, voice tracking
 
 **Diffusion**
 - ✅ Plusieurs sorties simultanées en MP3, chacune avec son serveur et son débit
@@ -40,6 +42,7 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 **Interface**
 - ✅ Thèmes personnalisables et partageables (Light, Dark et Black-Lab fournis), couleur par platine, mode rainbow
 - ✅ Verre dépoli sur une image de fond, Linux et Windows
+- ✅ Installateurs Windows (`.exe`) et Linux (`.deb`, AppImage) signés, mise à jour intégrée en un clic
 
 ## Modules
 
@@ -57,7 +60,25 @@ de streaming audio, et le pilotage d'un live vidéo avec webcams et chat (talk s
 
 Voir [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) et [ROADMAP.md](ROADMAP.md).
 
-## Installer sous Linux (Kubuntu, Ubuntu, Debian)
+## Installer
+
+Télécharge le paquet de ton système sur la [page des versions](https://github.com/D-Goth/BLAST-Broadcaster/releases/latest).
+Ensuite, BLAST se met à jour tout seul (voir [Mettre à jour](#mettre-à-jour)).
+
+| Système | Fichier | Installation |
+|---|---|---|
+| Windows 10 / 11 | `BLAST.Broadcaster_X.Y.Z_x64-setup.exe` | Double-clic. Si SmartScreen bloque (l'installateur n'a pas encore de signature de code) : **Informations complémentaires → Exécuter quand même** |
+| Ubuntu, Kubuntu, Debian | `BLAST.Broadcaster_X.Y.Z_amd64.deb` | `sudo apt install ./BLAST.Broadcaster_X.Y.Z_amd64.deb`, ou double-clic pour l'ouvrir dans Discover / Logiciels |
+| Autres Linux | `BLAST.Broadcaster_X.Y.Z_amd64.AppImage` | `chmod +x BLAST.Broadcaster_X.Y.Z_amd64.AppImage` puis la lancer |
+
+Désinstaller : **Paramètres → Applications** sous Windows, `sudo apt remove blast-broadcaster` pour le `.deb`,
+supprimer le fichier pour l'AppImage. Les réglages, la playlist et la bibliothèque restent dans
+`%APPDATA%\fr.black-lab.blast` (Windows) ou `~/.config/fr.black-lab.blast` et `~/.local/share/fr.black-lab.blast` (Linux) :
+une réinstallation les retrouve.
+
+Les paquets ne contiennent pas l'outil de test `blast`, réservé à la compilation depuis les sources.
+
+## Compiler depuis les sources sous Linux (Kubuntu, Ubuntu, Debian)
 
 ```bash
 sudo apt install build-essential pkg-config curl git \
@@ -80,7 +101,7 @@ Sous Fedora : `sudo dnf install alsa-lib-devel webkit2gtk4.1-devel gtk3-devel li
 Les captures OBS (SNAP) vont dans `~/Images/BLAST`.
 PipeWire et PulseAudio sont pris en charge via leur couche de compatibilité ALSA.
 
-## Installer sous Windows 10 / 11
+## Compiler depuis les sources sous Windows 10 / 11
 
 Tout se fait dans l'**Invite de commandes** (`cmd`), pas besoin de PowerShell.
 
