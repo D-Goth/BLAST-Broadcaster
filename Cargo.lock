@@ -396,7 +396,7 @@ dependencies = [
 
 [[package]]
 name = "blast-app"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "blast-aura",
  "blast-cast",
@@ -420,7 +420,7 @@ dependencies = [
 
 [[package]]
 name = "blast-aura"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "base64 0.22.1",
  "crossbeam-channel",
@@ -432,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "blast-cast"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "base64 0.22.1",
  "crossbeam-channel",
@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "blast-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "blast-core",
  "clap",
@@ -452,7 +452,7 @@ dependencies = [
 
 [[package]]
 name = "blast-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "cpal",
  "crossbeam-channel",
@@ -463,7 +463,7 @@ dependencies = [
 
 [[package]]
 name = "blast-ice"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -476,7 +476,7 @@ dependencies = [
 
 [[package]]
 name = "blast-library"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "rusqlite",
  "serde",
@@ -484,7 +484,7 @@ dependencies = [
 
 [[package]]
 name = "blast-live"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "rustls",
  "rustls-platform-verifier",
